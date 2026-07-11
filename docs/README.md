@@ -7,6 +7,7 @@
 - [Toolkit Tutorial](TOOLKIT_TUTORIAL.md)
 - [Architecture](ARCHITECTURE.md)
 - [API Reference Overview](API_REFERENCE.md)
+- [API Stabilization](API_STABILIZATION.md)
 - [Public API Facades](API_FACADES.md)
 - [Core API](API_CORE.md)
 - [Immediate Widgets API](API_WIDGETS.md)

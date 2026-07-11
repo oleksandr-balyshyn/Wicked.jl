@@ -273,4 +273,4 @@ Use the [Validation Strategy](./VALIDATION_STRATEGY.md), [Terminal Compatibility
 
 ## Current limits
 
-Wicked's source and integration surface is broad, but the project does not yet claim production parity with the reference frameworks. In particular, the cross-platform candidate run, required real-terminal matrix, two-real-application release evidence, and final archived release record remain separate gates. APIs imported from `Wicked.Experimental` may change before `1.0`; isolate those imports and follow the [Migration Guide](./MIGRATION.md) when upgrading.
+Wicked's source and integration surface is broad, but the project does not yet claim production parity with the reference frameworks. In particular, the Linux candidate run, required real-terminal matrix, two-real-application release evidence, and final archived release record remain separate gates. APIs imported from `Wicked.Experimental` may change before `1.0`; isolate those imports and follow the [Migration Guide](./MIGRATION.md) when upgrading.

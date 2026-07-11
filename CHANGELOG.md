@@ -13,7 +13,8 @@ All notable user-visible changes to Wicked.jl are recorded here. The format foll
 - Stylesheets, themes, reactive state, semantic accessibility trees, actions, tracing/replay, live reload, animations, extensions, and application services.
 - `WidgetPilot`, `RuntimePilot`, `ToolkitPilot`, `SemanticPilot`, virtual time, structured/ANSI/SVG snapshots, and semantic queries.
 - Cooperative cancellation for paged data and bounded policies for terminal input, clipboard, filesystem, Markdown links, and extensions.
-- Cross-platform CI definitions, executable examples, repository quality checks, deterministic fuzz/property tests, and versioned allocation benchmarks.
+- Linux CI definitions, executable examples, repository quality checks, deterministic fuzz/property tests, and versioned allocation benchmarks.
+- Stable `Wicked.API` exports for the complete renderable widget inventory, including container, utility, heatmap, histogram, managed notification, and tabbed-content view widgets.
 
 ### Changed
 
@@ -22,6 +23,7 @@ All notable user-visible changes to Wicked.jl are recorded here. The format foll
 - Empty Toolkit style passes are skipped when no rule, role, or inline patch can apply.
 - Reactive transactions use nested savepoints and aggregate notification failures.
 - Hidden Toolkit subtrees remain mounted while being excluded from rendering and focus.
+- Content switcher and tabbed-content APIs moved into the stable facade with their buffer renderer and Toolkit/semantic adapters.
 
 ### Fixed
 
