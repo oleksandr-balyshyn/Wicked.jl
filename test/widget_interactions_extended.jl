@@ -1,3 +1,5 @@
+using Dates
+
 @testset "Extended widget interactions" begin
     @testset "link keyboard and pointer activation" begin
         widget = Link("Documentation", :open_docs)
@@ -451,11 +453,11 @@ end
 
     @test isempty(filter(diagnostic -> diagnostic.severity == :error, validate_semantics(semantics)))
     @test node.role == GroupRole
-    @test node.state.focused
+    @test !node.state.focused
     @test node.metadata[:link_count] == 1
     @test length(node.children) == 1
     @test node.children[1].role == LinkRole
-    @test !node.children[1].state.focused
+    @test node.children[1].state.focused
     @test node.children[1].metadata[:target] == "https://example.test"
 end
 

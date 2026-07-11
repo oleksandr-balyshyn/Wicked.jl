@@ -476,6 +476,30 @@ function _merge_semantic_state(instance, descriptor::SemanticDescriptor, toolkit
     )
 end
 
+function _without_semantic_focus(state::SemanticState)
+    return SemanticState(
+        enabled=state.enabled,
+        focusable=state.focusable,
+        focused=false,
+        selected=state.selected,
+        expanded=state.expanded,
+        checked=state.checked,
+        busy=state.busy,
+        hidden=state.hidden,
+        invalid=state.invalid,
+        readonly=state.readonly,
+        required=state.required,
+        value=state.value,
+        value_now=state.value_now,
+        value_min=state.value_min,
+        value_max=state.value_max,
+    )
+end
+
+function _subtree_has_focus(nodes)
+    return any(node -> node.state.focused || _subtree_has_focus(node.children), nodes)
+end
+
 function _instance_semantic_id(root_id::String, path, instance)
     instance.element.id === nothing || return string(instance.element.id)
     components = String[
@@ -519,6 +543,8 @@ function toolkit_semantic_tree(
         actions = state.enabled && !state.hidden ? descriptor.actions : Set{SemanticAction}()
         internal = widget_semantic_children(instance.element.widget, instance.state, node_id)
         descendants = SemanticNode[build(child) for child in get(children_by_parent, path, ElementPath[])]
+        children = vcat(internal, descendants)
+        state = state.focused && _subtree_has_focus(children) ? _without_semantic_focus(state) : state
         return SemanticNode(
             node_id,
             descriptor.role;
@@ -527,7 +553,7 @@ function toolkit_semantic_tree(
             bounds=SemanticRect(instance.area.row, instance.area.column, instance.area.width, instance.area.height),
             state,
             actions,
-            children=vcat(internal, descendants),
+            children,
             metadata=merge(Dict{Symbol,Any}(:widget_type => typeof(instance.element.widget)), descriptor.metadata),
         )
     end

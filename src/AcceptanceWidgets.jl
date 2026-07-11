@@ -314,7 +314,7 @@ function SemanticToolkit.widget_semantic_descriptor(widget::MarkdownView, state:
         state=Accessibility.SemanticState(
             enabled=true,
             focusable=focusable,
-            focused=state.view.focused_link !== nothing,
+            focused=false,
         ),
         actions=focusable ? Accessibility.SemanticAction[
             Accessibility.FocusSemanticAction,
@@ -342,7 +342,7 @@ function SemanticToolkit.widget_semantic_children(widget::MarkdownView, state::M
                 state=Accessibility.SemanticState(
                     enabled=enabled,
                     focusable=true,
-                    focused=false,
+                    focused=state.view.focused_link == link.id,
                 ),
                 actions=enabled ? Accessibility.SemanticAction[
                     Accessibility.ActivateSemanticAction,
@@ -666,7 +666,7 @@ struct MenuBar{T<:Tuple}
 end
 
 MenuBar(children...; constraints=nothing, margin::Margin=Margin(0), gap::Integer=0, alignment::FlexAlignment=StartFlex) =
-    MenuBar(Row(children; constraints=constraints, margin=margin, gap=gap, alignment=alignment))
+    MenuBar(Row(children...; constraints=constraints, margin=margin, gap=gap, alignment=alignment))
 
 render!(buffer::Buffer, widget::MenuBar, area::Rect) = render!(buffer, widget.row, area)
 measure(widget::MenuBar, available::Rect) = measure(widget.row, available)
@@ -709,7 +709,7 @@ struct Toolbar{T<:Tuple}
 end
 
 Toolbar(children...; constraints=nothing, margin::Margin=Margin(0), gap::Integer=0, alignment::FlexAlignment=StartFlex) =
-    Toolbar(Row(children; constraints=constraints, margin=margin, gap=gap, alignment=alignment))
+    Toolbar(Row(children...; constraints=constraints, margin=margin, gap=gap, alignment=alignment))
 
 render!(buffer::Buffer, widget::Toolbar, area::Rect) = render!(buffer, widget.row, area)
 measure(widget::Toolbar, available::Rect) = measure(widget.row, available)
@@ -1489,7 +1489,7 @@ function render!(buffer::Buffer, widget::Toast, area::Rect)
 end
 
 SemanticToolkit.widget_semantic_descriptor(widget::Toast, state) =
-    _static_group_semantics("Toast"; metadata=Dict(:severity => widget.notification.severity, :timeout => widget.notification.timeout))
+    _static_group_semantics("Toast"; metadata=Dict(:severity => widget.notification.severity, :timeout_ns => widget.notification.timeout_ns))
 
 const StatusBar = Footer
 const TitleBar = Header

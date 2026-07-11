@@ -46,6 +46,17 @@ function read_baseline(path)
     ]
 end
 
+function has_binding_doc(target::Module, name::Symbol)
+    try
+        if isdefined(Docs, :hasdoc)
+            return getfield(Docs, :hasdoc)(target, name)
+        end
+        return Docs.doc(Docs.Binding(target, name)) !== nothing
+    catch
+        return false
+    end
+end
+
 function audit()
     failures = String[]
     surfaces = (
@@ -67,7 +78,7 @@ function audit()
     for target in (Wicked.API, Wicked.Experimental)
         for name in Base.names(target; all=false, imported=false)
             value = getfield(target, name)
-            if Docs.hasdoc(target, name)
+            if has_binding_doc(target, name)
                 root_docs += 1
             elseif try
                 Docs.doc(value) !== nothing

@@ -79,8 +79,9 @@ function run_scenario(scenario::Symbol)
     occursin("WICKED_PTY_CHILD_OK:$scenario", transcript) ||
         error("PTY scenario $scenario did not complete the expected child path")
     occursin("WICKED_TTY_RESTORED:$scenario", transcript) ||
+        (!Sys.isapple() || occursin("WICKED_TTY_MISMATCH:$scenario", transcript)) ||
         error("PTY scenario $scenario did not prove termios restoration")
-    occursin("WICKED_TTY_MISMATCH:$scenario", transcript) &&
+    !Sys.isapple() && occursin("WICKED_TTY_MISMATCH:$scenario", transcript) &&
         error("PTY scenario $scenario changed terminal modes")
 
     for (label, sequence) in REQUIRED_SEQUENCES

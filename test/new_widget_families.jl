@@ -797,7 +797,6 @@
         render!(buffer, widget, buffer.area, state)
         @test occursin("Confirm", plain_snapshot(buffer))
         @test handle!(state, widget, KeyEvent(Key(:right)))
-        @test handle!(state, widget, MouseEvent(Position(7, 22), LeftMouseButton, MouseRelease), Rect(1, 1, 8, 32))
 
         tree = ToolkitTree(Element(widget; id=:dialog, key=:dialog, state_factory=() -> state, focusable=true))
         render_toolkit!(Frame(Buffer(8, 32)), tree)
@@ -808,6 +807,12 @@
         @test !node.state.hidden
         @test length(node.children) == 2
         @test any(child -> child.state.selected, node.children)
+
+        @test handle!(state, widget, MouseEvent(Position(7, 22), LeftMouseButton, MouseRelease), Rect(1, 1, 8, 32))
+        render_toolkit!(Frame(Buffer(8, 32)), tree)
+        node = semantic_node(toolkit_semantic_tree(tree), "dialog")
+        @test node.state.hidden
+        @test state.result == :apply
     end
 
     @testset "progress bar toolkit semantics" begin
