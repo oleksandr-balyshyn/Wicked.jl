@@ -7,7 +7,7 @@ Wicked.jl uses GitHub Actions to keep package loading, behavior, examples, docum
 | Job                         | Evidence                                                                                                      |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `Julia <version> / ubuntu-latest` | Clean instantiation, precompilation, package loading, and the complete test suite                        |
-| `Quality / Julia <version>` | Source parsing, exports, ambiguities, optional loading, API baselines, docs, policies, manifests, and links   |
+| `Quality / Julia <version>` | Source parsing, exports, ambiguities, optional loading, API baselines, stable widget surface, docs, policies, manifests, and links |
 | `Documenter manual`         | Strict doctests, cross-references, export coverage, and HTML generation                                      |
 | `HTTP WebSocket extension`  | Optional extension activation and live loopback WebSocket transport in an isolated environment               |
 | `Executable examples`       | Every script in `examples/` runs independently and satisfies its assertions                                  |
@@ -27,6 +27,7 @@ julia --project=. scripts/quality_gate.jl
 julia --project=. benchmark/run.jl --quick --check
 julia --project=. --startup-file=no scripts/pty_gate.jl
 julia --project=. --startup-file=no scripts/api_audit.jl
+julia --project=. --startup-file=no scripts/stable_widget_candidates.jl
 julia --project=. --startup-file=no scripts/parity_audit.jl
 ```
 

@@ -171,6 +171,22 @@ function check_parity_survey!()
     end)
 end
 
+function check_stable_widget_surface!()
+    include(joinpath(ROOT, "scripts", "stable_widget_candidates.jl"))
+    return Base.invokelatest(() -> begin
+        rows = getfield(Main, :candidate_rows)()
+        failures = String[]
+        for row in rows
+            row.status == "stable" && continue
+            push!(
+                failures,
+                "$(row.widget) is $(row.status) on $(row.surface): $(row.reason)",
+            )
+        end
+        return failures
+    end)
+end
+
 function local_markdown_target(raw_target::AbstractString)
     target = strip(String(raw_target))
     startswith(target, '<') && endswith(target, '>') && (target = target[2:(end - 1)])
@@ -212,6 +228,7 @@ function main()
         "versioned manifests" => check_manifest_layout!,
         "Markdown links" => check_markdown_links!,
         "reference parity survey" => check_parity_survey!,
+        "stable widget surface" => check_stable_widget_surface!,
     )
     failures = String[]
     for (name, check) in checks
