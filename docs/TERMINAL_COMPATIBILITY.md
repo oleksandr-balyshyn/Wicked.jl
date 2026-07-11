@@ -48,8 +48,8 @@ Alternatively launch the application through `julia -e
 Wicked does not change it implicitly. An uncatchable signal, `SIGKILL`, runtime
 abort, or process destruction still cannot execute in-process cleanup.
 
-CI runs this gate on current Ubuntu and macOS images. Windows does not expose the
-Unix `script`/`stty` interface and remains a separate real-console validation item.
+CI runs this gate on current Ubuntu images. Wicked.jl currently supports Linux
+only, so macOS and Windows are not part of the supported terminal matrix.
 
 ## Current automated evidence
 
@@ -57,8 +57,6 @@ Unix `script`/`stty` interface and remains a separate real-console validation it
 | --- | ---: | --- |
 | Linux util-linux PTY, Julia current | 4 | Runnable through `scripts/pty_gate.jl` |
 | GitHub Actions Ubuntu, Julia current | 4 | Enforced by `Terminal PTY / ubuntu-latest` |
-| GitHub Actions macOS, Julia current | 4 | Enforced by `Terminal PTY / macos-latest` |
-| Windows ConPTY | 0 | Not yet automated |
 
 CI configuration is evidence only after the corresponding job has run for the
 candidate commit. Release records must link the actual run and must not replace a
@@ -76,8 +74,6 @@ terminal and version rather than checking a category based on an assumed protoco
 | Truecolor | RGB foreground, background, underline | Not recorded |
 | Kitty or WezTerm | Keyboard, mouse, focus, Kitty graphics | Not recorded |
 | Sixel terminal | Image placement and Unicode fallback | Not recorded |
-| iTerm2 | Inline image placement and cleanup | Not recorded |
-| Windows Terminal | ConPTY input, resize, interrupt, restoration | Not recorded |
 | tmux | Capability downgrade, passthrough, resize | Not recorded |
 | GNU screen | Capability downgrade and restoration | Not recorded |
 | SSH | Unknown pixel dimensions, latency, disconnect | Not recorded |

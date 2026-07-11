@@ -43,9 +43,7 @@ run, or does not cover the full platform and behavior scope of the requirement.
 - [ ] Minimal ANSI and 16-color terminals.
 - [ ] 256-color and truecolor terminals.
 - [ ] Kitty and WezTerm graphics.
-- [ ] iTerm2 inline images.
 - [ ] Sixel-capable terminal.
-- [ ] Windows Terminal.
 - [ ] tmux and GNU screen.
 - [ ] SSH session with unknown pixel dimensions.
 - [ ] Bracketed paste, focus events, mouse modes, and resize behavior.
