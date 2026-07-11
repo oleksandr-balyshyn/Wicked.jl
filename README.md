@@ -79,7 +79,7 @@ components reuse the same renderers as the immediate API.
 
 ```julia
 using Wicked.API
-using Wicked.Experimental
+using Wicked.Experimental: toolkit_semantic_tree
 
 tree = ToolkitTree(
     Element(Button("Deploy", :deploy); id=:deploy, key=:deploy, focusable=true),

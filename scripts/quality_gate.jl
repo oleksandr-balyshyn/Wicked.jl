@@ -107,6 +107,15 @@ function check_public_api_baseline!()
     return failures
 end
 
+function check_facade_overlap!()
+    stable = Set(Base.names(Wicked.API; all=false, imported=false))
+    experimental = Set(Base.names(Wicked.Experimental; all=false, imported=false))
+    return String[
+        "facade export is both stable and experimental: $name"
+        for name in sort!(collect(intersect(stable, experimental)); by=string)
+    ]
+end
+
 function check_public_documentation!()
     failures = String[]
     for target in (Wicked.API, Wicked.Experimental)
@@ -223,6 +232,7 @@ function main()
         "method ambiguities" => check_method_ambiguities!,
         "optional loading" => check_optional_loading!,
         "public API baseline" => check_public_api_baseline!,
+        "facade overlap" => check_facade_overlap!,
         "public documentation" => check_public_documentation!,
         "repository policy" => check_policy_files!,
         "versioned manifests" => check_manifest_layout!,

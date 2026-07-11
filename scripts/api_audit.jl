@@ -72,6 +72,16 @@ function audit()
         append!(failures, ("unreviewed $surface API removal or kind change: $entry" for entry in sort!(collect(setdiff(expected_set, current_set)))))
     end
 
+    stable_names = Set(Base.names(Wicked.API; all=false, imported=false))
+    experimental_names = Set(Base.names(Wicked.Experimental; all=false, imported=false))
+    append!(
+        failures,
+        (
+            "facade export is both stable and experimental: $name"
+            for name in sort!(collect(intersect(stable_names, experimental_names)); by=string)
+        ),
+    )
+
     missing_docs = Symbol[]
     root_docs = 0
     value_docs = 0

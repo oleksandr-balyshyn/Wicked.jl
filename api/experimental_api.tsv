@@ -78,8 +78,6 @@ BorderSymbols	datatype
 BottomBorder	value
 BottomDrawer	value
 BoundaryResult	unionall
-BreadcrumbItem	unionall
-BreadcrumbState	unionall
 BubblePhase	value
 BufferAssertionError	datatype
 ButtonRole	value
@@ -128,11 +126,9 @@ CodeViewAction	datatype
 CodeViewActionResult	datatype
 CodeViewBindings	datatype
 CodeViewRender	datatype
-CodeViewState	datatype
 CodeWarning	value
 CollapseSemanticAction	value
 CollapsibleState	datatype
-ColorPickerState	datatype
 ColorValue	datatype
 ColumnResizeSession	datatype
 ColumnSplit	value
@@ -217,7 +213,6 @@ DragPoint	datatype
 DragStartedEvent	value
 Dragging	value
 DrawerEdge	datatype
-DrawerState	datatype
 DropOldestTrace	value
 DropResult	datatype
 DropTarget	datatype
@@ -366,11 +361,9 @@ LayoutInvalidation	value
 LeftBorder	value
 LeftDrawer	value
 LeftPopover	value
-Link	unionall
 LinkActivation	datatype
 LinkDragEffect	value
 LinkRole	value
-LinkState	datatype
 LinkTarget	datatype
 ListBlock	datatype
 ListItemRole	value
@@ -401,7 +394,6 @@ MarkdownPointerEvent	datatype
 MarkdownPointerKind	datatype
 MarkdownTable	datatype
 MarkdownToolkitComponent	unionall
-MarkdownView	datatype
 MarkdownViewport	datatype
 MaskAlphanumeric	value
 MaskAny	value
@@ -410,7 +402,6 @@ MaskLetter	value
 MaskLiteral	value
 MaskToken	datatype
 MaskTokenKind	datatype
-MaskedInputState	datatype
 MemoryClipboard	datatype
 MenuItemRole	value
 MenuRole	value
@@ -488,7 +479,6 @@ OverlayTopRight	value
 PageResult	unionall
 PageStatus	datatype
 PagedDataSource	unionall
-PaginationState	datatype
 ParagraphBlock	datatype
 ParagraphRole	value
 PasswordInput	function
@@ -511,14 +501,8 @@ PrefixCompletion	value
 ProcessExitError	datatype
 ProcessOutputLimitError	datatype
 ProcessResult	datatype
-ProgressAggregate	datatype
-ProgressBar	datatype
-ProgressBarState	datatype
 ProgressRole	value
-ProgressSnapshot	unionall
 ProgressTask	unionall
-ProgressTaskStatus	datatype
-ProgressTracker	unionall
 PunctuationToken	value
 PushScreen	unionall
 QuoteBlock	datatype
@@ -598,7 +582,6 @@ RoleStyleResolver	unionall
 RoutedEvent	unionall
 RowRole	value
 RowSplit	value
-Rule	datatype
 RuleDirection	datatype
 RunningAnimation	value
 RunningProgress	value
@@ -667,8 +650,6 @@ SplitPaneState	datatype
 StatusRole	value
 StepItem	unionall
 StepStatus	datatype
-Stepper	datatype
-StepperState	unionall
 StopTraceRecording	value
 StretchImage	value
 StrikeInline	datatype
@@ -714,13 +695,6 @@ ThemeSelected	value
 ThemeSubscription	datatype
 ThemeVariant	datatype
 TimePickerState	datatype
-TimelineActive	value
-TimelineComplete	value
-TimelineFailed	value
-TimelineItem	unionall
-TimelinePending	value
-TimelineState	unionall
-TimelineStatus	datatype
 ToolkitComponentView	unionall
 ToolkitDragDispatch	datatype
 ToolkitDragRouter	unionall
@@ -821,14 +795,11 @@ active_action_scopes	function
 active_animation_handles	function
 active_drop_target	function
 active_overlay_entries	function
-add_progress_task!	function
 add_rule!	function
 add_stylesheet!	function
 add_tag!	function
 advance_animation!	function
-advance_progress!	function
 advanced_control_action_for_key	function
-aggregate_progress	function
 animate!	function
 animation_errors	function
 animation_status	function
@@ -877,7 +848,6 @@ cancel_data_requests!	function
 cancel_drag!	function
 cancel_file_refresh!	function
 cancel_managed_tasks!	function
-cancel_progress!	function
 cancel_resize!	function
 cancel_scheduled!	function
 cancel_toolkit_drag!	function
@@ -921,7 +891,6 @@ clipboard_text	function
 close_all_overlays!	function
 close_autocomplete!	function
 close_dialog!	function
-close_drawer!	function
 close_managed_tasks!	function
 close_overlay!	function
 close_overlay_group!	function
@@ -942,8 +911,6 @@ color_picker_component	function
 column	function
 combobox_component	function
 commit_numeric_input!	function
-complete_progress!	function
-complete_step!	function
 component_effect!	function
 component_invalidations	function
 component_signal	function
@@ -1034,8 +1001,6 @@ extension_contributions	function
 extension_service	function
 extension_snapshot	function
 extension_state	function
-fail_progress!	function
-fail_step!	function
 failure_records	function
 feed_remote!	function
 fetch_items	function
@@ -1148,9 +1113,7 @@ navigate_file_browser!	function
 navigation_control_semantic_node	function
 next_carousel!	function
 next_code_match!	function
-next_page!	function
 next_panel!	function
-next_step!	function
 notification_center_snapshot	function
 notification_component	function
 notification_errors	function
@@ -1161,7 +1124,6 @@ notification_snapshots	function
 notify!	function
 numeric_input_component	function
 numeric_input_valid	function
-open_drawer!	function
 open_overlay!	function
 open_palette!	function
 osc52_query	function
@@ -1170,8 +1132,6 @@ overlay_count	function
 overlay_entries	function
 overlay_errors	function
 page_cache_size	function
-page_count	function
-page_range	function
 pagination_component	function
 pagination_semantic_node	function
 parse_markdown	function
@@ -1182,7 +1142,6 @@ paste_from_clipboard	function
 pause!	function
 pause_animation!	function
 pause_notification!	function
-pause_progress!	function
 pause_replay!	function
 pending_invalidations	function
 pending_scheduled	function
@@ -1203,15 +1162,10 @@ pretty_semantic_node	function
 pretty_text	function
 previous_carousel!	function
 previous_code_match!	function
-previous_page!	function
 previous_panel!	function
-previous_step!	function
 process_succeeded	function
 progress_component	function
-progress_generation	function
 progress_semantic_node	function
-progress_snapshot	function
-progress_snapshots	function
 project_side_by_side_diff	function
 project_virtual_table	function
 protect!	function
@@ -1264,7 +1218,6 @@ reload_errors	function
 reload_events	function
 reload_target_state	function
 remove_extension_contributions!	function
-remove_progress_task!	function
 remove_rule!	function
 remove_tag!	function
 render_accordion_control	function
@@ -1324,7 +1277,6 @@ request_remote_full_frame!	function
 reset_animation!	function
 reset_error_boundary!	function
 reset_graphics_sink!	function
-reset_progress!	function
 reset_replay!	function
 resize_remote_backend!	function
 resize_rich_surface!	function
@@ -1337,7 +1289,6 @@ resolve_role_style	function
 resume!	function
 resume_animation!	function
 resume_notification!	function
-resume_progress!	function
 retry_page!	function
 rich_line_to_core	function
 rich_lines_to_core_text	function
@@ -1404,10 +1355,7 @@ set_markdown!	function
 set_motion_policy!	function
 set_numeric_text!	function
 set_numeric_value!	function
-set_page!	function
 set_page_size!	function
-set_progress!	function
-set_progress_total!	function
 set_range_slider!	function
 set_raw!	function
 set_reload_enabled!	function
@@ -1423,7 +1371,6 @@ set_virtual_filter!	function
 set_virtual_search!	function
 shutdown_services!	function
 side_by_side_diff_component	function
-skip_step!	function
 slider_component	function
 slider_fraction	function
 slider_semantic_node	function
@@ -1469,7 +1416,6 @@ timeline_semantic_tree	function
 toggle_accordion!	function
 toggle_code_breakpoint!	function
 toggle_collapsible!	function
-toggle_drawer!	function
 toggle_file_selection!	function
 toggle_inspector!	function
 toggle_virtual_selection!	function

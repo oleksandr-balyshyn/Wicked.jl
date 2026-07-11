@@ -1,6 +1,5 @@
 import Wicked
 using Wicked.API
-using Wicked.Experimental
 
 pages = ContentPage{Symbol}[
     ContentPage(:overview, "Overview", "Overview content"),
@@ -37,7 +36,7 @@ strip = render_tab_strip_control(snapshot; width=40)
 semantics = tabbed_content_semantic_tree(snapshot; id="example-tabs")
 
 @assert strip isa Wicked.RichContent.RichLine
-@assert semantics.root.role == GroupRole
+@assert semantics.root.id == "example-tabs"
 @assert length(semantics.root.children) == 2
 
 set_tab_placement!(tabs, TabsLeft)
