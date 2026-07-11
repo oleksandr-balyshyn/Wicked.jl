@@ -3,10 +3,25 @@ uuid = "fbfe6d93-aa95-4a38-a5f6-4229975dad61"
 version = "0.0.1"
 
 [deps]
-VT100 = "7774df62-37c0-5c21-b34d-f6d7f98f54bc"
+Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+Unicode = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
+
+[weakdeps]
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+
+[extensions]
+WickedHTTPWebSocketsExt = "HTTP"
 
 [extras]
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["SHA", "Test"]
+
+[compat]
+HTTP = "1, 2"
+julia = "1.10"

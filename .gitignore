@@ -1,1 +1,45 @@
-**.swp
+# Julia package artifacts
+/build/
+/deps/deps.jl
+/deps/build.log
+/Manifest.toml
+*.ji
+*.cov
+*.mem
+*.jl.cov
+*.jl.mem
+*.lcov
+coverage/
+
+# Documentation build output
+/docs/build/
+/docs/site/
+
+# Local environments and generated project state
+/.julia/
+/.CondaPkg/
+/.JuliaFormatter.toml.bak
+LocalPreferences.toml
+Artifacts.toml.tmp
+
+# Benchmark and profiling output
+/benchmark/results/
+/benchmarks/results/
+*.prof
+*.trace
+
+# Test/runtime scratch output
+/tmp/
+/scratch/
+*.log
+
+# Editor and tooling state
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS noise
+.DS_Store
+Thumbs.db

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Wicked Remote Surface</title>
+  <link rel="stylesheet" href="wicked-remote.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">Wicked.jl / remote surface</p>
+        <h1>Structured terminal canvas</h1>
+      </div>
+      <div class="connection" aria-live="polite">
+        <span id="connection-light" class="connection-light"></span>
+        <span id="connection-status">Connecting</span>
+      </div>
+    </header>
+    <section id="terminal-shell" class="terminal-shell" aria-label="Remote terminal">
+      <canvas id="terminal" tabindex="0"></canvas>
+      <pre id="accessible-screen" class="sr-only" aria-live="polite"></pre>
+    </section>
+    <footer>
+      <span id="dimensions">0 x 0</span>
+      <span>Protocol WKT1</span>
+      <span id="sequence">Waiting for first frame</span>
+    </footer>
+  </main>
+  <script type="module" src="wicked-remote.js"></script>
+</body>
+</html>

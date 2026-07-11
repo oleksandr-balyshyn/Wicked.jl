@@ -1,0 +1,74 @@
+[benchmarks.buffer_diff_sparse]
+maximum_bytes = 1048576
+
+[benchmarks.buffer_diff_full]
+maximum_bytes = 67108864
+
+[benchmarks.unicode_width_large]
+maximum_bytes = 8388608
+
+[benchmarks.terminal_draw_idle]
+maximum_bytes = 1048576
+
+[benchmarks.input_button_enter]
+maximum_bytes = 65536
+
+[benchmarks.diagnostics_disabled_input_1000]
+maximum_bytes = 1048576
+
+[benchmarks.diagnostics_enabled_input_1000]
+maximum_bytes = 8388608
+
+[benchmarks.application_services_idle_pulse]
+maximum_bytes = 1048576
+
+[benchmarks.action_resolution_256_bindings]
+maximum_bytes = 16777216
+
+[benchmarks.animation_tick_256_tracks]
+maximum_bytes = 16777216
+
+[benchmarks.toolkit_route_tab_128_elements]
+maximum_bytes = 67108864
+
+[benchmarks.layout_grid_4096_cells]
+maximum_bytes = 16777216
+
+[benchmarks.layout_deep_flex_128]
+maximum_bytes = 67108864
+
+[benchmarks.style_cascade_512_rules]
+maximum_bytes = 33554432
+
+[benchmarks.stylesheet_parse_512_rules]
+maximum_bytes = 134217728
+
+[benchmarks.toolkit_reconcile_stable_256]
+maximum_bytes = 67108864
+
+[benchmarks.toolkit_reconcile_move_256]
+maximum_bytes = 67108864
+
+[benchmarks.markdown_parse_500_sections]
+maximum_bytes = 134217728
+
+[benchmarks.markdown_render_500_sections]
+maximum_bytes = 268435456
+
+[benchmarks.virtual_list_million_rows]
+maximum_bytes = 16777216
+
+[benchmarks.virtual_table_million_rows]
+maximum_bytes = 33554432
+
+[benchmarks.semantic_diff_1000_nodes]
+maximum_bytes = 67108864
+
+[benchmarks.data_grid_million_rows]
+maximum_bytes = 67108864
+
+[benchmarks.progress_group_256_tasks]
+maximum_bytes = 67108864
+
+[benchmarks.live_display_frame]
+maximum_bytes = 1048576
