@@ -48,8 +48,7 @@ Alternatively launch the application through `julia -e
 Wicked does not change it implicitly. An uncatchable signal, `SIGKILL`, runtime
 abort, or process destruction still cannot execute in-process cleanup.
 
-CI runs this gate on current Ubuntu images. Wicked.jl currently supports Linux
-only, so macOS and Windows are not part of the supported terminal matrix.
+CI runs this gate on current Ubuntu images. Wicked.jl supports Linux terminals.
 
 ## Current automated evidence
 

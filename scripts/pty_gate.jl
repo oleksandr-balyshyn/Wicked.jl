@@ -18,7 +18,7 @@ const REQUIRED_SEQUENCES = (
     "mouse SGR leave" => "\e[?1006l",
 )
 
-Sys.isunix() || error("PTY gate requires a Unix pseudo-terminal implementation")
+Sys.islinux() || error("PTY gate requires Linux pseudo-terminal support")
 Sys.which("script") === nothing && error("PTY gate requires the `script` utility")
 Sys.which("stty") === nothing && error("PTY gate requires the `stty` utility")
 
@@ -58,9 +58,6 @@ end
 
 function script_command(scenario::Symbol)
     shell = scenario_shell(scenario)
-    if Sys.isapple()
-        return Cmd(["script", "-q", "/dev/null", "/bin/sh", "-c", shell])
-    end
     return Cmd(["script", "-qefc", shell, "/dev/null"])
 end
 
@@ -79,9 +76,8 @@ function run_scenario(scenario::Symbol)
     occursin("WICKED_PTY_CHILD_OK:$scenario", transcript) ||
         error("PTY scenario $scenario did not complete the expected child path")
     occursin("WICKED_TTY_RESTORED:$scenario", transcript) ||
-        (!Sys.isapple() || occursin("WICKED_TTY_MISMATCH:$scenario", transcript)) ||
         error("PTY scenario $scenario did not prove termios restoration")
-    !Sys.isapple() && occursin("WICKED_TTY_MISMATCH:$scenario", transcript) &&
+    occursin("WICKED_TTY_MISMATCH:$scenario", transcript) &&
         error("PTY scenario $scenario changed terminal modes")
 
     for (label, sequence) in REQUIRED_SEQUENCES

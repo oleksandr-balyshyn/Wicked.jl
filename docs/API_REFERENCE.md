@@ -24,7 +24,7 @@ alignment, padding, margins, and clipping. Layout operates on `Rect` values and 
 not depend on a terminal backend.
 
 Use external state for resizable split panes and scroll offsets. Virtualized
-collections expose windows rather than allocating one widget per data item.
+collections expose viewports rather than allocating one widget per data item.
 
 ## Terminal and backends
 
@@ -32,7 +32,7 @@ The terminal lifecycle owns raw mode, alternate-screen entry, cursor visibility,
 mouse capture, bracketed paste, focus events, and restoration after failure.
 
 Available backends include ANSI output and deterministic test buffers. Graphics
-capability negotiation supports Unicode fallback plus Kitty, Sixel, and iTerm image
+capability negotiation supports Unicode fallback plus Kitty and Sixel image
 protocols.
 
 ## Events and interaction
@@ -86,7 +86,7 @@ Visualization:
 
 ## Virtualization
 
-Virtual list, table, and tree APIs separate data sources, viewport windows, retained
+Virtual list, table, and tree APIs separate data sources, viewports, retained
 selection, rendering, and input. Use them when total rows or nodes are substantially
 larger than the terminal viewport.
 

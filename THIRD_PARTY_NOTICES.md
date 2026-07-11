@@ -22,6 +22,6 @@ GitHub Actions workflows reference maintained actions from GitHub and the Julia 
 
 As of 2026-07-11, this repository contains no vendored third-party source code, fonts, images, terminal protocol implementations, or generated external datasets requiring a separate bundled notice.
 
-Terminal protocol compatibility names such as Kitty, Sixel, iTerm2, Ratatui, Textual, TamboUI, and Lanterna identify external projects or protocols. Their mention does not imply incorporation of their source code or endorsement by their owners.
+Terminal protocol compatibility names such as Kitty, Sixel, Ratatui, Textual, TamboUI, and Lanterna identify external projects or protocols. Their mention does not imply incorporation of their source code or endorsement by their owners.
 
 When adding vendored code, generated data, media, or other redistributable third-party material, update this file in the same change and include the required license text and provenance.

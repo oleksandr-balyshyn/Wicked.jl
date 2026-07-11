@@ -6,15 +6,15 @@ Wicked.jl uses GitHub Actions to keep package loading, behavior, examples, docum
 
 | Job                         | Evidence                                                                                                      |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `Julia <version> / <os>`    | Clean instantiation, precompilation, package loading, and the complete test suite                             |
+| `Julia <version> / ubuntu-latest` | Clean instantiation, precompilation, package loading, and the complete test suite                        |
 | `Quality / Julia <version>` | Source parsing, exports, ambiguities, optional loading, API baselines, docs, policies, manifests, and links   |
 | `Documenter manual`         | Strict doctests, cross-references, export coverage, and HTML generation                                      |
 | `HTTP WebSocket extension`  | Optional extension activation and live loopback WebSocket transport in an isolated environment               |
 | `Executable examples`       | Every script in `examples/` runs independently and satisfies its assertions                                  |
 | `Allocation budgets`        | Every quick benchmark stays within its versioned allocation ceiling                                          |
-| `Terminal PTY / <os>`       | Real pseudo-terminal mode and protocol restoration across normal, error, interrupt, and signal exits         |
+| `Terminal PTY / ubuntu-latest` | Real pseudo-terminal mode and protocol restoration across normal, error, interrupt, and signal exits       |
 
-The test matrix covers Julia `1.10`, the minimum version declared by `Project.toml`, and the latest Julia `1.x` release on Linux. Wicked.jl currently supports Linux only; macOS and Windows are outside the supported CI and release matrix. The quality job runs on both Julia lines and verifies that each runtime selects its matching version-specific manifest. Matrix jobs use `fail-fast: false` so one job failure does not hide results from the others.
+The test matrix covers Julia `1.10`, the minimum version declared by `Project.toml`, and the latest Julia `1.x` release on Linux. The quality job runs on both Julia lines and verifies that each runtime selects its matching version-specific manifest. Matrix jobs use `fail-fast: false` so one job failure does not hide results from the others.
 
 ## Local commands
 

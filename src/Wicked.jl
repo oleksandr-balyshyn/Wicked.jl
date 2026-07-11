@@ -1,5 +1,7 @@
 module Wicked
 
+Sys.islinux() || error("Wicked.jl supports Linux terminals only.")
+
 using Dates
 
 include("Core.jl")
@@ -1067,7 +1069,6 @@ using .Graphics: GraphicsProtocol,
                  NoGraphics,
                  KittyGraphics,
                  SixelGraphics,
-                 ItermGraphics,
                  UnicodeGraphics,
                  GraphicsCapabilities,
                  detect_graphics_capabilities,

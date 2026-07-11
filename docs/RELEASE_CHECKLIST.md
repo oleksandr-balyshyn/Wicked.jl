@@ -63,7 +63,7 @@ run, or does not cover the full platform and behavior scope of the requirement.
 
 ## Release engineering
 
-- [ ] CI covers all supported Julia and operating-system combinations.
+- [ ] CI covers all supported Julia versions on Linux.
 - [ ] Formatting, static analysis, docs, tests, and benchmarks have explicit gates.
 - [ ] SemVer policy and deprecation window are documented.
 - [ ] Changelog contains user-visible additions, changes, and removals.

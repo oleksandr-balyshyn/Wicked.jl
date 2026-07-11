@@ -16,7 +16,7 @@ julia --project=. scripts/quality_gate.jl
 julia --project=. benchmark/run.jl --quick --check
 ```
 
-The compatibility matrix also runs on the minimum supported Julia version and the latest Julia `1.x` release across Linux, macOS, and Windows.
+The compatibility matrix runs on Linux with the minimum supported Julia version and the latest Julia `1.x` release.
 
 ## Design rules
 

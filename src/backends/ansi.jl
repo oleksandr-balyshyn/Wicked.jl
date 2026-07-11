@@ -41,14 +41,14 @@ abstract type AbstractTerminalController end
 """Controller used for redirected streams and explicitly unmanaged terminals."""
 struct NoopTerminalController <: AbstractTerminalController end
 
-"""Cross-platform raw-mode controller backed by Julia's REPL terminal implementation."""
+"""Linux raw-mode controller backed by Julia's REPL terminal implementation."""
 mutable struct JuliaTTYController{T} <: AbstractTerminalController
     terminal::T
     raw::Bool
 end
 
 function JuliaTTYController(input::IO, output::IO, error::IO=stderr)
-    terminal_type = get(ENV, "TERM", Sys.iswindows() ? "" : "dumb")
+    terminal_type = get(ENV, "TERM", "dumb")
     terminal = REPL.Terminals.TTYTerminal(terminal_type, input, output, error)
     JuliaTTYController(terminal, false)
 end

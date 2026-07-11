@@ -122,7 +122,7 @@ Required terminal categories:
 - 256-color terminal.
 - True-color terminal.
 - Terminals with and without focus, mouse, and bracketed-paste support.
-- Kitty graphics, Sixel, iTerm images, and Unicode-only fallback.
+- Kitty graphics, Sixel, and Unicode-only fallback.
 - Narrow terminals, resize storms, and output backpressure.
 
 Required lifecycle evidence:
@@ -141,7 +141,7 @@ Benchmark with fixed datasets and record time, allocations, and output size:
 - Layout at increasing node counts.
 - Style selector matching and cascade resolution.
 - Toolkit reconciliation for stable, inserted, moved, and replaced trees.
-- Virtual list, table, and tree windows at large logical sizes.
+- Virtual list, table, and tree viewports at large logical sizes.
 - Rich Markdown, syntax, code diff, and log rendering.
 - Animation ticks at increasing active-track counts.
 - Action resolution, event routing, and semantic diffing.
@@ -153,8 +153,8 @@ wall-clock results from different hardware without normalization.
 ## Gate 8: compatibility matrix
 
 Test the minimum supported Julia version and the latest supported stable Julia on
-Linux, macOS, and Windows where terminal capabilities differ. Record unsupported
-features explicitly rather than silently skipping them.
+Linux. Record unsupported terminal capabilities explicitly rather than silently
+skipping them.
 
 Validate clean installation, precompilation, package loading, unit tests, examples,
 and representative PTY scenarios in every matrix job.

@@ -39,7 +39,7 @@ status tracking and follow-up obligations for non-matching behavior.
 | Buffer diffing and ANSI output | Automated worktree |
 | Raw mode, alternate screen, cursor and mouse lifecycle | Automated worktree PTY; real-terminal matrix pending |
 | Test backend | Automated worktree |
-| Kitty, Sixel, iTerm, and Unicode graphics fallback | Integrated |
+| Kitty, Sixel, and Unicode graphics fallback | Integrated |
 | Capability negotiation | Automated worktree |
 
 ## Layout and styling
@@ -117,10 +117,10 @@ status tracking and follow-up obligations for non-matching behavior.
 
 The following evidence is required before the project can claim production parity:
 
-1. Attach clean candidate CI results for Julia 1.10 and current Julia across Linux,
-   macOS, and Windows; configuration alone is not execution evidence.
-2. Attach candidate PTY results for Linux and macOS, automate Windows ConPTY where
-   practical, and complete the required real-terminal lifecycle matrix.
+1. Attach clean candidate CI results for Julia 1.10 and current Julia on Linux;
+   configuration alone is not execution evidence.
+2. Attach candidate Linux PTY results and complete the required real-terminal
+   lifecycle matrix.
 3. Validate Unicode width, combining marks, wide graphemes, emoji, ambiguous-width
    policy, clipping, and diff output against representative real terminals and fonts.
 4. Complete accessibility tree and action coverage for every interactive component,

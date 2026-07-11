@@ -79,10 +79,9 @@ The strict Documenter build passes without warnings. Generated API documentation
 The following mandatory evidence remains missing or too weak to support a production claim:
 
 - A clean-depot repetition from an immutable release-candidate commit. The current worktree passed this procedure on Julia 1.10.11 and 1.12.6, but it has no immutable candidate identity.
-- An attached CI run for Julia 1.10 and current Julia across Linux, macOS, and Windows.
-- Candidate PTY results from both Linux and macOS CI jobs.
-- Windows ConPTY lifecycle, resize, input, interrupt, and restoration evidence.
-- Manual results for minimal ANSI, 256 color, truecolor, Kitty or WezTerm, Sixel, iTerm2, Windows Terminal, tmux, GNU screen, SSH, redirected output, Unicode, paste, focus, mouse, resize, and graphics fallback.
+- An attached Linux CI run for Julia 1.10 and current Julia.
+- Candidate Linux PTY results from CI.
+- Manual results for minimal ANSI, 256 color, truecolor, Kitty or WezTerm, Sixel, tmux, GNU screen, SSH, redirected output, Unicode, paste, focus, mouse, resize, and graphics fallback.
 - Immutable-candidate repetition of the complete 58-renderable, 580-dimension widget ledger and review of its golden snapshots.
 - Race and failure-injection evidence for every manager listed in the validation strategy.
 - Snapshot review and approval metadata for an immutable candidate.

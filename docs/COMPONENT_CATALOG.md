@@ -54,7 +54,7 @@ the source API exists. It does not imply that the production gates in
 | Series | Sparkline, bar chart, chart, histogram | Implemented |
 | Grids | Heatmap, calendar | Implemented |
 | Drawing | Canvas, points, lines, Braille rendering | Implemented |
-| Terminal images | Kitty, Sixel, iTerm2, Unicode fallback, animation | Implemented |
+| Terminal images | Kitty, Sixel, Unicode fallback, animation | Implemented |
 
 ## Application chrome and feedback
 

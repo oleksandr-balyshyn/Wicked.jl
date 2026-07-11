@@ -369,7 +369,6 @@ const _EXPERIMENTAL_NAMES = (
     :InspectorSnapshot,
     :InstrumentedApp,
     :InvalidationKind,
-    :ItermGraphics,
     :JuliaTTYController,
     :KeyChord,
     :Keyframe,

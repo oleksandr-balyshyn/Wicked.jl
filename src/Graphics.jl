@@ -6,7 +6,6 @@ export GraphicsProtocol,
        NoGraphics,
        KittyGraphics,
        SixelGraphics,
-       ItermGraphics,
        UnicodeGraphics,
        GraphicsCapabilities,
        detect_graphics_capabilities,
@@ -50,7 +49,6 @@ export GraphicsProtocol,
     NoGraphics
     KittyGraphics
     SixelGraphics
-    ItermGraphics
     UnicodeGraphics
 end
 
@@ -98,7 +96,6 @@ function _explicit_protocol(value::AbstractString)
     normalized = lowercase(strip(value))
     return normalized == "kitty" ? KittyGraphics :
            normalized == "sixel" ? SixelGraphics :
-           normalized in ("iterm", "iterm2") ? ItermGraphics :
            normalized in ("unicode", "text") ? UnicodeGraphics :
            normalized in ("none", "off") ? NoGraphics : nothing
 end
@@ -123,7 +120,6 @@ function detect_graphics_capabilities(;
         program = lowercase(get(environment, "TERM_PROGRAM", ""))
         !isempty(kitty_response) && occursin("_Gi=", kitty_response) && push!(protocols, KittyGraphics)
         (occursin("kitty", term) || program == "wezterm") && push!(protocols, KittyGraphics)
-        (program == "iterm.app" || occursin("iterm", program)) && push!(protocols, ItermGraphics)
         (occursin(";4", primary_device_attributes) || occursin("sixel", term)) && push!(protocols, SixelGraphics)
     end
     NoGraphics in protocols && return GraphicsCapabilities(GraphicsProtocol[NoGraphics])
@@ -267,7 +263,6 @@ function select_graphics_protocol(
     end
     for protocol in capabilities.protocols
         protocol == NoGraphics && continue
-        protocol == ItermGraphics && source isa RasterImage && continue
         protocol == UnicodeGraphics && source isa EncodedImage && continue
         return protocol
     end
@@ -334,13 +329,6 @@ function _kitty_sequences(source::AbstractImageSource, placement::ImagePlacement
         push!(sequences, "\e_G$controls;$chunk\e\\")
     end
     return sequences
-end
-
-function _iterm_sequence(source::EncodedImage, placement::ImagePlacement)
-    name = base64encode("wicked-image-$(placement.id)")
-    encoded = base64encode(source.data)
-    preserve = placement.preserve_cursor ? 1 : 0
-    return "\e]1337;File=name=$name;inline=1;width=$(placement.columns);height=$(placement.rows);preserveAspectRatio=$preserve:$encoded\a"
 end
 
 function _pixel(source::RasterImage, x::Int, y::Int)
@@ -455,9 +443,6 @@ function encode_graphics(
     protocol = select_graphics_protocol(capabilities, source; preferred=preferred)
     sequences = if protocol == KittyGraphics
         _kitty_sequences(source, placement, capabilities.max_chunk_bytes)
-    elseif protocol == ItermGraphics
-        source isa EncodedImage || throw(GraphicsError(protocol, "iTerm2 transfer requires an encoded image"))
-        String[_iterm_sequence(source, placement)]
     elseif protocol == SixelGraphics
         source isa SixelPayload ? String[source.data] : source isa RasterImage ? String[_sixel_encode(source)] : throw(GraphicsError(protocol, "Sixel transfer requires raster pixels or a Sixel payload"))
     elseif protocol == UnicodeGraphics
@@ -473,7 +458,7 @@ function delete_graphics(protocol::GraphicsProtocol, id::Integer=0)
     if protocol == KittyGraphics
         selector = id == 0 ? "a=d,d=A" : "a=d,d=i,i=$id"
         return GraphicsCommand(protocol, String["\e_G$selector\e\\"], 0, 0)
-    elseif protocol == ItermGraphics || protocol == SixelGraphics || protocol == UnicodeGraphics
+    elseif protocol == SixelGraphics || protocol == UnicodeGraphics
         return GraphicsCommand(protocol, String[], 0, 0)
     end
     return GraphicsCommand(NoGraphics, String[], 0, 0)

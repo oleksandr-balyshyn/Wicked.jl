@@ -366,7 +366,6 @@ InspectorPanel	datatype
 InspectorSnapshot	datatype
 InstrumentedApp	unionall
 InvalidationKind	datatype
-ItermGraphics	value
 JuliaTTYController	unionall
 KeyChord	datatype
 Keyframe	unionall

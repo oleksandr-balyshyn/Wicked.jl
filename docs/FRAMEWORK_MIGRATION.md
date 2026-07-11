@@ -199,7 +199,7 @@ Lanterna exposes three layers: a low-level terminal interface, a full-screen buf
 | `Screen` and back buffer        | `Terminal`, `Frame`, row-major `Buffer`, and diff generation                        |
 | `TextGUI`                       | declarative toolkit                                                                 |
 | GUI components                 | widgets wrapped in keyed elements                                                    |
-| windows and modal dialogs       | screens, overlays, dialogs, focus scopes, and modal input barriers                  |
+| GUI panes and modal dialogs      | screens, overlays, dialogs, focus scopes, and modal input barriers                  |
 | `TextGraphics` drawing          | buffer draw operations, canvas, and custom `render!` methods                        |
 | themes                          | typed styles, stylesheets, and named theme registry                                 |
 | Swing terminal emulator         | no direct equivalent; use `TestBackend` for deterministic development and testing  |
@@ -217,7 +217,7 @@ Lanterna exposes three layers: a low-level terminal interface, a full-screen buf
 1. Separate direct terminal operations, screen-buffer drawing, and GUI components in the source application.
 2. Port direct drawing to `Buffer` operations or focused immediate widgets.
 3. Replace `Screen#refresh` loops with `Terminal#draw!`; let Wicked own current/previous buffers and backend synchronization.
-4. Translate GUI windows into screens or overlays and decide explicitly which overlays block input.
+4. Translate GUI panes into screens or overlays and decide explicitly which overlays block input.
 5. Translate mutable components into application model state or keyed toolkit state according to ownership.
 6. Replace Swing-emulator tests with `TestBackend`, pilots, snapshots, and selected real-terminal runs.
 7. Verify terminal lifecycle, focus, resize, and capability fallback on each deployment terminal.

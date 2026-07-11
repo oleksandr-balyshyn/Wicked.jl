@@ -130,7 +130,7 @@ The following evidence is required before a stable release:
 - Snapshot tests for every widget family and terminal capability tier.
 - Integration tests for terminal restoration after failures and cancellation.
 - Benchmarks for frame diffing, reconciliation, large data, Markdown, and styles.
-- Compatibility runs on Kitty, WezTerm, iTerm2, Windows Terminal, tmux, screen, and a minimal ANSI terminal.
+- Compatibility runs on Kitty, WezTerm, Sixel-capable terminals, tmux, screen, SSH, and a minimal ANSI terminal.
 - API reference documentation and executable examples.
 
 Until these gates are executed and recorded, feature presence is not evidence of

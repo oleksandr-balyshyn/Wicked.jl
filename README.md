@@ -17,9 +17,9 @@
 
 > [!WARNING]
 > Wicked.jl is `0.0.1` and under active development. Local implementation and
-> automated evidence are strong, but real-terminal platform matrices, immutable
-> release-candidate approvals, and independent application validation remain
-> before a production release. See [Release Evidence](docs/RELEASE_EVIDENCE.md).
+> automated evidence are strong, but Linux real-terminal compatibility evidence,
+> immutable release-candidate approvals, and independent application validation
+> remain before a production release. See [Release Evidence](docs/RELEASE_EVIDENCE.md).
 
 ## Build terminal software, not terminal glue
 
@@ -92,8 +92,8 @@ semantics = toolkit_semantic_tree(tree)
 
 ## Install and load
 
-Wicked targets Julia `1.10` and later. The rendering core has no native UI or
-`ncurses` dependency.
+Wicked targets Linux terminals on Julia `1.10` and later. The rendering core has
+no native UI or `ncurses` dependency.
 
 ```julia
 import Pkg

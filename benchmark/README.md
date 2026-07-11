@@ -28,4 +28,4 @@ Environment controls:
 
 `--quick` always uses one warmup and three measured samples. `--list` prints stable case identifiers without executing workloads.
 
-The suite currently covers sparse and full-screen buffer diffs, Unicode width, large grid and deep flex layout, selector cascade and stylesheet parsing, stable and moved keyed reconciliation, large Markdown parsing/rendering, million-row virtual list/table windows, and semantic-tree diffing.
+The suite currently covers sparse and full-screen buffer diffs, Unicode width, large grid and deep flex layout, selector cascade and stylesheet parsing, stable and moved keyed reconciliation, large Markdown parsing/rendering, million-row virtual list/table viewports, and semantic-tree diffing.
