@@ -1085,7 +1085,7 @@ function check_unicode_width_corpus!()
     if isempty(failures) && isfile(UNICODE_WIDTH_CORPUS_AUDIT_SCRIPT)
         audit_failures = try
             include(UNICODE_WIDTH_CORPUS_AUDIT_SCRIPT)
-            getfield(Main, :UnicodeWidthCorpusAudit).audit()
+            _invoke_audit_call!(:UnicodeWidthCorpusAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -1157,7 +1157,7 @@ function check_remote_protocol_fixtures!()
     if isempty(failures) && isfile(REMOTE_PROTOCOL_FIXTURE_AUDIT_SCRIPT)
         audit_failures = try
             include(REMOTE_PROTOCOL_FIXTURE_AUDIT_SCRIPT)
-            getfield(Main, :RemoteProtocolFixtureAudit).audit()
+            _invoke_audit_call!(:RemoteProtocolFixtureAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -1213,7 +1213,7 @@ function check_real_terminal_matrix!()
     if isempty(failures) && isfile(REAL_TERMINAL_MATRIX_AUDIT_SCRIPT)
         audit_failures = try
             include(REAL_TERMINAL_MATRIX_AUDIT_SCRIPT)
-            getfield(Main, :RealTerminalMatrixAudit).audit()
+            _invoke_audit_call!(:RealTerminalMatrixAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -1279,7 +1279,7 @@ function check_terminal_evidence_records!()
     if isempty(failures) && isfile(TERMINAL_EVIDENCE_AUDIT_SCRIPT)
         audit_failures = try
             include(TERMINAL_EVIDENCE_AUDIT_SCRIPT)
-            getfield(Main, :TerminalEvidenceAudit).audit()
+            _invoke_audit_call!(:TerminalEvidenceAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -1356,7 +1356,7 @@ function check_application_evidence_records!()
     if isempty(failures) && isfile(APPLICATION_EVIDENCE_AUDIT_SCRIPT)
         audit_failures = try
             include(APPLICATION_EVIDENCE_AUDIT_SCRIPT)
-            getfield(Main, :ApplicationEvidenceAudit).audit()
+            _invoke_audit_call!(:ApplicationEvidenceAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -1436,7 +1436,7 @@ function check_benchmark_evidence_records!()
     if isempty(failures) && isfile(BENCHMARK_EVIDENCE_AUDIT_SCRIPT)
         audit_failures = try
             include(BENCHMARK_EVIDENCE_AUDIT_SCRIPT)
-            getfield(Main, :BenchmarkEvidenceAudit).audit()
+            _invoke_audit_call!(:BenchmarkEvidenceAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -1596,7 +1596,7 @@ function check_loading_evidence_records!()
     if isempty(failures) && isfile(LOADING_EVIDENCE_AUDIT_SCRIPT)
         audit_failures = try
             include(LOADING_EVIDENCE_AUDIT_SCRIPT)
-            getfield(Main, :LoadingEvidenceAudit).audit()
+            _invoke_audit_call!(:LoadingEvidenceAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -1678,7 +1678,7 @@ function check_documentation_evidence_records!()
     if isempty(failures) && isfile(DOCUMENTATION_EVIDENCE_AUDIT_SCRIPT)
         audit_failures = try
             include(DOCUMENTATION_EVIDENCE_AUDIT_SCRIPT)
-            getfield(Main, :DocumentationEvidenceAudit).audit()
+            _invoke_audit_call!(:DocumentationEvidenceAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -1766,7 +1766,7 @@ function check_semantic_evidence_records!()
     if isempty(failures) && isfile(SEMANTIC_EVIDENCE_AUDIT_SCRIPT)
         audit_failures = try
             include(SEMANTIC_EVIDENCE_AUDIT_SCRIPT)
-            getfield(Main, :SemanticAccessibilityEvidenceAudit).audit()
+            _invoke_audit_call!(:SemanticAccessibilityEvidenceAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -1885,7 +1885,7 @@ function check_parity_policy_json!()
     if isfile(PARITY_POLICY_AUDIT_SCRIPT)
         audit_failures = try
             include(PARITY_POLICY_AUDIT_SCRIPT)
-            getfield(Main, :ParityPolicyAudit).audit()
+            _invoke_audit_call!(:ParityPolicyAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -2177,7 +2177,7 @@ function check_parity_closeout_audit!()
     isempty(failures) || return failures
     audit_failures = try
         include(PARITY_CLOSEOUT_AUDIT_SCRIPT)
-        getfield(Main, :ParityCloseoutAudit).audit()
+        _invoke_audit_call!(:ParityCloseoutAudit, :audit)
     catch error
         [sprint(showerror, error)]
     end
@@ -3943,7 +3943,7 @@ function check_stable_widget_surface!()
     end
     isempty(failures) || return failures
     include(family_evidence_script)
-    family_failures = Base.invokelatest(() -> getfield(Main, :WidgetFamilyEvidenceAudit).audit())
+    family_failures = _invoke_audit_call!(:WidgetFamilyEvidenceAudit, :audit)
     isempty(family_failures) || return ["widget family evidence audit: $failure" for failure in family_failures]
     include(candidate_script)
     return Base.invokelatest(() -> begin
@@ -3970,7 +3970,7 @@ function check_stable_widget_surface!()
         end
         if isfile(PUBLIC_WIDGET_CANDIDATE_AUDIT_SCRIPT)
             include(PUBLIC_WIDGET_CANDIDATE_AUDIT_SCRIPT)
-            public_failures = Base.invokelatest(() -> getfield(Main, :PublicWidgetCandidateAudit).audit())
+            public_failures = _invoke_audit_call!(:PublicWidgetCandidateAudit, :audit)
             append!(failures, ("public widget candidate audit: $failure" for failure in public_failures))
         end
         if isfile(COMPATIBILITY_WIDGET_ALIAS_AUDIT_SCRIPT)
