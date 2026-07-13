@@ -1,0 +1,21 @@
+# Wicked widget promotion requirements
+# id<TAB>area<TAB>requirement<TAB>evidence<TAB>gate<TAB>release_required
+# area: api | behavior | docs | examples | semantics | toolkit | performance | release
+# release_required: yes | no
+id	area	requirement	evidence	gate	release_required
+api-public-shape	api	Public constructor names, keyword arguments, state types, and event results are reviewed for compatibility across releases.	Focused API docs, docstrings, and stable API baseline	scripts/experimental_promotion_audit.jl; scripts/stable_widget_candidates.jl --require-stable	yes
+api-stable-facade	api	The widget is exported through Wicked.API and recorded in api/stable_api.tsv with the correct public binding kind.	api/stable_api.tsv and Wicked.API export	scripts/quality_gate.jl	yes
+api-promotion-ledger	api	Former experimental bindings have an explicit promote, qualify, or remove decision before any compatibility namespace export remains.	api/experimental_promotions.tsv	scripts/experimental_promotion_audit.jl	yes
+behavior-rendering	behavior	Rendering is deterministic across empty, normal, clipped, resized, narrow, and zero-size regions where applicable.	api/widget_coverage.tsv	scripts/widget_audit.jl --require-complete; scripts/render_widget_catalog.jl --coverage-summary --require-complete-coverage	yes
+behavior-source-trace	behavior	Behavior evidence points at a repository-relative checked-in Julia source file for the widget implementation.	api/widget_coverage.tsv	scripts/render_widget_catalog.jl --coverage-summary --require-complete-coverage	yes
+behavior-input	behavior	Keyboard, pointer, focus, disabled, read-only, cancellation, and invalid-state behavior is tested or explicitly marked non-applicable.	api/widget_coverage.tsv and focused tests	scripts/widget_audit.jl --require-complete	yes
+docs-api	docs	Developer-facing docs explain construction, state ownership, event handling, styling hooks, layout behavior, and migration notes.	docs/API_WIDGETS.md, docs/API_CONTROLS.md, docs/API_NAVIGATION.md, docs/UTILITY_WIDGETS.md	scripts/documentation_evidence_audit.jl	yes
+docs-catalog	docs	The widget appears in the component catalog, framework migration vocabulary, and family closeout material.	docs/COMPONENT_CATALOG.md, docs/FRAMEWORK_MIGRATION.md, docs/WIDGET_FAMILY_EVIDENCE.md	scripts/widget_family_evidence_audit.jl	yes
+examples-public	examples	At least one public example is copyable and mapped to the owning widget family.	examples/*.jl and docs/EXAMPLE_FAMILIES.md	scripts/public_examples_audit.jl; scripts/example_family_audit.jl	yes
+semantics-tree	semantics	Interactive widgets expose semantic tree output, stable roles, labels, values, and state flags for testing and accessibility.	docs/SEMANTIC_ACCESSIBILITY.md and docs/semantic-evidence	scripts/semantic_accessibility_evidence_audit.jl	yes
+toolkit-interop	toolkit	Toolkit integration works with keyed state, reactive updates, focus routing, CSS-like styling, and component composition where promised.	Toolkit tests, API docs, and family evidence	scripts/widget_family_evidence_audit.jl	yes
+performance-startup	performance	Normal construction, state creation, render, and event paths are covered by precompile workloads.	src/Precompile.jl and loading evidence	scripts/loading_evidence_audit.jl	yes
+performance-scale	performance	Large-data widgets document and test virtualization, paging, stale data, loading slots, and update costs.	Data-display parity evidence and benchmark evidence	scripts/parity_closeout_audit.jl; scripts/benchmark_evidence_audit.jl	yes
+release-family-closeout	release	The owning widget family has complete docs, examples, precompile evidence, zero blockers, and clean release metadata.	docs/WIDGET_FAMILY_EVIDENCE.md and closeout report	scripts/render_widget_family_closeout.jl --release-check	yes
+release-clean-evidence	release	Release review is performed from complete coverage evidence with clean git provenance.	Stable widget coverage artifacts	scripts/render_widget_catalog.jl --coverage-summary --require-complete-coverage --require-clean-git	yes
+release-changelog	release	User-visible additions, deprecations, compatibility aliases, and removals are recorded.	CHANGELOG.md and release evidence	scripts/documentation_evidence_audit.jl	no

@@ -16,6 +16,8 @@ struct ScrollView{W}
     content_size::Size
 end
 
+state_for(::ScrollView) = ScrollState()
+
 ScrollView(child; height::Integer, width::Integer) = ScrollView(child, Size(height, width))
 
 function render!(buffer::Buffer, widget::ScrollView, area::Rect, state::ScrollState)
@@ -41,6 +43,9 @@ function render!(buffer::Buffer, widget::ScrollView, area::Rect, state::ScrollSt
     end
     buffer
 end
+
+render!(buffer::Buffer, widget::ScrollView, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
 
 @enum ScrollbarDirection::UInt8 begin
     VerticalScrollbar
@@ -80,6 +85,8 @@ struct Scrollbar
     end
 end
 
+state_for(::Scrollbar) = ScrollState()
+
 function render!(buffer::Buffer, widget::Scrollbar, area::Rect, state::ScrollState)
     active = intersection(buffer.area, area)
     isempty(active) && return buffer
@@ -105,6 +112,9 @@ function render!(buffer::Buffer, widget::Scrollbar, area::Rect, state::ScrollSta
     end
     buffer
 end
+
+render!(buffer::Buffer, widget::Scrollbar, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
 
 function _scroll_offset(value::Int, delta::Integer)
     return Int(clamp(Int128(value) + Int128(delta), Int128(0), Int128(typemax(Int))))

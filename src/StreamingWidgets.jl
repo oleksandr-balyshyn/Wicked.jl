@@ -55,6 +55,24 @@ function SemanticToolkit.widget_semantic_descriptor(::LiveDisplay, state::LiveDi
     )
 end
 
+function register_live_display_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    state::LiveDisplayState,
+)
+    node_id = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+        if request.action == Accessibility.FocusSemanticAction
+            return Accessibility.SemanticActionResult(true; value=state.paused)
+        elseif request.action == Accessibility.ActivateSemanticAction
+            state.paused = !state.paused
+            return Accessibility.SemanticActionResult(true; value=state.paused)
+        end
+        return Accessibility.SemanticActionResult(false; message="live display semantic action is not supported")
+    end)
+    return dispatcher
+end
+
 struct ProgressGroup{T<:ProgressTracker}
     tracker::T
     width::Int
@@ -124,7 +142,12 @@ function SemanticToolkit.widget_semantic_descriptor(widget::ProgressGroup, state
         Accessibility.ListRole;
         label="Progress tasks",
         state=Accessibility.SemanticState(focusable=true),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ScrollIntoViewSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:offset => state.offset, :show_eta => widget.show_eta),
     )
 end
@@ -142,6 +165,30 @@ function SemanticToolkit.widget_semantic_children(widget::ProgressGroup, ::Progr
             metadata=Dict(:task_id => snapshot.id, :eta_seconds => snapshot.eta_seconds),
         ) for snapshot in progress_snapshots(widget.tracker)
     ]
+end
+
+function register_progress_group_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::ProgressGroup,
+    state::ProgressGroupState,
+)
+    node_id = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+        maximum = max(0, length(progress_snapshots(widget.tracker)) - widget.height)
+        if request.action == Accessibility.FocusSemanticAction || request.action == Accessibility.ScrollIntoViewSemanticAction
+            state.offset = clamp(state.offset, 0, maximum)
+            return Accessibility.SemanticActionResult(true; value=state.offset)
+        elseif request.action == Accessibility.IncrementSemanticAction
+            state.offset = min(maximum, state.offset + 1)
+            return Accessibility.SemanticActionResult(true; value=state.offset)
+        elseif request.action == Accessibility.DecrementSemanticAction
+            state.offset = max(0, state.offset - 1)
+            return Accessibility.SemanticActionResult(true; value=state.offset)
+        end
+        return Accessibility.SemanticActionResult(false; message="progress group semantic action is not supported")
+    end)
+    return dispatcher
 end
 
 struct ProcessView
@@ -216,10 +263,56 @@ function SemanticToolkit.widget_semantic_descriptor(widget::ProcessView, state::
             readonly=true,
             value="exit $(widget.result.exit_code)",
         ),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ScrollIntoViewSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:command => widget.result.command, :offset => state.row),
     )
 end
+
+function _register_scroll_state_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    state::ScrollState,
+    total_function,
+    height::Integer,
+    label::AbstractString,
+)
+    node_id = string(id)
+    viewport_height = max(0, Int(height))
+    Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+        maximum = max(0, Int(total_function()) - viewport_height)
+        if request.action == Accessibility.FocusSemanticAction || request.action == Accessibility.ScrollIntoViewSemanticAction
+            state.row = clamp(state.row, 0, maximum)
+            return Accessibility.SemanticActionResult(true; value=state.row)
+        elseif request.action == Accessibility.IncrementSemanticAction
+            state.row = min(maximum, state.row + 1)
+            return Accessibility.SemanticActionResult(true; value=state.row)
+        elseif request.action == Accessibility.DecrementSemanticAction
+            state.row = max(0, state.row - 1)
+            return Accessibility.SemanticActionResult(true; value=state.row)
+        end
+        return Accessibility.SemanticActionResult(false; message="$label semantic action is not supported")
+    end)
+    return dispatcher
+end
+
+register_process_view_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::ProcessView,
+    state::ProcessViewState,
+) = _register_scroll_state_semantic_handlers!(
+    dispatcher,
+    id,
+    state,
+    () -> length(process_view_lines(widget)),
+    widget.height,
+    "process view",
+)
 
 struct TerminalView
     text::String
@@ -252,10 +345,29 @@ function SemanticToolkit.widget_semantic_descriptor(widget::TerminalView, state:
             readonly=true,
             value="$(length(split(widget.text, '\n'; keepempty=true))) lines",
         ),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ScrollIntoViewSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:offset => state.row),
     )
 end
+
+register_terminal_view_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::TerminalView,
+    state::TerminalViewState,
+) = _register_scroll_state_semantic_handlers!(
+    dispatcher,
+    id,
+    state,
+    () -> length(split(widget.text, '\n'; keepempty=true)),
+    widget.height,
+    "terminal view",
+)
 
 struct TaskMonitor
     tasks::Vector{Task}
@@ -284,7 +396,12 @@ function SemanticToolkit.widget_semantic_descriptor(::TaskMonitor, state::TaskMo
         Accessibility.ListRole;
         label="Tasks",
         state=Accessibility.SemanticState(focusable=true),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ScrollIntoViewSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:offset => state.row),
     )
 end
@@ -300,6 +417,20 @@ function SemanticToolkit.widget_semantic_children(widget::TaskMonitor, ::TaskMon
         ) for (index, (task, line)) in enumerate(zip(widget.tasks, task_monitor_lines(widget)))
     ]
 end
+
+register_task_monitor_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::TaskMonitor,
+    state::TaskMonitorState,
+) = _register_scroll_state_semantic_handlers!(
+    dispatcher,
+    id,
+    state,
+    () -> length(widget.tasks),
+    widget.height,
+    "task monitor",
+)
 
 struct LogTail
     log::LogState
@@ -327,7 +458,12 @@ function SemanticToolkit.widget_semantic_descriptor(widget::LogTail, state::LogT
         Accessibility.ListRole;
         label="Log tail",
         state=Accessibility.SemanticState(focusable=true),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ScrollIntoViewSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:offset => state.offset, :follow => widget.follow),
     )
 end
@@ -342,6 +478,33 @@ function SemanticToolkit.widget_semantic_children(widget::LogTail, state::LogTai
             metadata=Dict(:level => entry.level, :timestamp_ns => entry.timestamp_ns),
         ) for (index, entry) in enumerate(state.entries)
     ]
+end
+
+function register_log_tail_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::LogTail,
+    state::LogTailState,
+)
+    node_id = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+        maximum = max(0, length(state.entries) - widget.height)
+        if request.action == Accessibility.FocusSemanticAction
+            state.offset = clamp(state.offset, 0, maximum)
+            return Accessibility.SemanticActionResult(true; value=state.offset)
+        elseif request.action == Accessibility.ScrollIntoViewSemanticAction
+            state.offset = 0
+            return Accessibility.SemanticActionResult(true; value=state.offset)
+        elseif request.action == Accessibility.IncrementSemanticAction
+            state.offset = max(0, state.offset - 1)
+            return Accessibility.SemanticActionResult(true; value=state.offset)
+        elseif request.action == Accessibility.DecrementSemanticAction
+            state.offset = min(maximum, state.offset + 1)
+            return Accessibility.SemanticActionResult(true; value=state.offset)
+        end
+        return Accessibility.SemanticActionResult(false; message="log tail semantic action is not supported")
+    end)
+    return dispatcher
 end
 
 struct ReplView{F}
@@ -422,7 +585,34 @@ function SemanticToolkit.widget_semantic_descriptor(widget::ReplView, state::Rep
             focused=state.input.focused,
             value=editing_text(state.input.editing),
         ),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.SetValueSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.SetValueSemanticAction,
+            Accessibility.ActivateSemanticAction,
+        ],
         metadata=Dict(:prompt => widget.prompt, :history_count => length(state.history), :output_count => length(state.output.entries)),
     )
+end
+
+function register_repl_view_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::ReplView,
+    state::ReplViewState,
+)
+    node_id = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+        if request.action == Accessibility.FocusSemanticAction
+            state.input.focused = true
+            return Accessibility.SemanticActionResult(true; value=editing_text(state.input.editing))
+        elseif request.action == Accessibility.SetValueSemanticAction
+            set_text!(state.input.editing, string(request.value); record=false)
+            return Accessibility.SemanticActionResult(true; value=editing_text(state.input.editing))
+        elseif request.action == Accessibility.ActivateSemanticAction
+            submitted = _repl_submit!(state, widget)
+            return Accessibility.SemanticActionResult(submitted; value=length(state.output.entries))
+        end
+        return Accessibility.SemanticActionResult(false; message="REPL view semantic action is not supported")
+    end)
+    return dispatcher
 end

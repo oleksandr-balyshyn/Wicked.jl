@@ -165,6 +165,66 @@ function measure(paragraph::Paragraph, available::Rect)
     Size(min(length(lines), available.height), min(width, available.width))
 end
 
+"""
+    Static(content; style=Style(), alignment=LeftAlign, wrap=WordWrap)
+
+Textual-style static display widget backed by `Paragraph`.
+
+`Static` is a stable compatibility surface for read-only text content. It keeps
+the same immediate rendering contract as `Paragraph` while using the vocabulary
+common in Textual applications.
+"""
+struct Static
+    paragraph::Paragraph
+end
+
+function Static(
+    content::Union{AbstractString,Line,Text};
+    style::Style=Style(),
+    alignment::HorizontalAlignment=LeftAlign,
+    wrap::WrapMode=WordWrap,
+    vertical_scroll::Integer=0,
+    width_policy::AbstractWidthPolicy=DEFAULT_WIDTH_POLICY,
+)
+    Static(Paragraph(content; style, alignment, wrap, vertical_scroll, width_policy))
+end
+
+render!(buffer::Buffer, widget::Static, area::Rect) =
+    render!(buffer, widget.paragraph, area)
+
+measure(widget::Static, available::Rect) =
+    measure(widget.paragraph, available)
+
+"""
+    TextView(content; style=Style(), alignment=LeftAlign, wrap=WordWrap)
+
+Generic read-only text view backed by `Paragraph`.
+
+`TextView` is a stable compatibility surface for applications that name
+read-only multi-line text displays as views. It keeps the same immediate
+rendering and measuring contract as `Paragraph`.
+"""
+struct TextView
+    paragraph::Paragraph
+end
+
+function TextView(
+    content::Union{AbstractString,Line,Text};
+    style::Style=Style(),
+    alignment::HorizontalAlignment=LeftAlign,
+    wrap::WrapMode=WordWrap,
+    vertical_scroll::Integer=0,
+    width_policy::AbstractWidthPolicy=DEFAULT_WIDTH_POLICY,
+)
+    TextView(Paragraph(content; style, alignment, wrap, vertical_scroll, width_policy))
+end
+
+render!(buffer::Buffer, widget::TextView, area::Rect) =
+    render!(buffer, widget.paragraph, area)
+
+measure(widget::TextView, available::Rect) =
+    measure(widget.paragraph, available)
+
 """Apply emphasis styling to heading-like content while preserving per-span styling."""
 @inline function _compose_style(base::Style, overlay::Style)
     Style(
@@ -225,15 +285,22 @@ function _heading_text(
 end
 
 """
-Create a heading-style widget with level-aware emphasis and paragraph semantics.
+    Heading(content; level=1, style=Style(), alignment=LeftAlign, wrap=WordWrap)
 
-`Heading` is a convenience constructor that returns a `Paragraph` with heading
+Level-aware heading text backed by paragraph rendering.
+
+`Heading` is a stable stateless widget with paragraph semantics and heading
 appropriate styling:
 
 - level 1 and 2 headings are bold and underlined
 - other levels are bold
 - content accepts `String`, `Line`, or `Text`
 """
+struct Heading
+    paragraph::Paragraph
+    level::Int
+end
+
 function Heading(
     content::Union{AbstractString,Line,Text};
     level::Integer=1,
@@ -254,21 +321,22 @@ function Heading(
         _heading_text(String(content); alignment, level, style)
     end
 
-    Paragraph(
+    paragraph = Paragraph(
         text;
         wrap=wrap,
         vertical_scroll=vertical_scroll,
         width_policy=width_policy,
     )
+    Heading(paragraph, Int(level))
 end
 
-"""
-Create a markdown-style text widget from a Markdown string.
+render!(buffer::Buffer, widget::Heading, area::Rect) =
+    render!(buffer, widget.paragraph, area)
 
-`MarkupText` is a convenience constructor that parses markdown and returns a
-`Paragraph` with semantic role-based styling. It uses `role_styles` to override or
-augment defaults for any markdown role token.
-"""
+measure(widget::Heading, available::Rect) =
+    measure(widget.paragraph, available)
+
+"""Default style contribution for a parsed markdown role."""
 function _markup_default_style(role::Symbol)
     if role in (:emphasis, :quote)
         Style(modifiers=ITALIC)
@@ -363,7 +431,22 @@ function _markup_text(
     Text(lines)
 end
 
-function _build_markup_lines(
+function _markup_roles(rendered)
+    hasfield(typeof(rendered), :lines) || throw(ArgumentError("markup renderer returned unsupported result"))
+    block_roles = Symbol[]
+    inline_roles = Symbol[]
+    for rich_line in rendered.lines
+        push!(block_roles, rich_line.role)
+        for span in rich_line.spans
+            push!(inline_roles, span.role == :text ? rich_line.role : span.role)
+        end
+    end
+    unique!(block_roles)
+    unique!(inline_roles)
+    return Tuple(block_roles), Tuple(inline_roles)
+end
+
+function _build_markup_document(
     source::AbstractString;
     width::Integer=4096,
     registry=nothing,
@@ -376,16 +459,28 @@ function _build_markup_lines(
         registry = default_syntax_registry()
     end
     rendered = render_markdown(source; width=width, registry=registry)
-    _markup_text(rendered, alignment, style; role_styles=role_styles)
+    text = _markup_text(rendered, alignment, style; role_styles=role_styles)
+    block_roles, inline_roles = _markup_roles(rendered)
+    return text, block_roles, inline_roles
 end
 
 """
-Create markdown-aware text with semantic role styling in a paragraph wrapper.
+    MarkupText(content; style=Style(), alignment=LeftAlign, wrap=WordWrap)
 
-The function is intentionally declarative and side-effect free: it parses markdown
-into semantic spans and composes a `Paragraph` using `alignment`, wrapping, and
-scroll settings.
+Markdown-aware text with semantic role styling in a paragraph wrapper.
+
+`MarkupText` is a stable stateless widget. Construction is intentionally
+declarative and side-effect free: it parses markdown into semantic spans and
+stores a `Paragraph` using `alignment`, wrapping, and scroll settings.
 """
+struct MarkupText
+    paragraph::Paragraph
+    block_roles::Tuple{Vararg{Symbol}}
+    inline_roles::Tuple{Vararg{Symbol}}
+end
+
+MarkupText(paragraph::Paragraph) = MarkupText(paragraph, (), ())
+
 function MarkupText(
     content::AbstractString;
     style::Style=Style(),
@@ -399,7 +494,7 @@ function MarkupText(
 )
     vertical_scroll >= 0 || throw(ArgumentError("vertical scroll must be non-negative"))
     role_styles === nothing && (role_styles = Dict{Symbol,Style}())
-    text = _build_markup_lines(
+    text, block_roles, inline_roles = _build_markup_document(
         content;
         width=width,
         registry=registry,
@@ -407,10 +502,25 @@ function MarkupText(
         style=style,
         role_styles=role_styles,
     )
-    Paragraph(
+    paragraph = Paragraph(
         text;
         wrap=wrap,
         vertical_scroll=vertical_scroll,
         width_policy=width_policy,
     )
+    MarkupText(paragraph, block_roles, inline_roles)
 end
+
+render!(buffer::Buffer, widget::MarkupText, area::Rect) =
+    render!(buffer, widget.paragraph, area)
+
+measure(widget::MarkupText, available::Rect) =
+    measure(widget.paragraph, available)
+
+"""Return true when a `MarkupText` contains a parsed block role."""
+has_block_role(widget::MarkupText, role::Symbol) =
+    role in widget.block_roles
+
+"""Return true when a `MarkupText` contains a parsed inline role."""
+has_inline_role(widget::MarkupText, role::Symbol) =
+    role in widget.inline_roles

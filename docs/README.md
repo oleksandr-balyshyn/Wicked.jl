@@ -7,7 +7,12 @@
 - [Toolkit Tutorial](TOOLKIT_TUTORIAL.md)
 - [Architecture](ARCHITECTURE.md)
 - [API Reference Overview](API_REFERENCE.md)
+- [Public Example Families](EXAMPLE_FAMILIES.md)
 - [API Stabilization](API_STABILIZATION.md)
+- [Widget Stabilization Tracker](WIDGET_STABILIZATION.md)
+- [Stable Promotion Packet Template](STABLE_PROMOTION_PACKET_TEMPLATE.md)
+- [Stable Promotion Packet Records](stable-promotion-packets/README.md)
+- [Widget Family Evidence Ledger](WIDGET_FAMILY_EVIDENCE.md)
 - [Public API Facades](API_FACADES.md)
 - [Core API](API_CORE.md)
 - [Immediate Widgets API](API_WIDGETS.md)
@@ -20,10 +25,19 @@
 - [Semantics, Testing, and Diagnostics API](API_SEMANTICS_TESTING.md)
 - [Virtualization API](API_VIRTUALIZATION.md)
 - [Extensions and Services API](API_EXTENSIONS_SERVICES.md)
+- [Performance and Latency Guide](PERFORMANCE.md)
+- [Unicode Width Corpus](UNICODE_WIDTH_CORPUS.md)
 - [Component Catalog](COMPONENT_CATALOG.md)
-- [Widget Coverage Audit](WIDGET_COVERAGE.md)
+- [Widget Coverage Audit and Default-State Rendering](WIDGET_COVERAGE.md)
 - [Framework Migration](FRAMEWORK_MIGRATION.md)
+- [Porting Cookbook](PORTING_COOKBOOK.md)
 - [Developer Guide](DEVELOPER_GUIDE.md)
+
+For a goal-oriented API map, start with
+[API Reference Overview](API_REFERENCE.md#developer-route-map). It points
+Ratatui-style immediate rendering, Textual-style Toolkit apps, CSS-like styling,
+runtime apps, virtual data, rich panes, testing, and services to the right stable
+quickstart pages.
 
 ## Application capabilities
 
@@ -40,7 +54,21 @@
 - [Live Reload](LIVE_RELOAD.md)
 - [Event Tracing and Replay](EVENT_TRACING.md)
 - [Terminal Recovery](TERMINAL_RECOVERY.md)
+- [Linux Real-Terminal Matrix](REAL_TERMINAL_MATRIX.md)
+- [Terminal Evidence Template](TERMINAL_EVIDENCE_TEMPLATE.md)
+- [Terminal Evidence Records](terminal-evidence/README.md)
+- [Real Application Evidence Template](REAL_APPLICATION_EVIDENCE_TEMPLATE.md)
+- [Real Application Evidence Records](application-evidence/README.md)
+- [Benchmark Evidence Template](BENCHMARK_EVIDENCE_TEMPLATE.md)
+- [Benchmark Evidence Records](benchmark-evidence/README.md)
+- [Package Loading Evidence Template](PACKAGE_LOADING_EVIDENCE_TEMPLATE.md)
+- [Package Loading Evidence Records](loading-evidence/README.md)
+- [Documentation Evidence Template](DOCUMENTATION_EVIDENCE_TEMPLATE.md)
+- [Documentation Evidence Records](documentation-evidence/README.md)
+- [Semantic Accessibility Evidence Template](SEMANTIC_ACCESSIBILITY_EVIDENCE_TEMPLATE.md)
+- [Semantic Accessibility Evidence Records](semantic-evidence/README.md)
 - [Async Runtime](ASYNC_RUNTIME.md)
+- [Remote Transport](REMOTE_TRANSPORT.md)
 - [Accessibility and Testing](ACCESSIBILITY_TESTING.md)
 - [Continuous Integration](CONTINUOUS_INTEGRATION.md)
 
@@ -55,10 +83,20 @@
 - [Security](../SECURITY.md)
 - [Feature Parity Ledger](FEATURE_PARITY.md)
 - [Validation Strategy](VALIDATION_STRATEGY.md)
+- [Performance and Latency Guide](PERFORMANCE.md)
+- [Widget Stabilization Tracker](WIDGET_STABILIZATION.md)
+- [Stable Promotion Packet Template](STABLE_PROMOTION_PACKET_TEMPLATE.md)
+- [Stable Promotion Packet Records](stable-promotion-packets/README.md)
+- [Widget Family Evidence Ledger](WIDGET_FAMILY_EVIDENCE.md)
 - [Release Evidence](RELEASE_EVIDENCE.md)
+- [Parity Evidence Template](PARITY_EVIDENCE_TEMPLATE.md)
+- [Parity Evidence Records](evidence/README.md)
+- [Parity Evidence Policy](evidence/parity_policy.json)
 - [Release Checklist](RELEASE_CHECKLIST.md)
 
-Runnable public-API examples are in the repository's `examples` directory.
+Runnable public-API examples are in the repository's `examples` directory. Use
+[Public Example Families](EXAMPLE_FAMILIES.md) to map each quickstart to the
+feature family it demonstrates.
 
 ## Build the manual
 

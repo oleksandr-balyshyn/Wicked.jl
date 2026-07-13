@@ -33,6 +33,8 @@ struct List
     highlight_symbol::String
 end
 
+state_for(::List) = ListState()
+
 function List(
     items;
     block::Union{Nothing,Block}=nothing,
@@ -109,6 +111,9 @@ function render!(buffer::Buffer, widget::List, area::Rect, state::ListState)
     buffer
 end
 
+render!(buffer::Buffer, widget::List, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
 function handle!(state::ListState, widget::List, event::KeyEvent; viewport_height::Integer=1)
     _selection_key_event(event) || return false
     count = length(widget.items)
@@ -141,6 +146,70 @@ function handle!(state::ListState, widget::List, event::MouseEvent, area::Rect)
     state.selected = index
     true
 end
+
+"""
+    ListView(items; block=nothing, highlight_style=Style(modifiers=REVERSED), highlight_symbol="› ")
+
+Textual-style list view backed by `List` and `ListState`.
+
+`ListView` is a stable compatibility surface for applications that use retained
+TUI vocabulary while still keeping Wicked's immediate render contract and
+externally owned selection state.
+"""
+struct ListView
+    list::List
+end
+
+"""Compatibility state alias for `ListView`; identical to `ListState`."""
+const ListViewState = ListState
+
+ListView(items::AbstractVector; kwargs...) = ListView(List(items; kwargs...))
+
+state_for(::ListView) = ListViewState()
+
+render!(buffer::Buffer, widget::ListView, area::Rect, state::ListViewState) =
+    render!(buffer, widget.list, area, state)
+
+render!(buffer::Buffer, widget::ListView, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+handle!(state::ListViewState, widget::ListView, event::KeyEvent; viewport_height::Integer=1) =
+    handle!(state, widget.list, event; viewport_height)
+
+handle!(state::ListViewState, widget::ListView, event::MouseEvent, area::Rect) =
+    handle!(state, widget.list, event, area)
+
+"""
+    OptionList(items; block=nothing, highlight_style=Style(modifiers=REVERSED), highlight_symbol="› ")
+
+Textual-style option list backed by `List` and `ListState`.
+
+`OptionList` is a stable compatibility surface for selectable option lists. It
+shares `OptionListState` with `ListState` so keyboard navigation, pointer
+selection, viewport scrolling, and semantic children stay identical to `List`.
+"""
+struct OptionList
+    list::List
+end
+
+"""Compatibility state alias for `OptionList`; identical to `ListState`."""
+const OptionListState = ListState
+
+OptionList(items::AbstractVector; kwargs...) = OptionList(List(items; kwargs...))
+
+state_for(::OptionList) = OptionListState()
+
+render!(buffer::Buffer, widget::OptionList, area::Rect, state::OptionListState) =
+    render!(buffer, widget.list, area, state)
+
+render!(buffer::Buffer, widget::OptionList, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+handle!(state::OptionListState, widget::OptionList, event::KeyEvent; viewport_height::Integer=1) =
+    handle!(state, widget.list, event; viewport_height)
+
+handle!(state::OptionListState, widget::OptionList, event::MouseEvent, area::Rect) =
+    handle!(state, widget.list, event, area)
 
 """A column definition for a data table."""
 struct TableColumn
@@ -199,6 +268,8 @@ struct Table
     column_gap::Int
     show_header::Bool
 end
+
+state_for(::Table) = TableState()
 
 function Table(
     columns,
@@ -299,6 +370,9 @@ function render!(buffer::Buffer, widget::Table, area::Rect, state::TableState)
     buffer
 end
 
+render!(buffer::Buffer, widget::Table, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
 function handle!(state::TableState, widget::Table, event::KeyEvent; viewport_height::Integer=1)
     _selection_key_event(event) || return false
     rows = length(widget.rows)
@@ -376,6 +450,8 @@ struct Tabs
     selected_style::Style
 end
 
+state_for(::Tabs) = TabsState()
+
 function Tabs(
     tabs;
     divider::AbstractString=" │ ",
@@ -409,25 +485,56 @@ function render!(buffer::Buffer, widget::Tabs, area::Rect, state::TabsState)
     buffer
 end
 
+render!(buffer::Buffer, widget::Tabs, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+"""Return the selected tab, or `nothing` when the tab set is empty."""
+function selected_tab(widget::Tabs, state::TabsState)
+    isempty(widget.tabs) && return nothing
+    index = clamp(state.selected, 1, length(widget.tabs))
+    widget.tabs[index]
+end
+
+"""Select a tab by absolute tab index."""
+function select_tab!(state::TabsState, widget::Tabs, index::Integer)
+    isempty(widget.tabs) && return state
+    state.selected = clamp(Int(index), 1, length(widget.tabs))
+    state
+end
+
+"""Select the next tab, wrapping at the end."""
+function select_next_tab!(state::TabsState, widget::Tabs)
+    isempty(widget.tabs) && return state
+    state.selected = mod1(state.selected + 1, length(widget.tabs))
+    state
+end
+
+"""Select the previous tab, wrapping at the beginning."""
+function select_previous_tab!(state::TabsState, widget::Tabs)
+    isempty(widget.tabs) && return state
+    state.selected = mod1(state.selected - 1, length(widget.tabs))
+    state
+end
+
 function handle!(state::TabsState, widget::Tabs, event::KeyEvent; page_size::Integer=4)
     _selection_key_event(event) || return false
     isempty(widget.tabs) && return false
     step = max(1, Int(page_size))
     if event.key.code in (:left, :backtab)
-        state.selected = mod1(state.selected - 1, length(widget.tabs))
+        select_previous_tab!(state, widget)
     elseif event.key.code in (:right, :tab)
-        state.selected = mod1(state.selected + 1, length(widget.tabs))
+        select_next_tab!(state, widget)
     elseif event.key.code == :home
-        state.selected = 1
+        select_tab!(state, widget, 1)
     elseif event.key.code == :end
-        state.selected = length(widget.tabs)
+        select_tab!(state, widget, length(widget.tabs))
     elseif event.key.code == :page_up
-        state.selected = max(1, state.selected - step)
+        select_tab!(state, widget, state.selected - step)
     elseif event.key.code == :page_down
-        state.selected = min(length(widget.tabs), state.selected + step)
+        select_tab!(state, widget, state.selected + step)
     elseif event.key.code in (:enter, :character) &&
            (event.key.code == :enter || event.text == " ")
-        !isempty(widget.tabs) && (state.selected = clamp(state.selected, 1, length(widget.tabs)))
+        select_tab!(state, widget, state.selected)
     else
         return false
     end
@@ -446,7 +553,7 @@ function handle!(state::TabsState, widget::Tabs, event::MouseEvent, area::Rect)
         end
         width = sum(span -> text_width(span.content), tab.title.spans; init=0)
         if column <= event.position.column < min(column + width, area.column + area.width)
-            state.selected = index
+            select_tab!(state, widget, index)
             return true
         end
         column += width
@@ -496,6 +603,8 @@ struct Tree
     collapsed_symbol::String
     leaf_symbol::String
 end
+
+state_for(::Tree) = TreeState()
 
 function Tree(
     roots;
@@ -595,6 +704,9 @@ function render!(buffer::Buffer, widget::Tree, area::Rect, state::TreeState)
     buffer
 end
 
+render!(buffer::Buffer, widget::Tree, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
 function handle!(state::TreeState, widget::Tree, event::KeyEvent; viewport_height::Integer=1)
     _selection_key_event(event) || return false
     visible = _visible_nodes(widget, state)
@@ -665,6 +777,38 @@ function handle!(state::TreeState, widget::Tree, event::MouseEvent, area::Rect)
     return changed
 end
 
+"""
+    TreeView(roots; block=nothing, highlight_style=Style(modifiers=REVERSED), indent=2)
+
+Retained-library style tree view backed by `Tree` and `TreeState`.
+
+`TreeView` is a stable compatibility surface for applications porting Textual,
+Lanterna, or other retained TUI tree-view code while preserving Wicked's
+immediate rendering and externally owned expansion state.
+"""
+struct TreeView
+    tree::Tree
+end
+
+"""Compatibility state alias for `TreeView`; identical to `TreeState`."""
+const TreeViewState = TreeState
+
+TreeView(roots::AbstractVector; kwargs...) = TreeView(Tree(roots; kwargs...))
+
+state_for(::TreeView) = TreeViewState()
+
+render!(buffer::Buffer, widget::TreeView, area::Rect, state::TreeViewState) =
+    render!(buffer, widget.tree, area, state)
+
+render!(buffer::Buffer, widget::TreeView, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+handle!(state::TreeViewState, widget::TreeView, event::KeyEvent; viewport_height::Integer=1) =
+    handle!(state, widget.tree, event; viewport_height)
+
+handle!(state::TreeViewState, widget::TreeView, event::MouseEvent, area::Rect) =
+    handle!(state, widget.tree, event, area)
+
 """One action in a menu."""
 struct MenuItem
     id::Any
@@ -706,6 +850,8 @@ struct Menu
     disabled_style::Style
 end
 
+state_for(::Menu) = MenuState()
+
 function Menu(
     items;
     block::Union{Nothing,Block}=nothing,
@@ -734,6 +880,60 @@ function _copy_menu_state!(state::MenuState, list_state::ListState)
     state
 end
 
+function _normalize_menu_selection!(state::MenuState, widget::Menu; viewport_height::Integer=1)
+    if isnothing(state.selected)
+        state.offset = clamp(state.offset, 0, max(0, length(widget.items) - max(1, Int(viewport_height))))
+        return state
+    end
+    if !(1 <= state.selected <= length(widget.items)) || widget.items[state.selected].disabled
+        state.selected = nothing
+        return state
+    end
+    visible = max(1, Int(viewport_height))
+    state.selected <= state.offset && (state.offset = state.selected - 1)
+    state.selected > state.offset + visible && (state.offset = state.selected - visible)
+    state
+end
+
+"""Select an enabled menu item by absolute item index."""
+function select_menu_item!(
+    state::MenuState,
+    widget::Menu,
+    index::Integer;
+    viewport_height::Integer=1,
+)
+    resolved = Int(index)
+    if !(1 <= resolved <= length(widget.items)) || widget.items[resolved].disabled
+        state.selected = nothing
+        return state
+    end
+    state.selected = resolved
+    _normalize_menu_selection!(state, widget; viewport_height)
+end
+
+"""Select the next enabled menu item, wrapping at the end."""
+function select_next_menu_item!(
+    state::MenuState,
+    widget::Menu;
+    viewport_height::Integer=1,
+)
+    candidate = _next_enabled(widget, something(state.selected, 0), 1)
+    isnothing(candidate) ? (state.selected = nothing) : (state.selected = candidate)
+    _normalize_menu_selection!(state, widget; viewport_height)
+end
+
+"""Select the previous enabled menu item, wrapping at the beginning."""
+function select_previous_menu_item!(
+    state::MenuState,
+    widget::Menu;
+    viewport_height::Integer=1,
+)
+    start = isnothing(state.selected) ? 1 : state.selected
+    candidate = _next_enabled(widget, start, -1)
+    isnothing(candidate) ? (state.selected = nothing) : (state.selected = candidate)
+    _normalize_menu_selection!(state, widget; viewport_height)
+end
+
 function render!(buffer::Buffer, widget::Menu, area::Rect, state::MenuState)
     list_state = _menu_list_state(state)
     render!(buffer, _menu_list(widget), area, list_state)
@@ -758,6 +958,9 @@ function render!(buffer::Buffer, widget::Menu, area::Rect, state::MenuState)
     end
     buffer
 end
+
+render!(buffer::Buffer, widget::Menu, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
 
 function _next_enabled(widget::Menu, start::Int, direction::Int)
     isempty(widget.items) && return nothing
@@ -843,8 +1046,16 @@ function selected_item(widget::Menu, state::MenuState)
     item.disabled ? nothing : item
 end
 
+"""Return the currently selected enabled menu item."""
+selected_menu_item(widget::Menu, state::MenuState) =
+    selected_item(widget, state)
+
 """Return the selected menu item's application message."""
 function activate(widget::Menu, state::MenuState)
     item = selected_item(widget, state)
     isnothing(item) ? nothing : item.message
 end
+
+"""Return the currently selected menu item's application message."""
+selected_menu_message(widget::Menu, state::MenuState) =
+    activate(widget, state)

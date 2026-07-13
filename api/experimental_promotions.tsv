@@ -1,0 +1,5 @@
+# Wicked.Experimental promotion/removal ledger
+# name<TAB>decision<TAB>target<TAB>review_status<TAB>notes
+# decision: promote | qualify | remove
+# review_status: proposed | accepted | completed
+name	decision	target	review_status	notes

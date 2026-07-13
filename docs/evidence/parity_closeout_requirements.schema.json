@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wicked-jl.local/schemas/parity-closeout-requirements.schema.json",
+  "title": "Wicked parity closeout requirements artifact",
+  "type": "object",
+  "required": ["schema_version", "total", "missing", "release_ready", "rows"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "missing": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["family", "survey_family", "parity_status", "follow_up", "required", "observed", "missing", "status", "scope", "scaffold_command"],
+        "additionalProperties": false,
+        "properties": {
+          "family": { "type": "string", "minLength": 1 },
+          "survey_family": { "type": "string", "minLength": 1 },
+          "parity_status": { "type": "string", "enum": ["adapted", "intentional divergence", "not yet implemented"] },
+          "follow_up": { "type": "string", "minLength": 1 },
+          "required": { "type": "integer", "minimum": 1 },
+          "observed": { "type": "integer", "minimum": 0 },
+          "missing": { "type": "integer", "minimum": 0 },
+          "status": { "type": "string", "enum": ["ready", "missing"] },
+          "scope": { "type": "string", "minLength": 1 },
+          "scaffold_command": {
+            "type": "string",
+            "pattern": "^julia --project=\\. scripts/new_parity_evidence\\.jl --family .+ --environment <environment> --candidate <sha>$"
+          }
+        }
+      }
+    }
+  }
+}

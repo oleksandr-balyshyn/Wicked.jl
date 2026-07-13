@@ -1,5 +1,7 @@
 # Overlay Layout
 
+Overlay layout APIs are available through the stable `Wicked.API` facade.
+
 `OverlayManager` owns ordering and lifecycle. `OverlayLayoutRequest` converts each
 record's placement policy into terminal bounds for one viewport.
 

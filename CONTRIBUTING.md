@@ -50,7 +50,32 @@ Include evidence for:
 - Immediate-mode and Toolkit interoperability.
 - Deterministic state-transition tests and visual/semantic snapshots.
 
-Update `docs/COMPONENT_CATALOG.md`, `docs/API_REFERENCE.md`, and the feature parity ledger when the public surface changes.
+Draft a stable promotion packet before promoting any new public widget to
+`Wicked.API`:
+
+```sh
+julia --project=. --startup-file=no scripts/new_stable_promotion_packet.jl \
+  --family Stateful-controls \
+  --widget ComboBox \
+  --source src/AcceptanceWidgets.jl \
+  --candidate <sha> \
+  --decision promote
+```
+
+Completed packet records live in `docs/stable-promotion-packets` and must pass:
+
+```sh
+julia --project=. --startup-file=no scripts/stable_promotion_packet_audit.jl
+julia --project=. --startup-file=no scripts/pilot_evidence_package_audit.jl
+```
+
+Promotion packets must cite the package produced by
+`write_pilot_evidence_package`, the package-level reports produced by
+`write_pilot_evidence_package_reports`, and the
+`scripts/pilot_evidence_package_audit.jl` result for the same candidate.
+
+Update `docs/COMPONENT_CATALOG.md`, `docs/API_REFERENCE.md`, the feature parity
+ledger, and the stable promotion packet when the public surface changes.
 
 ## Performance changes
 

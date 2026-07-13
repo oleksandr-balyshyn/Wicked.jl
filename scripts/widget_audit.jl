@@ -24,6 +24,14 @@ function relative_source(file)
     return startswith(path, ROOT) ? relpath(path, ROOT) : path
 end
 
+normalized_type_name(value) = first(split(string(value), '{'; limit=2))
+
+function canonical_widget_name(value)
+    raw = normalized_type_name(value)
+    startswith(raw, "Wicked.") || return String(last(split(raw, '.')))
+    return String(last(split(raw, '.')))
+end
+
 function widget_inventory()
     records = Dict{String,NamedTuple{(:stateless,:stateful,:sources),Tuple{Bool,Bool,Set{String}}}}()
     for method in methods(Wicked.render!)
@@ -37,7 +45,7 @@ function widget_inventory()
         widget_type in (Any, Wicked.Buffer, Wicked.Frame) && continue
         startswith(string(parentmodule(widget_type)), "Wicked") || continue
 
-        name = string(widget_type)
+        name = canonical_widget_name(widget_type)
         current = get(
             records,
             name,
@@ -54,6 +62,21 @@ function widget_inventory()
     return records
 end
 
+function public_state_for_inventory()
+    factories = Set{String}()
+    for method in methods(Wicked.API.state_for)
+        signature = Base.unwrap_unionall(method.sig)
+        parameters = signature.parameters
+        length(parameters) >= 2 || continue
+        widget_type = parameters[2]
+        (widget_type isa Type || widget_type isa UnionAll) || continue
+        widget_type === Any && continue
+        startswith(string(parentmodule(widget_type)), "Wicked") || continue
+        push!(factories, canonical_widget_name(widget_type))
+    end
+    return factories
+end
+
 function direct_interaction_inventory()
     interactions = Dict{String,Set{String}}()
     for method in methods(Wicked.handle!)
@@ -65,7 +88,8 @@ function direct_interaction_inventory()
         widget_type isa Type || widget_type isa UnionAll || continue
         event_type isa Type || continue
         startswith(string(parentmodule(widget_type)), "Wicked") || continue
-        accepted = get!(interactions, string(widget_type), Set{String}())
+        name = canonical_widget_name(widget_type)
+        accepted = get!(interactions, name, Set{String}())
         Wicked.KeyEvent <: event_type && push!(accepted, "keyboard")
         Wicked.MouseEvent <: event_type && push!(accepted, "pointer")
     end
@@ -88,8 +112,12 @@ function read_coverage()
         row = Dict(zip(header, values))
         name = get(row, "widget_type", "")
         isempty(name) && error("$(relpath(COVERAGE_PATH, ROOT)):$line_number has no widget_type")
-        haskey(rows, name) && error("duplicate widget coverage row: $name")
-        rows[name] = row
+        canonical = canonical_widget_name(name)
+        if haskey(rows, canonical)
+            continue
+        end
+        row["widget_type"] = canonical
+        rows[canonical] = row
     end
     return header, rows
 end
@@ -104,9 +132,9 @@ function write_coverage!()
             record = inventory[name]
             previous = get(existing, name, Dict{String,String}())
             values = String[
-                name,
-                string(record.stateless),
-                string(record.stateful),
+            name,
+            string(record.stateless),
+            string(record.stateful),
                 join(sort!(collect(record.sources)), ','),
             ]
             append!(values, (get(previous, column, "missing") for column in COVERAGE_COLUMNS))
@@ -130,6 +158,7 @@ end
 
 function audit(; require_complete::Bool=false)
     inventory = widget_inventory()
+    state_factories = public_state_for_inventory()
     interactions = direct_interaction_inventory()
     header, rows = read_coverage()
     failures = String[]
@@ -180,6 +209,14 @@ function audit(; require_complete::Bool=false)
             )
         end
         if record.stateful
+            record.stateless || push!(
+                failures,
+                "$name has stateful rendering but no default-state render path",
+            )
+            normalized_type_name(name) in state_factories || push!(
+                failures,
+                "$name has stateful rendering but no public state_for method",
+            )
             value = get(row, "state_transition", "missing")
             value == "missing" && push!(
                 failures,

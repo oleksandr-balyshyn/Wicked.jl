@@ -4,6 +4,11 @@
 slot. It supports user selection, light and dark preferences, high-contrast themes,
 live replacement, derived role maps, and change subscriptions.
 
+The theme registry, theme descriptors, theme variants, change events,
+style-engine binding, derivation helpers, role validation helpers, stylesheet
+parser, selector cascade, and role-style resolver helpers are part of
+`Wicked.API`.
+
 ## Register themes
 
 ```julia

@@ -1,4 +1,3 @@
-import Wicked
 using Wicked.API
 
 pages = ContentPage{Symbol}[
@@ -34,8 +33,15 @@ snapshot = tabbed_content_snapshot!(tabs)
 
 strip = render_tab_strip_control(snapshot; width=40)
 semantics = tabbed_content_semantic_tree(snapshot; id="example-tabs")
+dispatcher = SemanticDispatcher()
+register_tabbed_content_view_semantic_handlers!(
+    dispatcher,
+    "example-tabs",
+    TabbedContentView(),
+    tabs,
+)
 
-@assert strip isa Wicked.RichContent.RichLine
+@assert strip isa RichLine
 @assert semantics.root.id == "example-tabs"
 @assert length(semantics.root.children) == 2
 

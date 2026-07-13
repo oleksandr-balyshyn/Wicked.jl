@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wicked-jl.local/schemas/stable-widget-surface-release.schema.json",
+  "title": "Wicked stable widget surface release artifact",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "release_ready",
+    "coverage_release_ready",
+    "coverage_complete",
+    "git_available",
+    "git_dirty",
+    "git_commit",
+    "stability_complete",
+    "stability_blocked",
+    "family_closeout_complete",
+    "family_closeout_blocked"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "coverage_release_ready": {
+      "type": "boolean"
+    },
+    "coverage_complete": {
+      "type": "boolean"
+    },
+    "git_available": {
+      "type": "boolean"
+    },
+    "git_dirty": {
+      "type": "boolean"
+    },
+    "git_commit": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stability_complete": {
+      "type": "boolean"
+    },
+    "stability_blocked": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "family_closeout_complete": {
+      "type": "boolean"
+    },
+    "family_closeout_blocked": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

@@ -5,6 +5,11 @@ over any reliable binary channel. It is intentionally independent of HTTP,
 WebSocket, or a particular browser terminal so applications can choose their own
 networking, authentication, origin, TLS, and deployment policy.
 
+The protocol messages, codec, decoder, backend, session, limits, and WebSocket
+extension hooks are part of `Wicked.API`. Hosting concerns such as HTTP routing,
+authentication, authorization, TLS, origin checks, and deployment policy remain
+outside the core package.
+
 ## Architecture
 
 `RemoteBackend` implements the ordinary `AbstractBackend` contract. Its sender is a
@@ -32,6 +37,51 @@ rate limits, and close sessions whose protocol decoder rejects input.
 ## Protocol lifecycle
 
 The current protocol version is `REMOTE_PROTOCOL_VERSION == 1`.
+
+Protocol-v1 envelope compatibility is tracked in
+`api/remote_protocol_fixtures.tsv` and audited with:
+
+```sh
+julia --project=. --startup-file=no scripts/remote_protocol_fixture_audit.jl
+```
+
+The fixture ledger records required message families, packet kinds, flags,
+sequence numbers, and minimum payload sizes for representative hello, frame,
+event, and acknowledgement packets. The audit encodes each fixture, checks the
+remote packet magic, protocol version, kind, flags, sequence, payload length,
+and decoded message type, and rejects missing fixture families.
+
+Release candidates should archive the exact protocol fixture ledger and audit
+output from the immutable candidate commit:
+
+```sh
+set -euo pipefail
+mkdir -p release-evidence/remote-protocol
+date -u +%Y-%m-%dT%H:%M:%SZ > release-evidence/remote-protocol/recorded-at.txt
+git rev-parse HEAD > release-evidence/remote-protocol/commit.txt
+julia --version > release-evidence/remote-protocol/julia-version.txt
+cp api/remote_protocol_fixtures.tsv release-evidence/remote-protocol/remote_protocol_fixtures.tsv
+sha256sum release-evidence/remote-protocol/remote_protocol_fixtures.tsv \
+  > release-evidence/remote-protocol/remote_protocol_fixtures.sha256
+set +e
+julia --project=. --startup-file=no scripts/remote_protocol_fixture_audit.jl \
+  > release-evidence/remote-protocol/remote_protocol_fixture_audit.stdout.txt \
+  2> release-evidence/remote-protocol/remote_protocol_fixture_audit.stderr.txt
+status=$?
+printf 'exit_status=%s\n' "$status" \
+  > release-evidence/remote-protocol/remote_protocol_fixture_audit.status
+set -e
+test "$status" -eq 0
+find release-evidence/remote-protocol -maxdepth 1 -type f -printf '%f\n' \
+  | sort > release-evidence/remote-protocol/manifest.txt
+```
+
+Reviewers should confirm that `commit.txt` matches the candidate commit,
+`remote_protocol_fixture_audit.status` contains `exit_status=0`, stderr has no
+failure diagnostics, and the manifest lists the fixture ledger, digest, command
+output, and environment metadata.
+Use `docs/REMOTE_DELIVERY_EVIDENCE_TEMPLATE.md` for the browser/WebSocket
+deployment run that closes the remote-delivery parity release gate.
 
 1. The server sends `RemoteHello` with viewport size and negotiated capabilities.
 2. The first `RemoteFrame` is a complete frame.
@@ -102,7 +152,6 @@ Installing and loading HTTP.jl activates Wicked's optional WebSocket adapter:
 ```julia
 using HTTP
 using Wicked.API
-using Wicked.Experimental
 
 HTTP.WebSockets.listen!("127.0.0.1", 8080; maxframesize=16 * 1024 * 1024) do websocket
     session = websocket_session(websocket; size=Size(24, 80))
@@ -130,3 +179,5 @@ renders structured cells to Canvas, maintains an accessibility text mirror, send
 typed keyboard, paste, mouse, focus, and resize events, acknowledges frames, and
 closes on sequence gaps or malformed packets. Serve the directory as static files
 and route `/wicked` to the authenticated WebSocket handler.
+The asset-local `assets/remote/README.md` records the browser/server contract and
+deployment checklist for teams packaging Wicked behind their own web stack.

@@ -1,7 +1,6 @@
 #!/usr/bin/env julia
 
 using Wicked.API
-using Wicked.Experimental
 using Dates
 using Printf
 using TOML

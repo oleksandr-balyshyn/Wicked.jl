@@ -46,13 +46,14 @@ This document tracks the explicit research baseline used to drive Wicked.jl impl
 | Family | Ratatui baseline to mirror | Textual baseline to mirror | TamboUI baseline to mirror | Lanterna baseline to mirror | Wicked implementation direction | Parity status | Follow-up |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Core rendering | diff + frame + buffer ownership | app composition boundaries | component adapters + rendering integration | screen and terminal abstraction | keep pure-Julia diffed buffer core; adopt explicit backend/session boundaries | matched | Validate terminal redraw and fallback paths in real-terminal matrix. |
-| Layout | rich constraints and flex-like split behavior | reactive sizing hooks | rows/columns/container abstractions | deterministic viewport handling | support mixed fixed+flex+ratio+content constraints and deterministic clip behavior | adapted | Keep parity note for constraint edge cases and clipping policy. |
-| Input/event | terminal event stream and key/mouse parsing | routed events and focus scopes | toolkit actions and interaction contracts | conservative key/mouse handling | unify into typed event envelope with named routing and cancellation-safe dispatch | adapted | Add end-to-end event-routing tests for async and cancellation behavior. |
+| Layout | rich constraints and flex-like split behavior | reactive sizing hooks | rows/columns/container abstractions | deterministic viewport handling | support mixed fixed+flex+ratio+content constraints and deterministic clip behavior | matched | Release checklist: Layout parity evidence covers constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior. |
+| Input/event | terminal event stream and key/mouse parsing | routed events and focus scopes | toolkit actions and interaction contracts | conservative key/mouse handling | unify into typed event envelope with named routing and cancellation-safe dispatch | matched | Release checklist: Input/event parity evidence covers routed events, async delivery, cancellation behavior, focus restoration, and terminal lifecycle recovery. |
 | Stateful controls | focused state in app-owned models | focusable/replayable events and automation | immediate + toolkit state bridge | conservative input controls | require explicit state for all interactive widgets and toolkit state interoperability | matched | Keep widget tests current as API and interaction cases evolve. |
-| Data displays | list/table/tree/stateful scroll models | screen components and query patterns | virtualized collections and lazy rendering | grid-oriented table abstractions | provide immediate and toolkit variants sharing measurement and interaction logic | adapted | Prioritize virtual data stress cases and screen-reader semantic state coverage. |
-| Runtime | managed app loop and error handling patterns | worker model and cancellation semantics | service-style tasks | terminal-safe session lifetime | implement structured task ownership, queue bounds, worker cancellation, deterministic redrawing | adapted | Expand failure-injection around queue replacement and cancellation races. |
+| Data displays | list/table/tree/stateful scroll models | screen components and query patterns | virtualized collections and lazy rendering | grid-oriented table abstractions | provide immediate and toolkit variants sharing measurement and interaction logic | matched | Release checklist: Data-display parity evidence covers virtual list/table/tree stress cases, stale data, loading/error slots, and screen-reader semantic state. |
+| Runtime | managed app loop and error handling patterns | worker model and cancellation semantics | service-style tasks | terminal-safe session lifetime | implement structured task ownership, queue bounds, worker cancellation, deterministic redrawing | matched | Release checklist: Runtime parity evidence covers queue replacement, task cancellation races, redraw determinism, resource cleanup, and subscription shutdown. |
 | Developer experience | tests and examples on built-in widgets | automation hooks + diagnostics | runner/declarative parity | explicit abstractions and compatibility story | invest in pilot APIs, semantic queries, snapshots, and migration guides | matched | Keep migration notes for API evolution and plugin lifecycles. |
-| Styling/theming | palette/state-aware rendering | CSS-like styles and classes | theme roles | conservative fallback behavior | keep stable style/role system with tested downgrade and diagnostics | adapted | Expand specificity + cascade test matrix and failure diagnostics. |
+| Styling/theming | palette/state-aware rendering | CSS-like styles and classes | theme roles | conservative fallback behavior | keep stable style/role system with tested downgrade and diagnostics | matched | Release checklist: Styling/theming parity evidence covers selector specificity, cascade order, role downgrade behavior, diagnostics, and monochrome fallback. |
+| Remote delivery | backend abstraction suitable for external presentation | remote/application surfaces and worker-friendly event transport | runner-compatible remote workflows | conservative protocol boundaries | keep a stable binary protocol and session API in core; provide browser/server delivery through the HTTP.jl extension | matched | Release checklist: Remote-delivery parity evidence covers browser deployment, WebSocket hardening, protocol versioning, security policy, and real-client compatibility. |
 
 ## Mandatory evidence workflow (for every widget family)
 
@@ -75,7 +76,7 @@ For each family before marking feature-complete, implement the following in this
 
 ## Library coverage backlog target (next objective cycle)
 
-Phase mapping is tied to the existing PLAN release phases:
+Phase mapping is tied to the release phases in `docs/PARITY_EXECUTION_PLAN.md`:
 
 - Phase 3: align foundation layout/text/navigation primitives from Ratatui and TamboUI.
 - Phase 5: prioritize selection/input parity where Ratatui/Textual/TamboUI differ.
@@ -83,5 +84,37 @@ Phase mapping is tied to the existing PLAN release phases:
 - Phase 7: complete visualization and diagnostics parity using Ratatui and TamboUI surfaces plus Textual automation expectations.
 - Phase 8: keep optional advanced capabilities behind explicit feature flags/extensions as planned.
 
-Any gap marked as `adapted`, `intentional divergence`, or `not yet implemented` must
-include a follow-up issue and a migration note in the parity ledger.
+Any gap marked as `adapted`, `intentional divergence`, or `not yet implemented`
+must include either a follow-up issue or an exact release-checklist checkbox
+reference, plus a migration note in the parity ledger. The generated matrix
+schema audit enforces that those statuses cite a release-checklist item or issue
+follow-up.
+Families marked `matched`, such as core rendering, still need release-candidate
+evidence, but they do not require adapted-family migration evidence records.
+
+Render this matrix for CI artifacts, release dashboards, or implementation
+planning with:
+
+```sh
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --format markdown
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --summary --format markdown
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --format markdown --columns family,status,follow_up
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --blocking-only --format markdown --columns family,status,follow_up
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --blocking-only --format json
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --source docs/REFERENCE_PARITY_SURVEY.md --format tsv --columns family,status
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --format json
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --release-status
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --release-blockers
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --release-status-json
+julia --project=. --startup-file=no scripts/render_reference_parity_matrix.jl --release-status --require-release-ready
+julia --project=. --startup-file=no scripts/reference_parity_matrix_schema_audit.jl
+julia --project=. --startup-file=no scripts/reference_parity_matrix_schema_audit.jl --release-check
+```
+
+Release readiness is intentionally stricter than matrix validity. Rows marked
+`adapted`, `intentional divergence`, or `not yet implemented` remain useful for
+planning and implementation review, but release status reports them as blockers
+until the family has final parity closeout evidence and the matrix row can be
+changed to `matched`. Release-status JSON includes `blocking_records` with each
+blocking family, status, and follow-up so CI artifacts can point directly at the
+remaining closeout work.

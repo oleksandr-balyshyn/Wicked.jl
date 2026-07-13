@@ -25,7 +25,7 @@ function write_baseline!()
     baselines = (
         (BASELINE, "Wicked.jl reviewed root compatibility API", public_api_entries()),
         (STABLE_BASELINE, "Wicked.API candidate stable API", public_api_entries(Wicked.API)),
-        (EXPERIMENTAL_BASELINE, "Wicked.Experimental reviewed pre-1.0 API", public_api_entries(Wicked.Experimental)),
+        (EXPERIMENTAL_BASELINE, "Wicked.Experimental compatibility namespace", public_api_entries(Wicked.Experimental)),
     )
     mkpath(dirname(BASELINE))
     for (path, title, entries) in baselines
@@ -62,7 +62,7 @@ function audit()
     surfaces = (
         ("root", public_api_entries(), read_baseline(BASELINE)),
         ("stable", public_api_entries(Wicked.API), read_baseline(STABLE_BASELINE)),
-        ("experimental", public_api_entries(Wicked.Experimental), read_baseline(EXPERIMENTAL_BASELINE)),
+        ("compatibility", public_api_entries(Wicked.Experimental), read_baseline(EXPERIMENTAL_BASELINE)),
     )
     for (surface, current, expected) in surfaces
         current == expected && continue
@@ -73,12 +73,12 @@ function audit()
     end
 
     stable_names = Set(Base.names(Wicked.API; all=false, imported=false))
-    experimental_names = Set(Base.names(Wicked.Experimental; all=false, imported=false))
+    compatibility_names = Set(Base.names(Wicked.Experimental; all=false, imported=false))
     append!(
         failures,
         (
-            "facade export is both stable and experimental: $name"
-            for name in sort!(collect(intersect(stable_names, experimental_names)); by=string)
+            "facade export is both stable and compatibility-only: $name"
+            for name in sort!(collect(intersect(stable_names, compatibility_names)); by=string)
         ),
     )
 
@@ -110,7 +110,7 @@ function audit()
 
     println("API audit: $(length(first(surfaces)[2])) reviewed root exports")
     println("API audit: $(length(surfaces[2][2])) candidate stable exports")
-    println("API audit: $(length(surfaces[3][2])) reviewed experimental exports")
+    println("API audit: $(length(surfaces[3][2])) experimental compatibility exports")
     println("API audit: $root_docs facade binding docs, $value_docs canonical value/owner docs")
     println("API audit: $(length(ambiguities)) method ambiguities")
     return failures

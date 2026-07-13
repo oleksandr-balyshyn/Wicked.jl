@@ -72,6 +72,10 @@ command = ProcessCommand(
 
 Both standard output and standard error are bounded. `check=true` converts a nonzero exit into `ProcessExitError`; exceeding the bound produces `ProcessOutputLimitError`. Cancellation terminates the managed process and suppresses stale output.
 
+Use `execute_process(ProcessCommand(...))` when the same bounded capture behavior
+is needed outside a running application. This helper is stable for command-line
+tooling, setup probes, and tests that should not enter terminal modes.
+
 ## Batch independent effects
 
 ```julia
@@ -106,7 +110,7 @@ Subscriptions must describe current state, not mutate it. Return a message value
 
 ## Test time deterministically
 
-`RuntimePilot` uses `VirtualClock` for delays and interval subscriptions:
+`RuntimePilot` uses the stable `VirtualClock` scheduler for delays and interval subscriptions:
 
 ```julia
 pilot = RuntimePilot(MyApp(); height=5, width=40)
@@ -118,6 +122,17 @@ advance_time!(pilot, 5.0)
 ```
 
 No wall-clock sleep is required. Pilot execution also bounds processed messages so a self-posting command loop fails clearly instead of hanging the test process.
+
+## Drive low-level runtime transitions
+
+Most applications should express terminal suspension as `SuspendCommand` and let
+the runtime call `suspend!` and `resume!`. Embedders and deterministic tests may
+call these helpers directly on an `ApplicationRuntime` when they own the runtime
+lifecycle.
+
+Use `poll_terminal_resize!` for one explicit resize check when the background
+watcher is disabled or when an external loop owns timing. It posts a `ResizeEvent`
+only when the backend size changes.
 
 ## Choose the correct boundary
 

@@ -1,6 +1,6 @@
 # Terminal Recovery
 
-Wicked restores terminal state through `with_terminal` and `run` during normal return, application exit, exceptions, capturable `InterruptException`s, and partial initialization failures. A process that receives an uncatchable signal, loses its controlling terminal, or is terminated by the operating system cannot execute Julia cleanup code.
+Wicked restores terminal state through `with_terminal` and `run` during normal return, application exit, exceptions, capturable `InterruptException`s, and partial initialization failures. A process that receives an uncatchable signal, loses its controlling terminal, or is terminated by the Linux process supervisor cannot execute Julia cleanup code.
 
 Julia scripts launched as `julia app.jl` exit directly on `SIGINT` by default.
 Call `Base.exit_on_sigint(false)` before entering Wicked, or launch through Julia's
@@ -41,6 +41,9 @@ reset_terminal!(stderr; force=true)
 
 ## Shell fallback
 
-If Julia cannot run, use the shell's terminal reset facilities. On Unix-like systems, `stty sane` restores common line settings and `reset` performs a broader terminal reinitialization. Terminal emulators also provide a reset action in their menus or command palettes.
+If Julia cannot run, use the Linux shell's terminal reset facilities. `stty sane`
+restores common line settings and `reset` performs a broader terminal
+reinitialization. Terminal emulators also provide a reset action in their menus
+or command palettes.
 
 No in-process library can recover from `SIGKILL`, power loss, terminal emulator failure, or forced process destruction before cleanup runs. Keep `with_terminal` or `run` as the outermost interactive lifecycle boundary and reserve `reset_terminal!` for manual recovery.

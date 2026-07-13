@@ -8,7 +8,6 @@ Render the tree before requesting semantics so retained state and layout bounds 
 
 ```julia
 using Wicked.API
-using Wicked.Experimental
 
 root = Element(
     Button("Save", :save);
@@ -18,7 +17,7 @@ root = Element(
 )
 
 pilot = ToolkitPilot(root; height=3, width=16)
-tree = toolkit_semantic_tree(pilot.tree; label="Editor")
+tree = pilot_semantic_tree(pilot; label="Editor")
 
 save = semantic_node(tree, "save")
 @assert save.role == ButtonRole
@@ -47,7 +46,7 @@ Element(
 
 The `semantics` value can also be a callback accepting `(widget, state, element)` and returning a `SemanticDescriptor`.
 
-External widget packages can implement open dispatch:
+External widget packages can implement open dispatch or register descriptor factories with `RoleRegistry`:
 
 ```julia
 Wicked.widget_semantic_descriptor(widget::MyWidget, state::MyWidgetState) =
@@ -58,7 +57,7 @@ Wicked.widget_semantic_descriptor(widget::MyWidget, state::MyWidgetState) =
     )
 ```
 
-Use `widget_semantic_children` when one rendered widget represents multiple logical controls.
+Use `widget_semantic_children` when one rendered widget represents multiple logical controls. Use `SemanticBuilder` when constructing a semantic tree incrementally from custom immediate-mode rendering code.
 
 ## Validate invariants
 
@@ -80,6 +79,8 @@ key!(pilot, :enter)
 
 @assert pilot.state.checked
 @assert_plain_snapshot(pilot, "[x] Enabled")
+@assert occursin("widget:CheckboxRole", pilot_semantic_snapshot(pilot))
+assert_semantic_snapshot(pilot, pilot_semantic_snapshot(pilot))
 ```
 
 `WidgetPilot` owns a `TestBackend`, terminal, state value, and virtual clock. Supply `state=` for custom state or let built-in widgets create it automatically.
@@ -96,7 +97,7 @@ advance_time!(pilot, 1.0)
 @assert occursin("Loaded", plain_snapshot(pilot))
 ```
 
-`RuntimePilot` drives commands, delays, subscriptions, redraws, processes through an injected executor, and application exit without entering terminal modes.
+`RuntimePilot` drives commands, delays, subscriptions, redraws, processes through an injected executor, and application exit without entering terminal modes. `VirtualClock`, `ScheduledToken`, and scheduling helpers are stable for deterministic tests.
 
 ## Query declarative trees
 
@@ -112,6 +113,17 @@ match = query_one(
 
 Queries can match ID, widget type, class, rendered text, state, and focus. Prefer stable IDs and semantic state over coordinates or full-screen text.
 
+Use `ToolkitPilot` queries for interaction tests and semantic queries for
+accessibility contracts. A typical test drives focus or input through
+`ToolkitPilot`, then asserts the generated semantic tree with
+`pilot_semantic_tree`, `pilot_semantic_snapshot`, `semantic_node`, and
+`validate_semantics`. Use `toolkit_semantic_tree` directly only when testing a
+`ToolkitTree` without a pilot. This keeps visual snapshots, interactive state,
+and accessibility behavior aligned.
+
+`assert_semantic_snapshot` can compare a pilot against either a fixed snapshot
+string or an expected `SemanticTree`.
+
 ## Snapshot the right layer
 
 | Assertion | Use |
@@ -121,7 +133,7 @@ Queries can match ID, widget type, class, rendered text, state, and focus. Prefe
 | `assert_ansi_snapshot` | Terminal protocol/style output |
 | `structured_snapshot` | Machine-readable cell metadata |
 | `svg_snapshot` | Review artifacts |
-| `semantic_snapshot` | Roles, labels, and state |
+| `semantic_snapshot` / `assert_semantic_snapshot` | Roles, labels, and state |
 
 Avoid using a full visual snapshot as the only interaction assertion. A selected row can render correctly while exposing the wrong semantic state or action.
 
@@ -136,13 +148,34 @@ register_semantic_handler!(dispatcher, "save") do request
 end
 
 pilot = SemanticPilot(tree; dispatcher)
+save = query_one_semantic(pilot; id="save")
 result = perform_semantic_action!(pilot, "save", ActivateSemanticAction)
 
+@assert save.role == ButtonRole
 @assert result.handled
 @assert result.value == :saved
 ```
 
 Hidden, disabled, missing, or unsupported actions are rejected before invoking the handler.
+
+Compound widgets can provide helper registration functions for their generated
+child nodes. For example, calendar day cells expose selectable and activatable
+semantic nodes:
+
+```julia
+dispatcher = SemanticDispatcher()
+register_calendar_semantic_handlers!(dispatcher, "calendar", calendar, calendar_state)
+pilot = SemanticPilot(tree; dispatcher)
+
+result = perform_semantic_action!(
+    pilot,
+    "calendar/week-3/day-15",
+    ActivateSemanticAction,
+)
+
+@assert result.handled
+@assert calendar_state.activated == Date(2026, 7, 15)
+```
 
 ## Component acceptance checklist
 
@@ -153,6 +186,8 @@ For every interactive component, test:
 - Disabled, hidden, selected, checked, expanded, invalid, busy, and pending state.
 - Resize and zero-sized rendering.
 - Light, dark, and high-contrast theme behavior.
+- Stable semantic node IDs for downstream selectors and release snapshots.
 - Semantic role, label, bounds, state, and actions.
+- Registered semantic action handlers for every actionable stable widget.
 - Mount/unmount and subscription disposal.
 - Deterministic visual and semantic snapshots.

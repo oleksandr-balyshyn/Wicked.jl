@@ -68,6 +68,24 @@
         set_text!(state, "left\rright"; record=false)
         @test editing_text(state.editing) == "left right"
         @test state.horizontal_offset == 0
+
+        input = Input(maximum_length=5)
+        input_state = InputState("abc")
+        @test InputState === TextInputState
+        @test handle!(input_state, input, PasteEvent("wxyz"))
+        @test editing_text(input_state.editing) == "abcwx"
+
+        textbox = TextBox(maximum_length=5)
+        textbox_state = TextBoxState("abc")
+        @test TextBoxState === TextInputState
+        @test handle!(textbox_state, textbox, PasteEvent("wxyz"))
+        @test editing_text(textbox_state.editing) == "abcwx"
+
+        field = TextField(maximum_length=5)
+        field_state = TextFieldState("abc")
+        @test TextFieldState === TextInputState
+        @test handle!(field_state, field, PasteEvent("wxyz"))
+        @test editing_text(field_state.editing) == "abcwx"
     end
 
     @testset "wide cursor placement and scrolling" begin
@@ -96,11 +114,36 @@
         render!(placeholder, TextInput(placeholder="name"), placeholder.area, TextInputState())
         @test [placeholder[1, index].grapheme for index in 1:4] == ["n", "a", "m", "e"]
 
+        default_input = Buffer(1, 8)
+        @test render!(default_input, TextInput(placeholder="name"), default_input.area) === default_input
+        @test [default_input[1, index].grapheme for index in 1:4] == ["n", "a", "m", "e"]
+
+        default_compat_input = Buffer(1, 8)
+        @test render!(default_compat_input, Input(placeholder="name"), default_compat_input.area) === default_compat_input
+        @test [default_compat_input[1, index].grapheme for index in 1:4] == ["n", "a", "m", "e"]
+
+        default_textbox = Buffer(1, 8)
+        @test render!(default_textbox, TextBox(placeholder="name"), default_textbox.area) === default_textbox
+        @test [default_textbox[1, index].grapheme for index in 1:4] == ["n", "a", "m", "e"]
+
+        default_area = Buffer(2, 8)
+        @test render!(default_area, TextArea(show_line_numbers=true), default_area.area) === default_area
+        @test default_area[1, 1].grapheme == "1"
+
         password = Buffer(1, 4)
         render!(password, PasswordInput(), password.area, TextInputState("ab"))
         @test password[1, 1].grapheme == "•"
         @test password[1, 2].grapheme == "•"
+        @test state_for(PasswordInput()) isa TextInputState
+        password_field = Buffer(1, 4)
+        render!(password_field, PasswordField(), password_field.area, PasswordFieldState("ab"))
+        @test password_field[1, 1].grapheme == "•"
+        @test password_field[1, 2].grapheme == "•"
+        @test PasswordFieldState === TextInputState
+        @test state_for(PasswordField()) isa TextInputState
         @test_throws ArgumentError TextInput(mask="界")
+        @test_throws ArgumentError PasswordInput(mask="界")
+        @test_throws ArgumentError PasswordField(mask="界")
         @test_throws ArgumentError TextInput(maximum_length=-1)
     end
 

@@ -1,6 +1,6 @@
 # Application Services
 
-`ApplicationServices` groups cross-cutting facilities behind one runtime pulse. It
+`ApplicationServices` is part of `Wicked.API` and groups cross-cutting facilities behind one runtime pulse. It
 does not replace Wicked's application model or Toolkit tree; it removes repetitive
 coordination code for overlays, animations, actions, live reload, progress, and
 optional event tracing.

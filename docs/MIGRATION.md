@@ -4,6 +4,23 @@ Wicked combines an immediate-mode rendering core with optional retained and
 declarative layers. Choose the mapping that matches the source framework instead of
 forcing every application into one architecture.
 
+Use this page for migration from earlier Wicked root imports and for the shortest
+architecture decision path. Use [Migrating from Other TUI Frameworks](FRAMEWORK_MIGRATION.md)
+for detailed Ratatui, Textual, TamboUI, and Lanterna porting guidance, including
+ownership differences and step-by-step migration sequences. Use the
+[Porting Cookbook](PORTING_COOKBOOK.md) for short task-to-example mappings. Use the
+[Component Catalog](COMPONENT_CATALOG.md#public-widget-name-map) for the stable
+`Wicked.API` widget names to choose when porting examples or application code.
+Use the
+[framework migration quickstart paths](FRAMEWORK_MIGRATION.md#migration-quickstart-paths)
+when a source-framework feature needs a direct route to the matching stable
+Wicked API guide.
+
+The feature-parity boundary remains evidence-driven. A component listed as
+implemented or mapped here still requires the validation campaign described in
+[Feature Parity Ledger](FEATURE_PARITY.md) and [Validation Strategy](VALIDATION_STRATEGY.md)
+before it can be described as production-verified.
+
 ## Import migration for pre-1.0 applications
 
 The broad root export surface has been replaced by two explicit facades:
@@ -12,14 +29,9 @@ The broad root export surface has been replaced by two explicit facades:
 using Wicked.API
 ```
 
-Use `Wicked.API` for candidate stable application, widget, backend, runtime, toolkit,
-form, theme, reactive, and testing contracts. Features still under compatibility
-review require an explicit experimental import:
-
-```julia
-using Wicked.API
-using Wicked.Experimental
-```
+Use `Wicked.API` for candidate stable application, widget, backend, runtime,
+toolkit, form, theme, reactive, and testing contracts. The current reviewed
+baseline has no application-facing experimental bindings.
 
 All historical bindings remain accessible as qualified values such as
 `Wicked.RemoteBackend` during the pre-`1.0` migration period. Root now exports only
@@ -27,9 +39,8 @@ All historical bindings remain accessible as qualified values such as
 protocol enum, diagnostic record, and integration helper into the caller.
 
 Replace `using Wicked` with `using Wicked.API` first. Add
-`using Wicked.Experimental` only for unresolved names, then prefer their owning
-qualified module where practical. Experimental names may still change or disappear
-before `1.0`.
+qualified owning-module imports only for subsystem internals that are
+intentionally outside the facade.
 
 ## From Ratatui
 
@@ -144,3 +155,8 @@ need.
 7. Recreate accessibility semantics and semantic action routing.
 8. Port test scenarios to test backends, pilots, traces, and snapshots.
 9. Measure rendering and virtualization before optimizing application code.
+
+For ports from another framework, finish by recording the applicable reference
+mapping in [Feature Parity Ledger](FEATURE_PARITY.md), checking the family in
+[Parity Execution Plan](PARITY_EXECUTION_PLAN.md), and attaching release-candidate
+evidence with [Parity Evidence Template](PARITY_EVIDENCE_TEMPLATE.md).

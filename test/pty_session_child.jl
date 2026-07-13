@@ -1,5 +1,4 @@
 using Wicked.API
-using Wicked.Experimental
 
 function main()
 length(ARGS) == 1 || error("usage: pty_session_child.jl <normal|error|interrupt|signal>")

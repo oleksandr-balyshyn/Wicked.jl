@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wicked-jl.local/schemas/reference-parity-matrix.schema.json",
+  "title": "Wicked reference parity matrix artifact",
+  "type": "object",
+  "required": ["schema_version", "summary", "rows"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "by_status"],
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_status": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "family",
+          "ratatui",
+          "textual",
+          "tamboui",
+          "lanterna",
+          "wicked",
+          "status",
+          "follow_up"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "family": { "type": "string", "minLength": 1 },
+          "ratatui": { "type": "string", "minLength": 1 },
+          "textual": { "type": "string", "minLength": 1 },
+          "tamboui": { "type": "string", "minLength": 1 },
+          "lanterna": { "type": "string", "minLength": 1 },
+          "wicked": { "type": "string", "minLength": 1 },
+          "status": {
+            "type": "string",
+            "enum": [
+              "matched",
+              "adapted",
+              "intentional divergence",
+              "not yet implemented"
+            ]
+          },
+          "follow_up": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

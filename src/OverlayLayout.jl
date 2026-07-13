@@ -126,12 +126,10 @@ function _anchored_overlay(
     else
         anchor.column
     end
-    return Rect(
-        row + row_offset,
-        column + column_offset,
-        size.height,
-        size.width,
-    )
+    row += row_offset
+    column += column_offset
+    (row < 1 || column < 1) && return nothing
+    return Rect(row, column, size.height, size.width)
 end
 
 function _overlay_fits(bounds::Rect, available::Rect)
@@ -141,10 +139,14 @@ function _overlay_fits(bounds::Rect, available::Rect)
            bounds.column + bounds.width <= available.column + available.width
 end
 
+_overlay_fits(::Nothing, ::Rect) = false
+
 function _visible_overlay_area(bounds::Rect, available::Rect)
     visible = intersection(bounds, available)
     return visible.height * visible.width
 end
+
+_visible_overlay_area(::Nothing, ::Rect) = 0
 
 function _clamp_overlay(bounds::Rect, available::Rect)
     row = clamp(
@@ -159,6 +161,8 @@ function _clamp_overlay(bounds::Rect, available::Rect)
     )
     return Rect(row, column, bounds.height, bounds.width)
 end
+
+_clamp_overlay(::Nothing, available::Rect) = Rect(available.row, available.column, 0, 0)
 
 function layout_overlay(
     request::OverlayLayoutRequest,
@@ -180,7 +184,7 @@ function layout_overlay(
     end
     anchor = request.anchor
     anchor === nothing && throw(ArgumentError("anchored overlay layout requires an anchor"))
-    candidates = Tuple{AnchorDirection,Rect}[
+    candidates = Tuple{AnchorDirection,Union{Nothing,Rect}}[
         (
             direction,
             _anchored_overlay(
@@ -239,3 +243,6 @@ function layout_overlays(
     end
     return results
 end
+
+layout_overlays(request_for, manager::OverlayManager, viewport::Rect) =
+    layout_overlays(manager, viewport, request_for)

@@ -1,4 +1,25 @@
 
+using Unicode
+
+using .Accessibility: ActivateSemanticAction,
+                      DecrementSemanticAction,
+                      DismissSemanticAction,
+                      FocusSemanticAction,
+                      GroupRole,
+                      IncrementSemanticAction,
+                      SelectSemanticAction,
+                      SemanticAction,
+                      SemanticActionResult,
+                      SemanticDispatcher,
+                      SemanticNode,
+                      SemanticRect,
+                      SemanticState,
+                      SemanticTree,
+                      TabListRole,
+                      TabRole,
+                      register_semantic_handler!
+using .Core: DEFAULT_WIDTH_POLICY, grapheme_width, text_width
+
 function _clip_tab_control_text(value::AbstractString, width::Int)
     width <= 0 && return ""
     output = IOBuffer()
@@ -68,7 +89,7 @@ function tabbed_content_semantic_tree(
     tab_nodes = SemanticNode[]
     for (index, item) in enumerate(items)
         actions = item.disabled ? SemanticAction[] :
-            SemanticAction[SelectSemanticAction, ActivateSemanticAction]
+            SemanticAction[FocusSemanticAction, SelectSemanticAction, ActivateSemanticAction]
         item.closable && !item.disabled && push!(actions, DismissSemanticAction)
         push!(
             tab_nodes,
@@ -92,6 +113,12 @@ function tabbed_content_semantic_tree(
         TabListRole;
         label,
         children=tab_nodes,
+        actions=SemanticAction[
+            FocusSemanticAction,
+            IncrementSemanticAction,
+            DecrementSemanticAction,
+            ActivateSemanticAction,
+        ],
     )
     active = findfirst(item -> item.active, items)
     panel_label = active === nothing ? "" : items[active].title
@@ -111,9 +138,81 @@ function tabbed_content_semantic_tree(
             label,
             bounds,
             children=SemanticNode[tab_list, panel],
+            actions=SemanticAction[
+                FocusSemanticAction,
+                IncrementSemanticAction,
+                DecrementSemanticAction,
+                ActivateSemanticAction,
+            ],
             metadata=Dict(:placement => placement, :activation => activation),
         ),
     )
+end
+
+"""Register semantic action handlers for a retained `TabbedContentView` model."""
+function register_tabbed_content_view_semantic_handlers!(
+    dispatcher::SemanticDispatcher,
+    id,
+    view::TabbedContentView,
+    tabs::TabbedContent,
+)
+    node_id = string(id)
+    _ = view
+
+    function focus_value()
+        return focused_tab(tabs)
+    end
+
+    function selected_value()
+        return selected_tab(tabs)
+    end
+
+    function register_tab_list_handler!(target_id)
+        register_semantic_handler!(dispatcher, target_id, function (request)
+            if request.action == FocusSemanticAction
+                return SemanticActionResult(true; value=focus_value())
+            elseif request.action == IncrementSemanticAction
+                moved = move_tab_focus!(tabs, 1)
+                return SemanticActionResult(moved; value=focus_value(), message=moved ? "" : "no enabled tab is available")
+            elseif request.action == DecrementSemanticAction
+                moved = move_tab_focus!(tabs, -1)
+                return SemanticActionResult(moved; value=focus_value(), message=moved ? "" : "no enabled tab is available")
+            elseif request.action == ActivateSemanticAction
+                activated = activate_focused_tab!(tabs)
+                return SemanticActionResult(activated; value=selected_value(), message=activated ? "" : "no focused tab is available")
+            end
+            return SemanticActionResult(false; message="tabbed content semantic action is not supported")
+        end)
+    end
+
+    register_tab_list_handler!(node_id)
+    register_tab_list_handler!("$(node_id)/list")
+
+    snapshot = tabbed_content_state_snapshot(tabs)
+    for (registered_index, item) in enumerate(snapshot.items)
+        tab_key = item.key
+        register_semantic_handler!(dispatcher, "$(node_id)/tab/$registered_index", function (request)
+            current = tabbed_content_state_snapshot(tabs)
+            index = findfirst(candidate -> candidate.key == tab_key, current.items)
+            index === nothing && return SemanticActionResult(false; message="tab is not available")
+            current_item = current.items[index]
+            current_item.disabled && return SemanticActionResult(false; message="tab is disabled")
+            if request.action == FocusSemanticAction
+                focus_tab!(tabs, tab_key)
+                return SemanticActionResult(true; value=tab_key)
+            elseif request.action == SelectSemanticAction || request.action == ActivateSemanticAction
+                select_tab!(tabs, tab_key)
+                return SemanticActionResult(true; value=tab_key)
+            elseif request.action == DismissSemanticAction
+                current_item.closable ||
+                    return SemanticActionResult(false; message="tab is not closable")
+                closed = close_tab!(tabs, tab_key)
+                return SemanticActionResult(closed; value=tab_key, message=closed ? "" : "tab could not be closed")
+            end
+            return SemanticActionResult(false; message="tab semantic action is not supported")
+        end)
+    end
+    return dispatcher
 end
 
 function _default_tabbed_toolkit_content(content, width::Int)

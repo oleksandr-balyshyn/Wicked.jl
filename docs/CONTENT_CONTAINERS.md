@@ -153,6 +153,11 @@ existing Toolkit rich-element adapter.
 actions. The mounted page is a labeled `GroupRole`; applications may attach the
 active component's semantic nodes through `panel_children`.
 
+Use `register_tabbed_content_view_semantic_handlers!` with the same semantic id
+when automation should drive that tree. The handler supports root/list focus,
+increment, decrement, and activation, plus per-tab focus, select, activate, and
+dismiss actions against the retained `TabbedContent` model.
+
 Both buffer and Toolkit adapters build one `TabbedContentSnapshot` before rendering.
 The snapshot contains tab items, active key, placement, activation policy, resolved
 page version, and content.

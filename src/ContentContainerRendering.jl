@@ -15,6 +15,7 @@ using .Events: KeyEvent,
                MouseRelease
 using .Widgets: Label, Tab, Tabs, TabsState
 import .Widgets: handle!
+import .Toolkit: state_for
 
 
 struct TabbedContentRegions
@@ -100,6 +101,8 @@ function TabbedContentView(;
     )
 end
 
+state_for(::TabbedContentView) = TabbedContent{Symbol}()
+
 function _tab_item_style(view::TabbedContentView, item::TabItem)
     item.disabled && return view.disabled_style
     item.active && return view.active_style
@@ -179,6 +182,9 @@ function render!(
     view.render_content(buffer, content, regions.content)
     return buffer
 end
+
+render!(buffer::Buffer, view::TabbedContentView, area::Rect) =
+    render!(buffer, view, area, state_for(view))
 
 function tab_hit_regions(
     tabs::TabbedContent{K},

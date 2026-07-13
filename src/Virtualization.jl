@@ -9,6 +9,13 @@ export AbstractDataSource,
        replace_data!,
        append_data!,
        splice_data!,
+       QueryDataSource,
+       query_data_source,
+       set_query_search!,
+       set_query_filter!,
+       clear_query_filter!,
+       clear_query!,
+       toggle_query_sort!,
        CallbackDataSource,
        PageResult,
        DataRequestToken,
@@ -18,6 +25,15 @@ export AbstractDataSource,
        DescendingSort,
        SortTerm,
        DataQuery,
+       AbstractQueryFilter,
+       EqualsFilter,
+       ContainsFilter,
+       RangeFilter,
+       RegexFilter,
+       query_equals,
+       query_contains,
+       query_range,
+       query_regex,
        PageStatus,
        IdlePage,
        LoadingPage,
@@ -217,6 +233,358 @@ struct DataQuery
             UInt64(revision),
         )
     end
+end
+
+abstract type AbstractQueryFilter end
+
+struct EqualsFilter <: AbstractQueryFilter
+    value::Any
+end
+
+struct ContainsFilter <: AbstractQueryFilter
+    needle::Any
+    case_sensitive::Bool
+end
+
+ContainsFilter(needle; case_sensitive::Bool=false) =
+    ContainsFilter(needle, case_sensitive)
+
+struct RangeFilter <: AbstractQueryFilter
+    minimum::Any
+    maximum::Any
+    inclusive::Bool
+end
+
+RangeFilter(; minimum=nothing, maximum=nothing, inclusive::Bool=true) =
+    RangeFilter(minimum, maximum, inclusive)
+
+struct RegexFilter <: AbstractQueryFilter
+    pattern::Regex
+end
+
+RegexFilter(pattern::AbstractString) = RegexFilter(Regex(String(pattern)))
+
+query_equals(value) = EqualsFilter(value)
+query_contains(needle; case_sensitive::Bool=false) =
+    ContainsFilter(needle; case_sensitive=case_sensitive)
+query_range(; minimum=nothing, maximum=nothing, inclusive::Bool=true) =
+    RangeFilter(; minimum=minimum, maximum=maximum, inclusive=inclusive)
+query_regex(pattern) = RegexFilter(pattern)
+
+mutable struct QueryDataSource{T,K,F,S} <: AbstractDataSource{T,K}
+    items::Vector{T}
+    key_function::F
+    query::DataQuery
+    accessors::Dict{Symbol,Any}
+    search_text::S
+    version::UInt64
+    mutex::ReentrantLock
+end
+
+function QueryDataSource(
+    items::AbstractVector{T};
+    key=(item, index) -> index,
+    query::DataQuery=DataQuery(),
+    accessors=Dict{Symbol,Any}(),
+    search_text=item -> string(item),
+) where {T}
+    values = Vector{T}(items)
+    key_type = isempty(values) ? Any : typeof(key(first(values), 1))
+    normalized_accessors = Dict{Symbol,Any}(
+        Symbol(name) => accessor for (name, accessor) in pairs(accessors)
+    )
+    return QueryDataSource{T,key_type,typeof(key),typeof(search_text)}(
+        values,
+        key,
+        query,
+        normalized_accessors,
+        search_text,
+        1,
+        ReentrantLock(),
+    )
+end
+
+query_data_source(source::QueryDataSource) = lock(source.mutex) do
+    DataQuery(
+        sort=source.query.sort,
+        filters=source.query.filters,
+        search=source.query.search,
+        revision=source.query.revision,
+    )
+end
+
+function _query_field_value(item, field::Symbol)
+    if item isa AbstractDict
+        haskey(item, field) && return item[field]
+        key = String(field)
+        haskey(item, key) && return item[key]
+        return nothing
+    elseif hasproperty(item, field)
+        return getproperty(item, field)
+    elseif field in fieldnames(typeof(item))
+        return getfield(item, field)
+    end
+    return nothing
+end
+
+function _query_value(source::QueryDataSource, item, field::Symbol)
+    accessor = get(source.accessors, field, nothing)
+    accessor !== nothing && return accessor(item)
+    return _query_field_value(item, field)
+end
+
+function _query_filter_matches(value, expected)
+    expected isa AbstractQueryFilter && return _query_filter_matches(value, expected)
+    !(expected isa AbstractString) && !(expected isa Type) &&
+        applicable(expected, value) && return Bool(expected(value))
+    expected isa AbstractVector && return value in expected
+    expected isa AbstractSet && return value in expected
+    return isequal(value, expected)
+end
+
+_query_filter_matches(value, expected::AbstractQueryFilter) =
+    throw(ArgumentError("unsupported query filter: $(typeof(expected))"))
+
+_query_filter_matches(value, expected::EqualsFilter) =
+    isequal(value, expected.value)
+
+function _query_filter_contains(haystack, needle, case_sensitive::Bool)
+    haystack === nothing && return false
+    if haystack isa AbstractString || needle isa AbstractString
+        left = string(haystack)
+        right = string(needle)
+        case_sensitive || ((left, right) = (lowercase(left), lowercase(right)))
+        return occursin(right, left)
+    end
+    try
+        return needle in haystack
+    catch
+        return isequal(haystack, needle)
+    end
+end
+
+_query_filter_matches(value, expected::ContainsFilter) =
+    _query_filter_contains(value, expected.needle, expected.case_sensitive)
+
+function _query_filter_less(left, right)
+    try
+        isless(left, right) && return true
+        isless(right, left) && return false
+        return false
+    catch
+        return isless(string(left), string(right))
+    end
+end
+
+function _query_filter_matches(value, expected::RangeFilter)
+    value === nothing && return false
+    if expected.minimum !== nothing
+        if expected.inclusive
+            _query_filter_less(value, expected.minimum) && return false
+        else
+            !_query_filter_less(expected.minimum, value) && return false
+        end
+    end
+    if expected.maximum !== nothing
+        if expected.inclusive
+            _query_filter_less(expected.maximum, value) && return false
+        else
+            !_query_filter_less(value, expected.maximum) && return false
+        end
+    end
+    return true
+end
+
+_query_filter_matches(value, expected::RegexFilter) =
+    value === nothing ? false : occursin(expected.pattern, string(value))
+
+function _query_matches(source::QueryDataSource, item, query::DataQuery)
+    for (field, expected) in query.filters
+        _query_filter_matches(_query_value(source, item, field), expected) || return false
+    end
+    if query.search !== nothing && !isempty(query.search)
+        haystack = lowercase(String(source.search_text(item)))
+        occursin(lowercase(query.search), haystack) || return false
+    end
+    return true
+end
+
+function _query_less(left, right)
+    try
+        isless(left, right) && return true
+        isless(right, left) && return false
+        return false
+    catch
+        return isless(string(left), string(right))
+    end
+end
+
+function _query_compare(source::QueryDataSource, left, right, terms::Vector{SortTerm})
+    for term in terms
+        left_value = _query_value(source, left, term.column)
+        right_value = _query_value(source, right, term.column)
+        if _query_less(left_value, right_value)
+            return term.direction == AscendingSort
+        elseif _query_less(right_value, left_value)
+            return term.direction == DescendingSort
+        end
+    end
+    return false
+end
+
+function _query_items(source::QueryDataSource)
+    query = source.query
+    values = [item for item in source.items if _query_matches(source, item, query)]
+    isempty(query.sort) || sort!(values; lt=(left, right) -> _query_compare(source, left, right, query.sort))
+    return values
+end
+
+data_length(source::QueryDataSource) = lock(source.mutex) do
+    length(_query_items(source))
+end
+
+data_version(source::QueryDataSource) = lock(source.mutex) do
+    source.version
+end
+
+item_key(source::QueryDataSource, item, index::Integer) = source.key_function(item, Int(index))
+
+function fetch_items(source::QueryDataSource{T}, range::UnitRange{Int}) where {T}
+    return lock(source.mutex) do
+        values = _query_items(source)
+        isempty(range) && return T[]
+        first_index = clamp(first(range), 1, length(values) + 1)
+        stop_index = clamp(last(range), 0, length(values))
+        first_index > stop_index && return T[]
+        return copy(@view values[first_index:stop_index])
+    end
+end
+
+function replace_data!(source::QueryDataSource{T}, items::AbstractVector{T}) where {T}
+    lock(source.mutex) do
+        source.items = Vector{T}(items)
+        source.version += 1
+    end
+    return source
+end
+
+function append_data!(source::QueryDataSource{T}, items::AbstractVector{T}) where {T}
+    lock(source.mutex) do
+        append!(source.items, items)
+        source.version += 1
+    end
+    return source
+end
+
+function splice_data!(
+    source::QueryDataSource{T},
+    range::UnitRange{Int},
+    replacement::AbstractVector{T}=T[],
+) where {T}
+    lock(source.mutex) do
+        splice!(source.items, range, replacement)
+        source.version += 1
+    end
+    return source
+end
+
+function set_data_query!(source::QueryDataSource, query::DataQuery; total_length=nothing)
+    total_length === nothing || throw(ArgumentError("query data source does not accept total_length"))
+    lock(source.mutex) do
+        source.query = query
+        source.version += 1
+    end
+    return source
+end
+
+function _next_query_revision(query::DataQuery)
+    query.revision == typemax(UInt64) && throw(OverflowError("data query revision overflow"))
+    return query.revision + UInt64(1)
+end
+
+function set_query_search!(source::QueryDataSource, value)
+    lock(source.mutex) do
+        query = source.query
+        source.query = DataQuery(
+            sort=query.sort,
+            filters=query.filters,
+            search=value === nothing ? nothing : String(value),
+            revision=_next_query_revision(query),
+        )
+        source.version += 1
+    end
+    return source
+end
+
+function set_query_filter!(source::QueryDataSource, column, value)
+    lock(source.mutex) do
+        query = source.query
+        filters = copy(query.filters)
+        filters[Symbol(column)] = value
+        source.query = DataQuery(
+            sort=query.sort,
+            filters=filters,
+            search=query.search,
+            revision=_next_query_revision(query),
+        )
+        source.version += 1
+    end
+    return source
+end
+
+function clear_query_filter!(source::QueryDataSource, column)
+    lock(source.mutex) do
+        query = source.query
+        filters = copy(query.filters)
+        pop!(filters, Symbol(column), nothing)
+        source.query = DataQuery(
+            sort=query.sort,
+            filters=filters,
+            search=query.search,
+            revision=_next_query_revision(query),
+        )
+        source.version += 1
+    end
+    return source
+end
+
+function clear_query!(source::QueryDataSource)
+    lock(source.mutex) do
+        query = source.query
+        source.query = DataQuery(revision=_next_query_revision(query))
+        source.version += 1
+    end
+    return source
+end
+
+function toggle_query_sort!(
+    source::QueryDataSource,
+    column;
+    additive::Bool=false,
+)
+    identifier = Symbol(column)
+    lock(source.mutex) do
+        query = source.query
+        terms = SortTerm[term for term in query.sort]
+        index = findfirst(term -> term.column == identifier, terms)
+        existing = index === nothing ? nothing : terms[index]
+        next_direction = existing === nothing ? AscendingSort :
+                         existing.direction == AscendingSort ? DescendingSort : nothing
+        if additive
+            index === nothing || deleteat!(terms, index)
+        else
+            empty!(terms)
+        end
+        next_direction === nothing || push!(terms, SortTerm(identifier, next_direction))
+        source.query = DataQuery(
+            sort=terms,
+            filters=query.filters,
+            search=query.search,
+            revision=_next_query_revision(query),
+        )
+        source.version += 1
+    end
+    return source
 end
 
 @enum PageStatus begin

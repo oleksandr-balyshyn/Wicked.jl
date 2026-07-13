@@ -1,0 +1,9 @@
+# Wicked.jl remote protocol v1 fixture ledger
+# case<TAB>message<TAB>sequence<TAB>kind<TAB>flags<TAB>minimum_payload_bytes<TAB>notes
+case	message	sequence	kind	flags	minimum_payload_bytes	notes
+hello-basic	RemoteHello	7	1	0	10	Negotiates viewport and terminal capabilities.
+full-frame-basic	RemoteFrame	8	2	1	20	Full frame uses the full-frame flag and contains every viewport cell.
+key-event-character	RemoteEvent	9	3	0	12	Key event fixture preserves text, modifier, kind, and raw byte fields.
+mouse-event-drag	RemoteEvent	10	3	0	13	Mouse event fixture preserves position, button, action, modifiers, and click count.
+resize-event	RemoteEvent	11	3	0	9	Resize event fixture preserves remote viewport size.
+ack-basic	RemoteAck	12	4	0	0	Acknowledgement has an empty payload.

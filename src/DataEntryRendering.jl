@@ -128,6 +128,10 @@ function unbind_data_entry_key!(bindings::DataEntryBindings, chord::KeyChord)
     return bindings
 end
 
+function unbind_data_entry_key!(bindings::DataEntryBindings, key; modifiers...)
+    return unbind_data_entry_key!(bindings, KeyChord(key; modifiers...))
+end
+
 function default_data_entry_bindings()
     bindings = DataEntryBindings()
     bind_data_entry_key!(bindings, :up, EntryPrevious)

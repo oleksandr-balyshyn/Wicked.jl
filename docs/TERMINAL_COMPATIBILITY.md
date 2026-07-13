@@ -1,13 +1,13 @@
 # Terminal Compatibility Evidence
 
-Terminal compatibility has two evidence layers. Automated pseudo-terminal tests
-prove lifecycle and byte-level protocol invariants. Manual sessions prove behavior
-that depends on a particular emulator, multiplexer, graphics implementation,
-transport, font, or operating-system console.
+Terminal compatibility has two Linux-only evidence layers. Automated
+pseudo-terminal tests prove lifecycle and byte-level protocol invariants. Manual
+sessions prove behavior that depends on a particular emulator, multiplexer,
+graphics implementation, transport, font, or terminal environment.
 
 ## Automated PTY gate
 
-Run the Unix PTY gate from the repository root:
+Run the Linux PTY gate from the repository root:
 
 ```sh
 julia --project=. --startup-file=no scripts/pty_gate.jl
@@ -63,16 +63,19 @@ missing result with this table.
 
 ## Required manual matrix
 
-The following entries remain blocking release-candidate evidence. Record the exact
-terminal and version rather than checking a category based on an assumed protocol.
+The following Linux terminal entries remain blocking release-candidate evidence.
+Record the exact terminal and version rather than checking a category based on an
+assumed protocol.
+Use [Linux Real-Terminal Matrix](REAL_TERMINAL_MATRIX.md) as the worksheet for
+identity fields, required observations, and pass criteria.
 
 | Category | Required observation | Status |
 | --- | --- | --- |
 | Minimal ANSI / 16 color | No unsupported color or protocol output | Not recorded |
 | 256 color | Palette mapping and style restoration | Not recorded |
 | Truecolor | RGB foreground, background, underline | Not recorded |
-| Kitty or WezTerm | Keyboard, mouse, focus, Kitty graphics | Not recorded |
-| Sixel terminal | Image placement and Unicode fallback | Not recorded |
+| Kitty or WezTerm | Keyboard, mouse, focus, Kitty graphics placement, clipping, cleanup, and fallback | Not recorded |
+| Sixel terminal | Sixel payload emission, image placement, clipping, cleanup, and Unicode fallback | Not recorded |
 | tmux | Capability downgrade, passthrough, resize | Not recorded |
 | GNU screen | Capability downgrade and restoration | Not recorded |
 | SSH | Unknown pixel dimensions, latency, disconnect | Not recorded |
@@ -82,7 +85,7 @@ terminal and version rather than checking a category based on an assumed protoco
 
 For each run, archive:
 
-- Wicked commit, Julia version, operating system, architecture, and dependency
+- Wicked commit, Julia version, Linux distribution, kernel, architecture, and dependency
   manifest digest.
 - Terminal emulator and version, `TERM`, `COLORTERM`, multiplexer, and remote
   transport if present.
@@ -91,6 +94,14 @@ For each run, archive:
 - Normal, error, interrupt, resize, paste, focus, mouse, Unicode, and graphics
   observations.
 - Failures, retries, screenshots or transcripts, and accepted limitations.
+
+Use [Terminal Evidence Record Template](TERMINAL_EVIDENCE_TEMPLATE.md) when
+recording manual evidence so every matrix category captures the same identity,
+behavior, artifact, and risk fields.
+Store completed records under [Terminal Evidence Records](terminal-evidence/README.md)
+and run `scripts/terminal_evidence_audit.jl` before linking them from release
+evidence. Use `scripts/terminal_evidence_audit.jl --require-complete` before
+claiming the full real-terminal matrix is complete.
 
 An emulator launch without lifecycle and interaction observations is not a passing
 result. Automated ANSI-buffer tests and PTY tests cannot establish graphics or

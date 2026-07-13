@@ -33,6 +33,7 @@ using ..Accessibility: SemanticRect,
                        SemanticAction,
                        SemanticNode,
                        SemanticTree,
+                       ButtonRole,
                        ListRole,
                        ListItemRole,
                        TableRole,
@@ -473,6 +474,21 @@ function virtual_table_semantic_tree(
     origin_row::Integer=1,
     origin_column::Integer=1,
 ) where {K}
+    column_nodes = SemanticNode[
+        SemanticNode(
+            "$(id)/column/$(column.id)",
+            CellRole;
+            label=column.title,
+            actions=[SelectSemanticAction, ActivateSemanticAction],
+        ) for column in window.columns
+    ]
+    selection_node = SemanticNode(
+        "$(id)/selection",
+        ButtonRole;
+        label="Selected rows",
+        actions=[ActivateSemanticAction],
+        metadata=Dict(:kind => :selected_row_actions),
+    )
     rows = SemanticNode[]
     for row in window.rows
         row.kind == ReadySlot || continue
@@ -493,7 +509,7 @@ function virtual_table_semantic_tree(
         TableRole;
         label=label,
         bounds=SemanticRect(origin_row, origin_column, width, length(rows) + 1),
-        children=rows,
+        children=vcat(column_nodes, [selection_node], rows),
     ))
 end
 

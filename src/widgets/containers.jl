@@ -141,7 +141,17 @@ function measure(widget::Stack, available::Rect)
     )
 end
 
-const Overlay = Stack
+struct Overlay{T<:Tuple}
+    stack::Stack{T}
+end
+
+Overlay(children...) = Overlay(Stack(children...))
+
+render!(buffer::Buffer, widget::Overlay, area::Rect) =
+    render!(buffer, widget.stack, area)
+
+measure(widget::Overlay, available::Rect) =
+    measure(widget.stack, available)
 
 struct Center{W}
     child::W

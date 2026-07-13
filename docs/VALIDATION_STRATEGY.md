@@ -16,7 +16,7 @@ gate before moving forward.
 5. Run concurrency and failure-injection tests.
 6. Run terminal PTY compatibility scenarios.
 7. Run benchmarks and allocation budgets.
-8. Run the supported Julia and platform matrix.
+8. Run the supported Julia-on-Linux matrix.
 9. Build documentation from a clean environment.
 10. Execute the release checklist.
 
@@ -46,6 +46,8 @@ whose standard-library dependency graphs differ.
 ## Gate 2: public examples
 
 Run every file listed in `examples/README.md` in a fresh Julia process.
+The quality gate checks that this index matches the actual `examples/*.jl`
+files, so adding or removing an example requires updating the README.
 
 Required evidence:
 
@@ -59,7 +61,8 @@ Required evidence:
 
 Replace the placeholder test with focused suites for these boundaries:
 
-- Geometry, Unicode width, clipping, buffers, and diffs.
+- Geometry, Unicode width, clipping, buffers, and diffs, including
+  `scripts/unicode_width_corpus_audit.jl`.
 - Layout constraints, flex, grid, dock, and overflow.
 - Event parser state machines and malformed byte sequences.
 - Widget construction, measurement, rendering, and input state.
@@ -87,6 +90,56 @@ Required integration scenarios:
   parser or callback failure.
 - Render virtual tables and trees with loading, ready, end, and failed slots.
 - Compare visual buffers and semantic trees from the same state snapshot.
+
+Stable facade expansion requires a focused API handoff before broader release
+evidence:
+
+```sh
+julia --project=. -e 'using Test, Wicked, Wicked.API; include("test/api_contract.jl")'
+julia --project=. scripts/api_audit.jl
+julia --project=. scripts/widget_stabilization_gate.jl
+julia --project=. scripts/public_examples_audit.jl
+julia --project=. scripts/example_family_audit.jl
+julia --project=. scripts/widget_family_evidence_audit.jl
+julia --project=. scripts/stable_widget_candidates.jl --require-stable
+julia --project=. scripts/experimental_promotion_audit.jl
+julia --project=. scripts/compatibility_widget_alias_audit.jl
+julia --project=. scripts/quality_gate.jl
+julia --project=docs docs/make.jl
+```
+
+Required evidence:
+
+- Downstream contract tests pass using `Wicked.API`.
+- `api/stable_api.tsv`, `api/experimental_api.tsv`, and `api/public_api.tsv`
+  match the current exported bindings.
+- [Widget Stabilization Tracker](WIDGET_STABILIZATION.md) release criteria are
+  satisfied for every public widget family.
+- `api/widget_family_evidence.tsv` records focused docs, public examples, and
+  representative precompile tokens for every stable widget family.
+- [Widget Family Evidence Ledger](WIDGET_FAMILY_EVIDENCE.md) documents the
+  ledger columns and minimum evidence contract used by the audit.
+- `Wicked.Experimental` remains compatibility-only unless a new binding has a
+  documented promotion/removal plan in `api/experimental_promotions.tsv`.
+- Source, extension, example, and benchmark code import or reference reviewed
+  public names from `Wicked.API` or internal subsystem modules, not
+  `Wicked.Experimental`.
+- The strict docs build succeeds after reference pages and facade guidance change.
+
+Parity closeout evidence must be recorded for every reviewed adapted family:
+layout, input/events, stateful controls, data displays, runtime, developer
+experience, styling/theming, and remote delivery. Each record must cite the
+command, terminal or browser environment, checked behavior, and
+release-candidate commit that produced the evidence. Use
+[Parity Evidence Record Template](./PARITY_EVIDENCE_TEMPLATE.md) for each
+family/environment record. The quality gate enforces the template's required
+sections and identity fields so release evidence remains comparable across runs.
+It also enforces the required parity closeout checklist items, so
+reference-survey follow-ups remain tied to concrete release evidence categories.
+Store completed records under [Parity Evidence Records](./evidence/README.md).
+The machine-readable family and evidence-shape policy lives in
+[Parity Evidence Policy](./evidence/parity_policy.json) and must stay aligned
+with the scaffold, quality gate, checklist, and reference survey.
 
 Snapshot fixtures must record terminal dimensions, width policy, color capability,
 backend, and Julia version. Review snapshot updates as behavioral API changes.
@@ -137,7 +190,8 @@ Required lifecycle evidence:
 Benchmark with fixed datasets and record time, allocations, and output size:
 
 - Full-buffer render and sparse diff.
-- Unicode text segmentation and clipping.
+- Unicode text segmentation and clipping, using `api/unicode_width_corpus.tsv`
+  as the minimum regression corpus.
 - Layout at increasing node counts.
 - Style selector matching and cascade resolution.
 - Toolkit reconciliation for stable, inserted, moved, and replaced trees.
@@ -165,7 +219,11 @@ Required evidence:
 
 - Every documented symbol is exported or qualified correctly.
 - Every code example parses and runs in a clean project.
-- API reference, migration mappings, component catalog, and parity ledger agree.
+- API reference, migration mappings, component catalog, focused widget API docs,
+  and parity ledger agree.
+- The generated Documenter manual includes the API route map, stable facade
+  guidance, public example families, performance, widget stabilization, and
+  widget family evidence pages.
 - Links in `docs/README.md` resolve.
 - Release notes identify behavior changes and deprecations.
 
@@ -173,7 +231,7 @@ Required evidence:
 
 For each release candidate, record:
 
-- Julia version, operating system, architecture, and terminal identity.
+- Julia version, Linux distribution, kernel, architecture, and terminal identity.
 - Commit identifier and dependency manifest digest.
 - Commands executed and exit status.
 - Test counts, skipped tests, and retry counts.
@@ -187,3 +245,13 @@ Production parity requires all mandatory gates to pass with no unexplained skips
 terminal lifecycle failures, data races, or unresolved high-severity defects. Source
 presence, examples that were not executed, and narrow happy-path tests are not
 sufficient evidence.
+
+## Widget-family stable-token validation
+
+The widget-family evidence audit is part of release validation, not only local
+cleanup. Every type-backed `stable_api_token` in `api/widget_family_evidence.tsv`
+must have a matching `precompile_token`, either by exact public spelling or by a
+module-qualified spelling with the same final segment. Validation should treat
+helper-only evidence as incomplete for a stable widget family unless at least
+three type-backed widget, state, pilot, manager, or data-model tokens are also
+covered.

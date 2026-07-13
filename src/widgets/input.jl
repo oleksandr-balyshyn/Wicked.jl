@@ -31,6 +31,8 @@ struct TextInput
     maximum_length::Int
 end
 
+state_for(::TextInput) = TextInputState()
+
 function TextInput(;
     placeholder::AbstractString="",
     block::Union{Nothing,Block}=nothing,
@@ -57,10 +59,219 @@ function TextInput(;
     )
 end
 
-PasswordInput(; mask::AbstractString="•", kwargs...) = TextInput(; mask, kwargs...)
+"""
+    Input(; kwargs...)
 
-"""Search input alias for focused single-line query entry."""
-const SearchInput = TextInput
+Textual-style single-line input backed by `TextInput` and `TextInputState`.
+
+`Input` is a stable compatibility name for applications porting Textual-style
+forms. It intentionally shares `InputState` with `TextInputState` so editing,
+cursor, selection, paste, pointer, and semantic behavior stay identical.
+"""
+struct Input
+    input::TextInput
+end
+
+"""Compatibility state alias for `Input`; identical to `TextInputState`."""
+const InputState = TextInputState
+
+Input(; kwargs...) = Input(TextInput(; kwargs...))
+
+state_for(widget::Input) = state_for(widget.input)
+
+render!(buffer::Buffer, widget::Input, area::Rect, state::InputState) =
+    render!(buffer, widget.input, area, state)
+
+render!(buffer::Buffer, widget::Input, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+function render!(frame::Frame, widget::Input, area::Rect, state::InputState)
+    render!(frame, widget.input, area, state)
+end
+
+handle!(state::InputState, widget::Input, event::KeyEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::InputState, widget::Input, event::PasteEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::InputState, widget::Input, event::MouseEvent, area::Rect) =
+    handle!(state, widget.input, event, area)
+
+"""
+    TextBox(; kwargs...)
+
+Lanterna-style single-line text box backed by `TextInput`.
+
+`TextBox` is a stable compatibility name for applications porting conservative
+retained-mode TUI code. It intentionally shares `TextBoxState` with
+`TextInputState` so editing, cursor, selection, paste, pointer, and semantic
+behavior stay identical to `TextInput`.
+"""
+struct TextBox
+    input::TextInput
+end
+
+"""Compatibility state alias for `TextBox`; identical to `TextInputState`."""
+const TextBoxState = TextInputState
+
+TextBox(; kwargs...) = TextBox(TextInput(; kwargs...))
+
+state_for(widget::TextBox) = state_for(widget.input)
+
+render!(buffer::Buffer, widget::TextBox, area::Rect, state::TextBoxState) =
+    render!(buffer, widget.input, area, state)
+
+render!(buffer::Buffer, widget::TextBox, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+function render!(frame::Frame, widget::TextBox, area::Rect, state::TextBoxState)
+    render!(frame, widget.input, area, state)
+end
+
+handle!(state::TextBoxState, widget::TextBox, event::KeyEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::TextBoxState, widget::TextBox, event::PasteEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::TextBoxState, widget::TextBox, event::MouseEvent, area::Rect) =
+    handle!(state, widget.input, event, area)
+
+"""
+    TextField(; kwargs...)
+
+Generic single-line text-field compatibility widget backed by `TextInput`.
+
+`TextField` shares `TextFieldState` with `TextInputState`, so editing, cursor,
+selection, paste, pointer, and semantic behavior stay identical to `TextInput`.
+"""
+struct TextField
+    input::TextInput
+end
+
+"""Compatibility state alias for `TextField`; identical to `TextInputState`."""
+const TextFieldState = TextInputState
+
+TextField(; kwargs...) = TextField(TextInput(; kwargs...))
+
+state_for(widget::TextField) = state_for(widget.input)
+
+render!(buffer::Buffer, widget::TextField, area::Rect, state::TextFieldState) =
+    render!(buffer, widget.input, area, state)
+
+render!(buffer::Buffer, widget::TextField, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+function render!(frame::Frame, widget::TextField, area::Rect, state::TextFieldState)
+    render!(frame, widget.input, area, state)
+end
+
+handle!(state::TextFieldState, widget::TextField, event::KeyEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::TextFieldState, widget::TextField, event::PasteEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::TextFieldState, widget::TextField, event::MouseEvent, area::Rect) =
+    handle!(state, widget.input, event, area)
+
+"""Masked single-line password entry backed by the text-input editor."""
+struct PasswordInput
+    input::TextInput
+end
+
+PasswordInput(; mask::AbstractString="•", kwargs...) =
+    PasswordInput(TextInput(; mask, kwargs...))
+
+state_for(widget::PasswordInput) = state_for(widget.input)
+
+render!(buffer::Buffer, widget::PasswordInput, area::Rect, state::TextInputState) =
+    render!(buffer, widget.input, area, state)
+
+render!(buffer::Buffer, widget::PasswordInput, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+function render!(frame::Frame, widget::PasswordInput, area::Rect, state::TextInputState)
+    render!(frame, widget.input, area, state)
+end
+
+handle!(state::TextInputState, widget::PasswordInput, event::KeyEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::TextInputState, widget::PasswordInput, event::PasteEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::TextInputState, widget::PasswordInput, event::MouseEvent, area::Rect) =
+    handle!(state, widget.input, event, area)
+
+"""
+    PasswordField(; kwargs...)
+
+Generic masked password-field compatibility widget backed by `PasswordInput`.
+
+`PasswordField` shares `PasswordFieldState` with `TextInputState`, so editing,
+cursor, selection, paste, pointer, mask rendering, and protected semantic
+behavior stay identical to `PasswordInput`.
+"""
+struct PasswordField
+    input::PasswordInput
+end
+
+"""Compatibility state alias for `PasswordField`; identical to `TextInputState`."""
+const PasswordFieldState = TextInputState
+
+PasswordField(; kwargs...) = PasswordField(PasswordInput(; kwargs...))
+
+state_for(widget::PasswordField) = state_for(widget.input)
+
+render!(buffer::Buffer, widget::PasswordField, area::Rect, state::PasswordFieldState) =
+    render!(buffer, widget.input, area, state)
+
+render!(buffer::Buffer, widget::PasswordField, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+function render!(frame::Frame, widget::PasswordField, area::Rect, state::PasswordFieldState)
+    render!(frame, widget.input, area, state)
+end
+
+handle!(state::PasswordFieldState, widget::PasswordField, event::KeyEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::PasswordFieldState, widget::PasswordField, event::PasteEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::PasswordFieldState, widget::PasswordField, event::MouseEvent, area::Rect) =
+    handle!(state, widget.input, event, area)
+
+"""Focused single-line query entry backed by the text-input editor."""
+struct SearchInput
+    input::TextInput
+end
+
+SearchInput(; kwargs...) = SearchInput(TextInput(; kwargs...))
+
+state_for(widget::SearchInput) = state_for(widget.input)
+
+render!(buffer::Buffer, widget::SearchInput, area::Rect, state::TextInputState) =
+    render!(buffer, widget.input, area, state)
+
+render!(buffer::Buffer, widget::SearchInput, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+function render!(frame::Frame, widget::SearchInput, area::Rect, state::TextInputState)
+    render!(frame, widget.input, area, state)
+end
+
+handle!(state::TextInputState, widget::SearchInput, event::KeyEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::TextInputState, widget::SearchInput, event::PasteEvent) =
+    handle!(state, widget.input, event)
+
+handle!(state::TextInputState, widget::SearchInput, event::MouseEvent, area::Rect) =
+    handle!(state, widget.input, event, area)
+
 const SearchInputState = TextInputState
 
 """Externally owned state for a single-line numeric input."""
@@ -142,9 +353,13 @@ function _sync_number_state!(state::NumberInputState)
     return true
 end
 
+"""Return whether the current numeric input text parses and satisfies bounds."""
 number_input_valid(state::NumberInputState) = state.valid
+
+"""Return the committed numeric value, or `nothing` when empty or invalid."""
 number_input_value(state::NumberInputState) = state.value
 
+"""Replace the edited numeric text and refresh validity, value, and error state."""
 function set_number_text!(state::NumberInputState, text::AbstractString)
     set_text!(state.editing, text)
     state.horizontal_offset = 0
@@ -152,6 +367,7 @@ function set_number_text!(state::NumberInputState, text::AbstractString)
     return state
 end
 
+"""Replace the numeric value and refresh the visible text."""
 function set_number_value!(state::NumberInputState, value::Union{Nothing,Real})
     state_text = value === nothing ? "" : string(value)
     set_text!(state.editing, state_text)
@@ -160,6 +376,7 @@ function set_number_value!(state::NumberInputState, value::Union{Nothing,Real})
     return state
 end
 
+"""Increment the numeric value by `steps * state.step`, clamped to configured bounds."""
 function increment_number_input!(state::NumberInputState, steps::Integer=1)
     base = something(state.value, state.minimum, 0.0)
     next_value = base + Float64(steps) * state.step
@@ -204,6 +421,16 @@ function NumberInput(;
         Int(maximum_length),
     )
 end
+
+"""Compatibility constructor for applications expecting `NumericInput` naming.
+
+`NumericInput` is an alias for `NumberInput` with identical behavior and state
+model. It keeps migration paths simple for frameworks with a `NumericInput`
+constructor.
+"""
+NumericInput(; kwargs...) = NumberInput(; kwargs...)
+
+state_for(::NumberInput) = NumberInputState()
 
 function _number_input_area(buffer::Buffer, widget::NumberInput, area::Rect)
     if isnothing(widget.block)
@@ -263,6 +490,9 @@ function render!(buffer::Buffer, widget::NumberInput, area::Rect, state::NumberI
     _render_number_input!(buffer, widget, area, state)
     buffer
 end
+
+render!(buffer::Buffer, widget::NumberInput, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
 
 function render!(frame::Frame, widget::NumberInput, area::Rect, state::NumberInputState)
     position = _render_number_input!(frame.buffer, widget, area, state)
@@ -384,6 +614,9 @@ function render!(buffer::Buffer, widget::TextInput, area::Rect, state::TextInput
     buffer
 end
 
+render!(buffer::Buffer, widget::TextInput, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
 function render!(frame::Frame, widget::TextInput, area::Rect, state::TextInputState)
     position = _render_text_input!(frame.buffer, widget, area, state)
     state.focused && !isnothing(position) && request_cursor!(frame, CursorRequest(position))
@@ -469,6 +702,8 @@ struct TextArea
     show_line_numbers::Bool
     maximum_length::Int
 end
+
+state_for(::TextArea) = TextAreaState()
 
 function TextArea(;
     block::Union{Nothing,Block}=nothing,
@@ -614,6 +849,9 @@ function render!(buffer::Buffer, widget::TextArea, area::Rect, state::TextAreaSt
     buffer
 end
 
+render!(buffer::Buffer, widget::TextArea, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
 function render!(frame::Frame, widget::TextArea, area::Rect, state::TextAreaState)
     position = _render_text_area!(frame.buffer, widget, area, state)
     state.focused && !isnothing(position) && request_cursor!(frame, CursorRequest(position))
@@ -668,6 +906,37 @@ function handle!(
     return true
 end
 
+"""Compatibility spelling for a multi-line text area widget."""
+struct Textarea
+    area::TextArea
+end
+
+"""Compatibility state alias for `Textarea`; identical to `TextAreaState`."""
+const TextareaState = TextAreaState
+
+Textarea(; kwargs...) = Textarea(TextArea(; kwargs...))
+
+state_for(widget::Textarea) = state_for(widget.area)
+
+render!(buffer::Buffer, widget::Textarea, area::Rect, state::TextAreaState) =
+    render!(buffer, widget.area, area, state)
+
+render!(buffer::Buffer, widget::Textarea, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+function render!(frame::Frame, widget::Textarea, area::Rect, state::TextAreaState)
+    render!(frame, widget.area, area, state)
+end
+
+handle!(state::TextAreaState, widget::Textarea, event::KeyEvent) =
+    handle!(state, widget.area, event)
+
+handle!(state::TextAreaState, widget::Textarea, event::PasteEvent) =
+    handle!(state, widget.area, event)
+
+handle!(state::TextAreaState, widget::Textarea, event::MouseEvent, area::Rect) =
+    handle!(state, widget.area, event, area)
+
 mutable struct ButtonState
     focused::Bool
     pressed::Bool
@@ -683,6 +952,8 @@ struct Button{T}
     focused_style::Style
     disabled::Bool
 end
+
+state_for(::Button) = ButtonState()
 
 function Button(
     label::AbstractString,
@@ -708,6 +979,9 @@ function render!(buffer::Buffer, widget::Button, area::Rect, state::ButtonState)
     draw_line!(buffer, row, Rect(row, active.column, 1, active.width), _styled_line(widget.label, style))
     buffer
 end
+
+render!(buffer::Buffer, widget::Button, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
 
 function handle!(state::ButtonState, widget::Button, event::KeyEvent)
     widget.disabled && return false
@@ -735,6 +1009,40 @@ function handle!(state::ButtonState, widget::Button, event::MouseEvent, area::Re
     false
 end
 
+"""
+    PushButton(label, message=nothing; kwargs...)
+
+Lanterna-style push-button compatibility widget backed by `Button`.
+
+`PushButton` uses the same rendering, input, mouse, and activation semantics as
+`Button`. Its state type is `PushButtonState`, an alias of `ButtonState`.
+"""
+struct PushButton{T}
+    button::Button{T}
+end
+
+const PushButtonState = ButtonState
+
+PushButton(label::AbstractString, message=nothing; kwargs...) =
+    PushButton(Button(label, message; kwargs...))
+
+state_for(::PushButton) = PushButtonState()
+
+render!(buffer::Buffer, widget::PushButton, area::Rect, state::PushButtonState) =
+    render!(buffer, widget.button, area, state)
+
+render!(buffer::Buffer, widget::PushButton, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+handle!(state::PushButtonState, widget::PushButton, event::KeyEvent) =
+    handle!(state, widget.button, event)
+
+handle!(state::PushButtonState, widget::PushButton, event::MouseEvent, area::Rect) =
+    handle!(state, widget.button, event, area)
+
+activate(widget::PushButton, state::PushButtonState) =
+    activate(widget.button, state)
+
 mutable struct CheckboxState
     checked::Bool
 end
@@ -748,6 +1056,8 @@ struct Checkbox
     style::Style
     checked_style::Style
 end
+
+state_for(::Checkbox) = CheckboxState()
 
 function Checkbox(
     label::AbstractString;
@@ -775,6 +1085,9 @@ function render!(buffer::Buffer, widget::Checkbox, area::Rect, state::CheckboxSt
     buffer
 end
 
+render!(buffer::Buffer, widget::Checkbox, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
 function handle!(state::CheckboxState, ::Checkbox, event::KeyEvent)
     _selection_key_event(event) || return false
     if event.key.code == :enter || (event.key.code == :character && event.text == " ")
@@ -790,6 +1103,39 @@ function handle!(state::CheckboxState, ::Checkbox, event::MouseEvent, area::Rect
     true
 end
 
+"""
+    CheckBox(label; kwargs...)
+
+Lanterna-style checkbox spelling backed by `Checkbox` and `CheckboxState`.
+
+`CheckBox` is a stable compatibility name for applications porting conservative
+retained-mode TUI code. It intentionally shares `CheckBoxState` with
+`CheckboxState` so rendering, keyboard handling, pointer handling, and semantic
+behavior stay identical to `Checkbox`.
+"""
+struct CheckBox
+    checkbox::Checkbox
+end
+
+"""Compatibility state alias for `CheckBox`; identical to `CheckboxState`."""
+const CheckBoxState = CheckboxState
+
+CheckBox(label::AbstractString; kwargs...) = CheckBox(Checkbox(label; kwargs...))
+
+state_for(::CheckBox) = CheckBoxState()
+
+render!(buffer::Buffer, widget::CheckBox, area::Rect, state::CheckBoxState) =
+    render!(buffer, widget.checkbox, area, state)
+
+render!(buffer::Buffer, widget::CheckBox, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+handle!(state::CheckBoxState, widget::CheckBox, event::KeyEvent) =
+    handle!(state, widget.checkbox, event)
+
+handle!(state::CheckBoxState, widget::CheckBox, event::MouseEvent, area::Rect) =
+    handle!(state, widget.checkbox, event, area)
+
 mutable struct ToggleState
     enabled::Bool
 end
@@ -803,6 +1149,8 @@ struct Toggle
     off_style::Style
 end
 
+state_for(::Toggle) = ToggleState()
+
 Toggle(;
     on_label::AbstractString="ON",
     off_label::AbstractString="OFF",
@@ -815,6 +1163,9 @@ function render!(buffer::Buffer, widget::Toggle, area::Rect, state::ToggleState)
     style = state.enabled ? widget.on_style : widget.off_style
     render!(buffer, Label("[ " * label * " ]"; style, alignment=CenterAlign), area)
 end
+
+render!(buffer::Buffer, widget::Toggle, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
 
 function handle!(state::ToggleState, ::Toggle, event::KeyEvent)
     _selection_key_event(event) || return false
@@ -830,6 +1181,38 @@ function handle!(state::ToggleState, ::Toggle, event::MouseEvent, area::Rect)
     state.enabled = !state.enabled
     true
 end
+
+"""
+    Switch(; on_label="ON", off_label="OFF", on_style=Style(modifiers=BOLD), off_style=Style(modifiers=DIM))
+
+Textual-style switch control backed by `Toggle` and `ToggleState`.
+
+`Switch` is a stable compatibility name for boolean controls. It intentionally
+shares `SwitchState` with `ToggleState` so existing keyboard, pointer, Toolkit,
+and semantic behavior remains identical to `Toggle`.
+"""
+struct Switch
+    toggle::Toggle
+end
+
+"""Compatibility state alias for `Switch`; identical to `ToggleState`."""
+const SwitchState = ToggleState
+
+Switch(; kwargs...) = Switch(Toggle(; kwargs...))
+
+state_for(::Switch) = SwitchState()
+
+render!(buffer::Buffer, widget::Switch, area::Rect, state::SwitchState) =
+    render!(buffer, widget.toggle, area, state)
+
+render!(buffer::Buffer, widget::Switch, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+handle!(state::SwitchState, widget::Switch, event::KeyEvent) =
+    handle!(state, widget.toggle, event)
+
+handle!(state::SwitchState, widget::Switch, event::MouseEvent, area::Rect) =
+    handle!(state, widget.toggle, event, area)
 
 """One value and label in a choice control."""
 struct ChoiceOption{T}
@@ -867,6 +1250,8 @@ struct RadioGroup
     disabled_style::Style
     gap::Int
 end
+
+state_for(::RadioGroup) = RadioGroupState()
 
 function RadioGroup(
     options;
@@ -916,6 +1301,9 @@ function render!(buffer::Buffer, widget::RadioGroup, area::Rect, state::RadioGro
     end
     buffer
 end
+
+render!(buffer::Buffer, widget::RadioGroup, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
 
 function _radio_regions(widget::RadioGroup, area::Rect)
     constraints = if widget.direction == VerticalLayout
@@ -973,6 +1361,77 @@ selected_value(widget::RadioGroup, state::RadioGroupState) =
     isnothing(state.selected) || !(1 <= state.selected <= length(widget.options)) ? nothing :
     widget.options[state.selected].disabled ? nothing : widget.options[state.selected].value
 
+"""
+    RadioSet(options; kwargs...)
+
+Textual-style radio set backed by `RadioGroup` and `RadioGroupState`.
+
+`RadioSet` is a stable compatibility surface for single-choice option groups.
+It intentionally shares `RadioSetState` with `RadioGroupState` so layout,
+disabled-option handling, keyboard navigation, pointer selection, and semantic
+children stay identical to `RadioGroup`.
+"""
+struct RadioSet
+    group::RadioGroup
+end
+
+"""Compatibility state alias for `RadioSet`; identical to `RadioGroupState`."""
+const RadioSetState = RadioGroupState
+
+RadioSet(options::AbstractVector; kwargs...) = RadioSet(RadioGroup(options; kwargs...))
+
+state_for(::RadioSet) = RadioSetState()
+
+render!(buffer::Buffer, widget::RadioSet, area::Rect, state::RadioSetState) =
+    render!(buffer, widget.group, area, state)
+
+render!(buffer::Buffer, widget::RadioSet, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+handle!(state::RadioSetState, widget::RadioSet, event::KeyEvent) =
+    handle!(state, widget.group, event)
+
+handle!(state::RadioSetState, widget::RadioSet, event::MouseEvent, area::Rect) =
+    handle!(state, widget.group, event, area)
+
+selected_value(widget::RadioSet, state::RadioSetState) =
+    selected_value(widget.group, state)
+
+"""
+    RadioBoxList(options; kwargs...)
+
+Lanterna-style radio-box list compatibility widget backed by `RadioGroup`.
+
+`RadioBoxList` shares `RadioBoxListState` with `RadioGroupState`, so layout,
+disabled-option handling, keyboard navigation, pointer selection, and
+`selected_value` stay identical to `RadioGroup`.
+"""
+struct RadioBoxList
+    group::RadioGroup
+end
+
+"""Compatibility state alias for `RadioBoxList`; identical to `RadioGroupState`."""
+const RadioBoxListState = RadioGroupState
+
+RadioBoxList(options::AbstractVector; kwargs...) = RadioBoxList(RadioGroup(options; kwargs...))
+
+state_for(::RadioBoxList) = RadioBoxListState()
+
+render!(buffer::Buffer, widget::RadioBoxList, area::Rect, state::RadioBoxListState) =
+    render!(buffer, widget.group, area, state)
+
+render!(buffer::Buffer, widget::RadioBoxList, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+handle!(state::RadioBoxListState, widget::RadioBoxList, event::KeyEvent) =
+    handle!(state, widget.group, event)
+
+handle!(state::RadioBoxListState, widget::RadioBoxList, event::MouseEvent, area::Rect) =
+    handle!(state, widget.group, event, area)
+
+selected_value(widget::RadioBoxList, state::RadioBoxListState) =
+    selected_value(widget.group, state)
+
 mutable struct SelectState
     selected::Union{Nothing,Int}
     highlighted::Union{Nothing,Int}
@@ -1003,6 +1462,8 @@ struct Select
     open_symbol::String
     closed_symbol::String
 end
+
+state_for(::Select) = SelectState()
 
 function Select(
     options;
@@ -1092,6 +1553,9 @@ function render!(buffer::Buffer, widget::Select, area::Rect, state::SelectState)
     buffer
 end
 
+render!(buffer::Buffer, widget::Select, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
 function handle!(state::SelectState, widget::Select, event::KeyEvent; viewport_height::Integer=5)
     _selection_key_event(event) || return false
     if event.key.code in (:enter, :character) &&
@@ -1163,6 +1627,8 @@ struct MultiSelect
     disabled_style::Style
 end
 
+state_for(::MultiSelect) = MultiSelectState()
+
 function MultiSelect(
     options;
     checked_symbol::AbstractString="[x]",
@@ -1212,6 +1678,9 @@ function render!(buffer::Buffer, widget::MultiSelect, area::Rect, state::MultiSe
     buffer
 end
 
+render!(buffer::Buffer, widget::MultiSelect, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
 function handle!(state::MultiSelectState, widget::MultiSelect, event::KeyEvent; viewport_height::Integer=1)
     _selection_key_event(event) || return false
     isempty(widget.options) && return false
@@ -1257,3 +1726,74 @@ selected_values(widget::MultiSelect, state::MultiSelectState) =
         widget.options[index].value for index in sort!(collect(state.selected))
         if 1 <= index <= length(widget.options) && !widget.options[index].disabled
     ]
+
+"""
+    SelectionList(options; kwargs...)
+
+Textual-style multiple-selection list backed by `MultiSelect`.
+
+`SelectionList` is a stable compatibility surface for multi-choice option lists.
+It intentionally shares `SelectionListState` with `MultiSelectState` so
+highlighting, disabled-option handling, checked state, keyboard navigation,
+pointer selection, and `selected_values` stay identical to `MultiSelect`.
+"""
+struct SelectionList
+    multiselect::MultiSelect
+end
+
+"""Compatibility state alias for `SelectionList`; identical to `MultiSelectState`."""
+const SelectionListState = MultiSelectState
+
+SelectionList(options::AbstractVector; kwargs...) = SelectionList(MultiSelect(options; kwargs...))
+
+state_for(::SelectionList) = SelectionListState()
+
+render!(buffer::Buffer, widget::SelectionList, area::Rect, state::SelectionListState) =
+    render!(buffer, widget.multiselect, area, state)
+
+render!(buffer::Buffer, widget::SelectionList, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+handle!(state::SelectionListState, widget::SelectionList, event::KeyEvent; viewport_height::Integer=1) =
+    handle!(state, widget.multiselect, event; viewport_height)
+
+handle!(state::SelectionListState, widget::SelectionList, event::MouseEvent, area::Rect) =
+    handle!(state, widget.multiselect, event, area)
+
+selected_values(widget::SelectionList, state::SelectionListState) =
+    selected_values(widget.multiselect, state)
+
+"""
+    CheckBoxList(options; kwargs...)
+
+Lanterna-style checkbox-list compatibility widget backed by `MultiSelect`.
+
+`CheckBoxList` shares `CheckBoxListState` with `MultiSelectState`, so disabled
+options, checked rows, keyboard navigation, pointer selection, and
+`selected_values` stay identical to `MultiSelect`.
+"""
+struct CheckBoxList
+    multiselect::MultiSelect
+end
+
+"""Compatibility state alias for `CheckBoxList`; identical to `MultiSelectState`."""
+const CheckBoxListState = MultiSelectState
+
+CheckBoxList(options::AbstractVector; kwargs...) = CheckBoxList(MultiSelect(options; kwargs...))
+
+state_for(::CheckBoxList) = CheckBoxListState()
+
+render!(buffer::Buffer, widget::CheckBoxList, area::Rect, state::CheckBoxListState) =
+    render!(buffer, widget.multiselect, area, state)
+
+render!(buffer::Buffer, widget::CheckBoxList, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+handle!(state::CheckBoxListState, widget::CheckBoxList, event::KeyEvent; viewport_height::Integer=1) =
+    handle!(state, widget.multiselect, event; viewport_height)
+
+handle!(state::CheckBoxListState, widget::CheckBoxList, event::MouseEvent, area::Rect) =
+    handle!(state, widget.multiselect, event, area)
+
+selected_values(widget::CheckBoxList, state::CheckBoxListState) =
+    selected_values(widget.multiselect, state)

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wicked-jl.local/schemas/reference-parity-matrix-status.schema.json",
+  "title": "Wicked reference parity matrix release status artifact",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "release_ready",
+    "total",
+    "blocking",
+    "blocking_families",
+    "blocking_records"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "blocking": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "blocking_families": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "blocking_records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["family", "status", "follow_up"],
+        "additionalProperties": false,
+        "properties": {
+          "family": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "minLength": 1 },
+          "follow_up": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

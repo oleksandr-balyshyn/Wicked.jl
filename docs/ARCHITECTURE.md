@@ -1,8 +1,9 @@
 # Wicked.jl Architecture
 
-Wicked.jl is organized as a layered terminal application framework. The lower
-layers do not depend on application widgets, and higher layers consume stable
-protocols rather than terminal escape sequences directly.
+Wicked.jl is organized as a layered terminal application framework for Linux
+terminal environments. The lower layers do not depend on application widgets,
+and higher layers consume stable protocols rather than terminal escape sequences
+directly.
 
 ## Layer map
 
@@ -15,7 +16,7 @@ protocols rather than terminal escape sequences directly.
 | Integration | `CoreIntegration`, `ToolkitComponents` | Core text/buffer adapters and Toolkit element construction |
 | Large data | `Virtualization`, `VirtualTrees`, `VirtualRendering`, `VirtualInput`, `VirtualAdvanced` | Paged sources, stable keys, overscan, virtual tables and trees |
 | Extended controls | `AdvancedControls`, `DataEntryControls`, `NavigationControls` | Stateful controls not covered by the base widget set |
-| Platform services | `Graphics`, `GraphicsBackend`, `Clipboard`, `DragDrop`, `FileBrowser` | Images, OSC 52, drag routing, filesystem selection |
+| Linux platform services | `Graphics`, `GraphicsBackend`, `Clipboard`, `DragDrop`, `FileBrowser` | Images, OSC 52, drag routing, filesystem selection |
 | Developer services | `Diagnostics`, `RuntimeDiagnostics`, `Testing`, `Accessibility`, `SemanticToolkit` | Traces, metrics, pilots, snapshots, semantic automation |
 | Reliability | `Reactive`, `ReactiveToolkit`, `Reliability`, `Extensions` | Reactive state, invalidation, error boundaries, resource scopes, extension lifecycle |
 
@@ -52,6 +53,26 @@ ultimately render through the same Core buffers as immediate-mode widgets.
 `CoreIntegration` and `ToolkitComponents` form the compatibility boundary for
 rich and advanced components. Applications may replace their factories when a
 custom widget, buffer, or element implementation is required.
+
+## Public API stability
+
+Application authors should import reviewed entry points from `Wicked.API`.
+The package root may re-export convenience names, but `Wicked.API` is the
+stable facade used for API contract checks, documentation, and release notes.
+
+A widget or component is stable only when its constructor, state object, render
+behavior, semantic output, event behavior, and failure modes are documented and
+covered by contract tests. Stateful widgets must also expose public state
+construction through `state_for(widget)` so immediate-mode callers, Toolkit
+elements, previews, and downstream extensions share the same state ownership
+contract. Moving a name into `Wicked.API` is necessary but not sufficient;
+stabilization also requires examples, snapshots or semantic assertions, and
+release evidence for the supported Linux terminal environments.
+
+`Wicked.Experimental` is a compatibility namespace for short-lived aliases only.
+It should remain empty in normal releases. New experimental widgets need a
+tracked decision before release: promote them into `Wicked.API`, keep them
+internal, or remove them.
 
 ## Reactive invalidation
 
@@ -91,7 +112,7 @@ cell width. APIs that use logical character columns document that distinction.
 `ErrorBoundary` records structured failures and either rethrows, contains, or
 disables a failing component. Containment must produce an explicit fallback.
 
-`ResourceScope` closes registered resources in reverse order and aggregates
+`ResourceScope`, `FailureCollector`, `ErrorBoundary`, `CancellationToken`, and `ManagedTaskGroup` are stable reliability APIs. `ResourceScope` closes registered resources in reverse order and aggregates
 cleanup failures. Managed task groups register tasks before scheduling, support
 cooperative cancellation, and join before shutdown completes.
 
@@ -130,7 +151,7 @@ The following evidence is required before a stable release:
 - Snapshot tests for every widget family and terminal capability tier.
 - Integration tests for terminal restoration after failures and cancellation.
 - Benchmarks for frame diffing, reconciliation, large data, Markdown, and styles.
-- Compatibility runs on Kitty, WezTerm, Sixel-capable terminals, tmux, screen, SSH, and a minimal ANSI terminal.
+- Compatibility runs on Linux Kitty, WezTerm, Sixel-capable terminals, tmux, screen, SSH, and a minimal ANSI terminal.
 - API reference documentation and executable examples.
 
 Until these gates are executed and recorded, feature presence is not evidence of

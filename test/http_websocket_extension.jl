@@ -2,7 +2,6 @@ using HTTP
 using Test
 using Wicked
 using Wicked.API
-using Wicked.Experimental
 
 @testset "HTTP WebSocket extension" begin
     sessions = Channel{RemoteSession}(1)

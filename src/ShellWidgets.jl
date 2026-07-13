@@ -78,9 +78,43 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Drawer, state::Drawe
         Accessibility.GroupRole;
         label="Drawer",
         state=Accessibility.SemanticState(focusable=true, expanded=state.open),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ActivateSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ActivateSemanticAction,
+            Accessibility.ExpandSemanticAction,
+            Accessibility.CollapseSemanticAction,
+            Accessibility.DismissSemanticAction,
+        ],
         metadata=Dict(:edge => widget.edge, :modal => widget.modal, :dismissible => widget.dismissible),
     )
+end
+
+function register_drawer_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    state::DrawerState,
+)
+    node_id = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+        if request.action == Accessibility.FocusSemanticAction
+            return Accessibility.SemanticActionResult(true; value=state.open)
+        elseif request.action == Accessibility.ActivateSemanticAction
+            toggle_drawer!(state)
+            return Accessibility.SemanticActionResult(true; value=state.open)
+        elseif request.action == Accessibility.ExpandSemanticAction
+            open_drawer!(state)
+            return Accessibility.SemanticActionResult(true; value=state.open)
+        elseif request.action == Accessibility.CollapseSemanticAction
+            close_drawer!(state)
+            return Accessibility.SemanticActionResult(true; value=state.open)
+        elseif request.action == Accessibility.DismissSemanticAction
+            state.dismissible || return Accessibility.SemanticActionResult(false; message="drawer is not dismissible")
+            close_drawer!(state)
+            return Accessibility.SemanticActionResult(true; value=state.open)
+        end
+        return Accessibility.SemanticActionResult(false; message="drawer semantic action is not supported")
+    end)
+    return dispatcher
 end
 
 mutable struct PopoverState
@@ -177,9 +211,44 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Popover, state::Popo
         Accessibility.GroupRole;
         label="Popover",
         state=Accessibility.SemanticState(focusable=true, expanded=state.open),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ActivateSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ActivateSemanticAction,
+            Accessibility.ExpandSemanticAction,
+            Accessibility.CollapseSemanticAction,
+            Accessibility.DismissSemanticAction,
+        ],
         metadata=Dict(:preferred => widget.preferred, :dismissible => widget.dismissible),
     )
+end
+
+function register_popover_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    state::PopoverState;
+    dismissible::Bool=true,
+)
+    node_id = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+        if request.action == Accessibility.FocusSemanticAction
+            return Accessibility.SemanticActionResult(true; value=state.open)
+        elseif request.action == Accessibility.ActivateSemanticAction
+            state.open = !state.open
+            return Accessibility.SemanticActionResult(true; value=state.open)
+        elseif request.action == Accessibility.ExpandSemanticAction
+            state.open = true
+            return Accessibility.SemanticActionResult(true; value=state.open)
+        elseif request.action == Accessibility.CollapseSemanticAction
+            state.open = false
+            return Accessibility.SemanticActionResult(true; value=state.open)
+        elseif request.action == Accessibility.DismissSemanticAction
+            dismissible || return Accessibility.SemanticActionResult(false; message="popover is not dismissible")
+            state.open = false
+            return Accessibility.SemanticActionResult(true; value=state.open)
+        end
+        return Accessibility.SemanticActionResult(false; message="popover semantic action is not supported")
+    end)
+    return dispatcher
 end
 
 struct Inspector{H<:DiagnosticsHub}
@@ -242,9 +311,50 @@ function SemanticToolkit.widget_semantic_descriptor(::Inspector, state::Inspecto
         Accessibility.GroupRole;
         label="Developer inspector",
         state=Accessibility.SemanticState(focusable=true, expanded=state.visible),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ScrollIntoViewSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.ActivateSemanticAction,
+            Accessibility.DismissSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:panel => state.panel, :selected => state.selected),
     )
+end
+
+_inspector_semantic_value(state::InspectorState) = Dict{Symbol,Any}(
+    :visible => state.visible,
+    :panel => state.panel,
+    :selected => state.selected,
+)
+
+function register_inspector_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    state::InspectorState,
+)
+    Accessibility.register_semantic_handler!(dispatcher, string(id), function (request)
+        if request.action == Accessibility.FocusSemanticAction ||
+           request.action == Accessibility.ScrollIntoViewSemanticAction
+            state.visible = true
+            return Accessibility.SemanticActionResult(true; value=_inspector_semantic_value(state))
+        elseif request.action == Accessibility.ActivateSemanticAction
+            state.visible = !state.visible
+            return Accessibility.SemanticActionResult(true; value=_inspector_semantic_value(state))
+        elseif request.action == Accessibility.DismissSemanticAction
+            state.visible = false
+            return Accessibility.SemanticActionResult(true; value=_inspector_semantic_value(state))
+        elseif request.action == Accessibility.IncrementSemanticAction
+            next_panel!(state)
+            return Accessibility.SemanticActionResult(true; value=_inspector_semantic_value(state))
+        elseif request.action == Accessibility.DecrementSemanticAction
+            previous_panel!(state)
+            return Accessibility.SemanticActionResult(true; value=_inspector_semantic_value(state))
+        end
+        return Accessibility.SemanticActionResult(false; message="inspector semantic action is not supported")
+    end)
+    return dispatcher
 end
 
 mutable struct DevConsoleState
@@ -312,7 +422,63 @@ function SemanticToolkit.widget_semantic_descriptor(::DevConsole, state::DevCons
         Accessibility.GroupRole;
         label="Developer console",
         state=Accessibility.SemanticState(focusable=true, expanded=state.visible),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ActivateSemanticAction, Accessibility.ScrollIntoViewSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ActivateSemanticAction,
+            Accessibility.DismissSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.SetValueSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:offset => state.offset),
     )
+end
+
+_dev_console_semantic_value(state::DevConsoleState) = Dict{Symbol,Any}(
+    :visible => state.visible,
+    :offset => state.offset,
+)
+
+function _set_dev_console_offset!(state::DevConsoleState, widget::DevConsole, value)
+    offset = tryparse(Int, string(value))
+    offset === nothing && return false
+    state.offset = clamp(offset, 0, max(0, length(dev_console_lines(widget)) - widget.height))
+    return true
+end
+
+function register_dev_console_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::DevConsole,
+    state::DevConsoleState,
+)
+    Accessibility.register_semantic_handler!(dispatcher, string(id), function (request)
+        if request.action == Accessibility.FocusSemanticAction ||
+           request.action == Accessibility.ScrollIntoViewSemanticAction
+            state.visible = true
+            return Accessibility.SemanticActionResult(true; value=_dev_console_semantic_value(state))
+        elseif request.action == Accessibility.ActivateSemanticAction
+            state.visible = !state.visible
+            return Accessibility.SemanticActionResult(true; value=_dev_console_semantic_value(state))
+        elseif request.action == Accessibility.DismissSemanticAction
+            state.visible = false
+            return Accessibility.SemanticActionResult(true; value=_dev_console_semantic_value(state))
+        elseif request.action == Accessibility.IncrementSemanticAction
+            state.offset = min(max(0, length(dev_console_lines(widget)) - widget.height), state.offset + 1)
+            return Accessibility.SemanticActionResult(true; value=_dev_console_semantic_value(state))
+        elseif request.action == Accessibility.DecrementSemanticAction
+            state.offset = max(0, state.offset - 1)
+            return Accessibility.SemanticActionResult(true; value=_dev_console_semantic_value(state))
+        elseif request.action == Accessibility.SetValueSemanticAction
+            handled = _set_dev_console_offset!(state, widget, request.value)
+            return Accessibility.SemanticActionResult(
+                handled;
+                value=_dev_console_semantic_value(state),
+                message=handled ? nothing : "developer console semantic value must be an integer offset",
+            )
+        end
+        return Accessibility.SemanticActionResult(false; message="developer console semantic action is not supported")
+    end)
+    return dispatcher
 end

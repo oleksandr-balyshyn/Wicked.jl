@@ -111,6 +111,36 @@ function SemanticToolkit.widget_semantic_descriptor(widget::CodeEditor, state::C
     )
 end
 
+function _code_editor_semantic_value(state::CodeEditorState)
+    return Dict{Symbol,Any}(
+        :value => code_editor_text(state),
+        :language => state.code.language,
+        :revision => state.code.revision,
+        :diagnostic_count => length(state.code.diagnostics),
+        :focused => state.text.focused,
+    )
+end
+
+function register_code_editor_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::CodeEditor,
+    state::CodeEditorState,
+)
+    Accessibility.register_semantic_handler!(dispatcher, string(id), function (request)
+        if request.action == Accessibility.FocusSemanticAction
+            state.text.focused = true
+            _synchronize_code_editor!(state)
+            return Accessibility.SemanticActionResult(true; value=_code_editor_semantic_value(state))
+        elseif request.action == Accessibility.SetValueSemanticAction
+            set_code_editor_text!(state, string(request.value))
+            return Accessibility.SemanticActionResult(true; value=_code_editor_semantic_value(state))
+        end
+        return Accessibility.SemanticActionResult(false; message="code editor semantic action is not supported")
+    end)
+    return dispatcher
+end
+
 struct MaskedInput
     mask::InputMask
     width::Int
@@ -236,4 +266,53 @@ function SemanticToolkit.widget_semantic_descriptor(widget::MaskedInput, state::
         actions=[Accessibility.FocusSemanticAction, Accessibility.SetValueSemanticAction],
         metadata=Dict(:mask_token_count => length(widget.mask.tokens), :complete => masked_input_complete(state)),
     )
+end
+
+function _masked_input_semantic_value(widget::MaskedInput, state::MaskedInputState)
+    return Dict{Symbol,Any}(
+        :label => "Masked input",
+        :value => masked_input_text(state),
+        :complete => masked_input_complete(state),
+        :focused => state.focused,
+        :mask_token_count => length(widget.mask.tokens),
+    )
+end
+
+function _set_masked_input_semantic_value!(state::MaskedInputState, value)
+    clear_masked_input!(state)
+    state.focused = true
+    literal_characters = Set(
+        token.literal for token in state.mask.tokens if token.kind == MaskLiteral
+    )
+    accepted = false
+    for character in string(value)
+        if character in literal_characters
+            continue
+        end
+        accepted = insert_masked_input!(state, character) || accepted
+    end
+    return accepted && masked_input_complete(state)
+end
+
+function register_masked_input_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::MaskedInput,
+    state::MaskedInputState,
+)
+    Accessibility.register_semantic_handler!(dispatcher, string(id), function (request)
+        if request.action == Accessibility.FocusSemanticAction
+            state.focused = true
+            return Accessibility.SemanticActionResult(true; value=_masked_input_semantic_value(widget, state))
+        elseif request.action == Accessibility.SetValueSemanticAction
+            handled = _set_masked_input_semantic_value!(state, request.value)
+            return Accessibility.SemanticActionResult(
+                handled;
+                value=_masked_input_semantic_value(widget, state),
+                message=handled ? nothing : "masked input value does not satisfy the mask",
+            )
+        end
+        return Accessibility.SemanticActionResult(false; message="masked input semantic action is not supported")
+    end)
+    return dispatcher
 end

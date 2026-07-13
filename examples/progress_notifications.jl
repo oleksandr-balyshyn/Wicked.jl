@@ -1,6 +1,4 @@
-import Wicked
 using Wicked.API
-using Wicked.Experimental
 
 clock_value = Ref(UInt64(0))
 clock = () -> clock_value[]
@@ -19,7 +17,7 @@ snapshot = progress_snapshot(tracker, :download)
 line = render_progress_control(snapshot; width=40, show_eta=true)
 semantics = progress_semantic_node(snapshot; id="download-progress")
 
-@assert line isa Wicked.RichContent.RichLine
+@assert line isa RichLine
 @assert semantics.role == ProgressRole
 @assert semantics.state.value_now == 25.0
 

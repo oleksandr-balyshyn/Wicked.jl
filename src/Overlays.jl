@@ -192,7 +192,7 @@ function open_overlay!(
 ) where {T}
     record, replaced = lock(manager.mutex) do
         handle = _next_overlay_handle(manager)
-        record = OverlayRecord(handle, content, options, focus_restore_token, handle.id)
+        record = OverlayRecord{T}(handle, content, options, focus_restore_token, handle.id)
         applicable(on_close, record, OverlayClosed) ||
             throw(ArgumentError("overlay close callback must accept a record and reason"))
         entries, callbacks, replaced = if options.exclusive

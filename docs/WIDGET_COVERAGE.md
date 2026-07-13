@@ -53,11 +53,20 @@ supported Julia lines. Inventory drift, invalid evidence, or any `missing`
 ledger cell therefore blocks every change rather than being deferred until a
 release candidate.
 
-The current ledger contains 58 direct renderable types and 580 required
-dimension cells. All 580 cells contain automated evidence or a reviewed,
+The current ledger contains 173 direct renderable types and 1,730 required
+dimension cells. All 1,730 cells contain automated evidence or a reviewed,
 specific non-applicability reason. This is worktree evidence; it does not
 replace the platform and real-terminal evidence required for a production
 release.
+
+Every direct stateful renderable in the current ledger also has a default-state
+render path. Use explicit state in interactive applications so selection,
+scrolling, focus, and edits survive redraws; use default-state rendering for
+static previews, examples, and smoke tests. Model-backed renderers such as
+`TabbedContentView` use an empty retained model for the default path and still
+accept the real application model for production rendering. `scripts/widget_audit.jl`
+rejects any future direct renderable that adds stateful rendering without a
+matching default-state render path.
 
 ## Scope boundary
 

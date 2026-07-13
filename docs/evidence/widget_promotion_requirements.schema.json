@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wicked-jl.local/schemas/widget-promotion-requirements.schema.json",
+  "title": "Wicked widget promotion requirements artifact",
+  "type": "object",
+  "required": ["schema_version", "summary", "requirements"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "by_area", "by_release_required"],
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_area": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "by_release_required": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "area",
+          "requirement",
+          "evidence",
+          "gate",
+          "release_required"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+          },
+          "area": {
+            "type": "string",
+            "enum": [
+              "api",
+              "behavior",
+              "docs",
+              "examples",
+              "semantics",
+              "toolkit",
+              "performance",
+              "release"
+            ]
+          },
+          "requirement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "gate": {
+            "type": "string",
+            "pattern": "scripts/[^\\s;]+\\.jl"
+          },
+          "release_required": {
+            "type": "string",
+            "enum": ["yes", "no"]
+          }
+        }
+      }
+    }
+  }
+}

@@ -524,9 +524,9 @@ end
 
 function dispose!(classes::ReactiveClassSet)
     bindings = lock(classes.mutex) do
-        values = collect(values(classes.bindings))
+        bindings_snapshot = collect(Base.values(classes.bindings))
         empty!(classes.bindings)
-        values
+        bindings_snapshot
     end
     for binding in bindings
         unsubscribe!(binding.subscription)

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wicked-jl.local/schemas/stable-widget-stabilization.schema.json",
+  "title": "Wicked stable widget stabilization closeout artifact",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ready",
+    "total_widgets",
+    "stable_widgets",
+    "candidate_widget_count",
+    "candidate_widgets",
+    "experimental_widget_count",
+    "experimental_widgets",
+    "stability_blocked",
+    "family_closeout_blocked"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "ready": {
+      "type": "boolean"
+    },
+    "total_widgets": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "stable_widgets": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "candidate_widget_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "candidate_widgets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "experimental_widget_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "experimental_widgets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stability_blocked": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "family_closeout_blocked": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

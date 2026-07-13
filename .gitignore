@@ -31,6 +31,7 @@ Artifacts.toml.tmp
 # Test/runtime scratch output
 /tmp/
 /scratch/
+/scratch/parity-evidence/
 *.log
 
 # Editor and tooling state

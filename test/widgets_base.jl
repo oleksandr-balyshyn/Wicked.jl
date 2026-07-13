@@ -34,6 +34,11 @@
         render!(horizontal, Rule(HorizontalRule; symbol="-"), horizontal.area)
         @test [horizontal[2, column].grapheme for column in 1:5] == fill("-", 5)
         @test measure(Rule(), Rect(1, 1, 3, 5)) == Size(1, 5)
+        divider = Divider(VerticalRule; symbol="|")
+        vertical = Buffer(3, 5)
+        render!(vertical, divider, vertical.area)
+        @test [vertical[row, 3].grapheme for row in 1:3] == fill("|", 3)
+        @test measure(divider, Rect(1, 1, 3, 5)) == Size(3, 1)
         @test_throws ArgumentError Rule(symbol="xx")
         @test_throws ArgumentError BorderSymbols("界", "|", "+", "+", "+", "+")
     end

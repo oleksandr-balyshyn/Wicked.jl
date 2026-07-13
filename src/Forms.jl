@@ -2,6 +2,8 @@ module Forms
 
 using ..Core
 using ..Runtime
+using ..Accessibility
+using ..SemanticToolkit
 import ..Core: render!
 
 @enum ValidationStatus::UInt8 begin
@@ -333,6 +335,112 @@ function render!(buffer::Buffer, widget::ValidationSummary, area::Rect)
     buffer
 end
 
+function _form_field_metadata(field::FormField, state::FieldState)
+    return Dict{Symbol,Any}(
+        :field_id => field.id,
+        :status => state.status,
+        :dirty => state.dirty,
+        :touched => state.touched,
+        :issue_count => length(state.issues),
+        :issue_codes => Symbol[issue.code for issue in state.issues],
+    )
+end
+
+function SemanticToolkit.widget_semantic_descriptor(widget::Form, state::FormState)
+    return SemanticDescriptor(
+        GroupRole;
+        label="Form",
+        state=SemanticState(
+            readonly=false,
+            busy=state.submitting || form_pending(widget, state),
+            invalid=!isempty(form_issues(widget, state)),
+        ),
+        actions=SemanticAction[
+            FocusSemanticAction,
+            SelectSemanticAction,
+            ActivateSemanticAction,
+            DismissSemanticAction,
+        ],
+        metadata=Dict{Symbol,Any}(
+            :field_count => length(widget.fields),
+            :dirty => form_dirty(widget, state),
+            :valid => form_valid(widget, state),
+            :pending => form_pending(widget, state),
+            :issue_count => length(form_issues(widget, state)),
+            :submit_count => state.submit_count,
+        ),
+    )
+end
+
+function SemanticToolkit.widget_semantic_children(widget::Form, state::FormState, id)
+    return SemanticNode[
+        SemanticNode(
+            "$(id)/field/$(field.id)",
+            TextboxRole;
+            label=field.label,
+            state=SemanticState(
+                focusable=true,
+                focused=field_state(state, field.id).touched,
+                readonly=false,
+                invalid=!isempty(field_state(state, field.id).issues),
+                value=string(field_state(state, field.id).value),
+            ),
+            actions=SemanticAction[
+                FocusSemanticAction,
+                SelectSemanticAction,
+                SetValueSemanticAction,
+                DismissSemanticAction,
+                ActivateSemanticAction,
+            ],
+            metadata=_form_field_metadata(field, field_state(state, field.id)),
+        ) for field in widget.fields
+    ]
+end
+
+function register_form_semantic_handlers!(
+    dispatcher::SemanticDispatcher,
+    id,
+    form::Form,
+    state::FormState,
+)
+    node_id = string(id)
+    register_semantic_handler!(dispatcher, node_id, function (request)
+        if request.action == FocusSemanticAction || request.action == SelectSemanticAction
+            return SemanticActionResult(true; value=form_values(form, state))
+        elseif request.action == ActivateSemanticAction
+            command = validate_form!(form, state)
+            state.submit_count += 1
+            return SemanticActionResult(true; value=command)
+        elseif request.action == DismissSemanticAction
+            reset_form!(form, state)
+            return SemanticActionResult(true; value=form_values(form, state))
+        end
+        return SemanticActionResult(false; message="form semantic action is not supported")
+    end)
+
+    for field in form.fields
+        field_id = "$(node_id)/field/$(field.id)"
+        register_semantic_handler!(dispatcher, field_id, function (request)
+            current = field_state(state, field.id)
+            if request.action == FocusSemanticAction || request.action == SelectSemanticAction
+                current.touched = true
+                return SemanticActionResult(true; value=current.value)
+            elseif request.action == SetValueSemanticAction
+                set_field!(state, field.id, request.value)
+                return SemanticActionResult(true; value=field_value(state, field.id))
+            elseif request.action == DismissSemanticAction
+                reset_field!(state, field.id)
+                return SemanticActionResult(true; value=field_value(state, field.id))
+            elseif request.action == ActivateSemanticAction
+                command = validate_field!(form, state, field.id)
+                return SemanticActionResult(true; value=command)
+            end
+            return SemanticActionResult(false; message="form field semantic action is not supported")
+        end)
+    end
+    return dispatcher
+end
+
 export FieldState,
        Form,
        FormField,
@@ -356,6 +464,7 @@ export FieldState,
        form_valid,
        form_values,
        required_validator,
+       register_form_semantic_handlers!,
        reset_field!,
        reset_form!,
        set_field!,

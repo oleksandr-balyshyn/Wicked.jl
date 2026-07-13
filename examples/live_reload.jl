@@ -1,5 +1,4 @@
 using Wicked.API
-using Wicked.Experimental
 
 clock_value = Ref(UInt64(0))
 clock = () -> clock_value[]

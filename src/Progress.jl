@@ -9,6 +9,12 @@ using .Core: AnsiColor,
 import .Core: render!
 using .Events: TickEvent
 using .Widgets: Block, Label, _visual_area
+using .Accessibility: FocusSemanticAction,
+                      SelectSemanticAction,
+                      SemanticAction,
+                      SemanticActionRequest,
+                      SemanticActionResult,
+                      SemanticDispatcher
 import .Widgets: handle!
 
 
@@ -539,8 +545,31 @@ function SemanticToolkit.widget_semantic_descriptor(widget::ProgressBar, state::
             value_min=widget.ratio === nothing ? nothing : 0.0,
             value_max=widget.ratio === nothing ? nothing : 1.0,
         ),
+        actions=SemanticAction[FocusSemanticAction, SelectSemanticAction],
         metadata=Dict(:status => widget.status, :phase => state.phase),
     )
+end
+
+_progress_semantic_value(widget::ProgressBar, state::ProgressBarState) = Dict{Symbol,Any}(
+    :ratio => widget.ratio,
+    :status => widget.status,
+    :phase => state.phase,
+    :label => widget.label,
+)
+
+function register_progress_bar_semantic_handlers!(
+    dispatcher::SemanticDispatcher,
+    id,
+    widget::ProgressBar,
+    state::ProgressBarState,
+)
+    Accessibility.register_semantic_handler!(dispatcher, string(id), function (request::SemanticActionRequest)
+        if request.action in (FocusSemanticAction, SelectSemanticAction)
+            return SemanticActionResult(true; value=_progress_semantic_value(widget, state))
+        end
+        return SemanticActionResult(false; message="progress semantic action is not supported")
+    end)
+    return dispatcher
 end
 
 function render!(
@@ -577,3 +606,43 @@ function render!(
     )
     return buffer
 end
+
+"""
+    Progress(args...; kwargs...)
+
+Concise progress-widget compatibility name backed by `ProgressBar`.
+
+`Progress` uses the same rendering, tick handling, and semantic descriptor as
+`ProgressBar`. Its state type is `ProgressState`, an alias of
+`ProgressBarState`.
+"""
+struct Progress
+    bar::ProgressBar
+end
+
+const ProgressState = ProgressBarState
+
+Progress(; kwargs...) = Progress(ProgressBar(; kwargs...))
+Progress(ratio::Real; kwargs...) = Progress(; ratio, kwargs...)
+Progress(snapshot::ProgressSnapshot; kwargs...) = Progress(ProgressBar(snapshot; kwargs...))
+Progress(aggregate::ProgressAggregate; kwargs...) = Progress(ProgressBar(aggregate; kwargs...))
+
+render!(buffer::Buffer, widget::Progress, area::Rect) =
+    render!(buffer, widget.bar, area)
+
+render!(buffer::Buffer, widget::Progress, area::Rect, state::ProgressState) =
+    render!(buffer, widget.bar, area, state)
+
+handle!(state::ProgressState, widget::Progress, event::TickEvent) =
+    handle!(state, widget.bar, event)
+
+function SemanticToolkit.widget_semantic_descriptor(widget::Progress, state::ProgressState)
+    return SemanticToolkit.widget_semantic_descriptor(widget.bar, state)
+end
+
+register_progress_semantic_handlers!(
+    dispatcher::SemanticDispatcher,
+    id,
+    widget::Progress,
+    state::ProgressState,
+) = register_progress_bar_semantic_handlers!(dispatcher, id, widget.bar, state)

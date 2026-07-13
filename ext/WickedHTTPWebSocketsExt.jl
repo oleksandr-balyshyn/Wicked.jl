@@ -3,7 +3,6 @@ module WickedHTTPWebSocketsExt
 using HTTP
 using Wicked
 using Wicked.API
-using Wicked.Experimental
 import Wicked: close_remote_session!,
                ingest_remote!,
                pump_websocket!,

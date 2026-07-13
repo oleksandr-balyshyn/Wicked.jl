@@ -4,6 +4,9 @@
 It is intentionally larger than the focused examples and runs in CI without taking
 over a terminal.
 
+The example imports `Wicked.API` and uses reviewed public contracts only. It does
+not depend on `Wicked.Experimental`.
+
 The application demonstrates:
 
 - A `WickedApp` model, update function, view value, and managed commands.

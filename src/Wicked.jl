@@ -16,7 +16,6 @@ include("Clipboard.jl")
 include("Interaction.jl")
 include("Styles.jl")
 include("Toolkit.jl")
-include("Forms.jl")
 include("Testing.jl")
 include("Diagnostics.jl")
 include("RuntimeDiagnostics.jl")
@@ -27,6 +26,7 @@ include("GraphicsBackend.jl")
 include("RichSurface.jl")
 include("Accessibility.jl")
 include("SemanticToolkit.jl")
+include("Forms.jl")
 include("Virtualization.jl")
 include("VirtualTrees.jl")
 include("VirtualRendering.jl")
@@ -515,6 +515,7 @@ using .AdvancedControlRendering: AdvancedControlAction,
                                  scrollbar_semantic_node,
                                  breadcrumb_semantic_tree,
                                  collapsible_semantic_node,
+                                 accordion_semantic_tree,
                                  pagination_semantic_node,
                                  stepper_semantic_tree,
                                  dialog_semantic_tree
@@ -776,12 +777,91 @@ using .VirtualAdvanced: VirtualRangeSelection,
                         begin_virtual_range_selection,
                         apply_virtual_range_selection!,
                         cancel_virtual_range_selection!,
+                        virtual_selection_snapshot,
+                        restore_virtual_selection!,
+                        virtual_selected_row_records,
+                        virtual_selected_row_snapshot,
+                        virtual_range_selected_row_records,
+                        virtual_range_selected_row_snapshot,
+                        VirtualCellEditState,
+                        VirtualCellEditResult,
+                        VirtualCellEditHistory,
+                        begin_virtual_cell_edit!,
+                        update_virtual_cell_edit!,
+                        commit_virtual_cell_edit!,
+                        cancel_virtual_cell_edit!,
+                        virtual_cell_edit_snapshot,
+                        restore_virtual_cell_edit!,
+                        apply_virtual_cell_edit,
+                        apply_virtual_cell_edit!,
+                        record_virtual_cell_edit!,
+                        undo_virtual_cell_edit!,
+                        redo_virtual_cell_edit!,
+                        virtual_cell_edit_history_snapshot,
+                        restore_virtual_cell_edit_history!,
                         VirtualTypeAhead,
                         push_virtual_typeahead!,
                         backspace_virtual_typeahead!,
                         clear_virtual_typeahead!,
                         apply_virtual_typeahead!,
                         TableLayoutState,
+                        table_layout_snapshot,
+                        restore_table_layout!,
+                        table_preferences_bundle,
+                        restore_table_preferences!,
+                        apply_table_preferences,
+                        table_preferences_summary,
+                        table_preferences_text,
+                        table_preferences_markdown,
+                        table_preferences_tsv,
+                        ColumnVisibilityState,
+                        column_visibility_snapshot,
+                        restore_column_visibility!,
+                        hide_virtual_column!,
+                        show_virtual_column!,
+                        toggle_virtual_column_visibility!,
+                        virtual_column_visible,
+                        visible_virtual_columns,
+                        apply_virtual_column_visibility,
+                        ColumnPinState,
+                        column_pin_snapshot,
+                        restore_column_pin!,
+                        pin_virtual_column_left!,
+                        pin_virtual_column_right!,
+                        unpin_virtual_column!,
+                        toggle_virtual_column_pin!,
+                        virtual_column_pin_position,
+                        pinned_virtual_columns,
+                        apply_virtual_column_pinning,
+                        VirtualColumnAction,
+                        VirtualColumnActionResult,
+                        default_virtual_column_actions,
+                        virtual_column_action_enabled,
+                        virtual_column_action_menu,
+                        virtual_column_action_records,
+                        invoke_virtual_column_action,
+                        virtual_column_action_for_shortcut,
+                        invoke_virtual_column_action_shortcut,
+                        virtual_column_action_summary,
+                        virtual_column_action_text,
+                        virtual_column_action_markdown,
+                        virtual_column_action_tsv,
+                        VirtualRowAction,
+                        VirtualRowActionResult,
+                        VirtualRowActionBatchResult,
+                        virtual_row_action_enabled,
+                        virtual_row_action_menu,
+                        virtual_row_action_records,
+                        invoke_virtual_row_action,
+                        invoke_virtual_row_action_batch,
+                        invoke_virtual_range_row_action_batch,
+                        virtual_row_action_batch_records,
+                        virtual_row_action_batch_summary,
+                        virtual_row_action_batch_text,
+                        virtual_row_action_batch_markdown,
+                        virtual_row_action_batch_tsv,
+                        virtual_row_action_for_shortcut,
+                        invoke_virtual_row_action_shortcut,
                         set_virtual_column_width!,
                         reorder_virtual_column!,
                         apply_virtual_table_layout,
@@ -795,6 +875,11 @@ using .VirtualAdvanced: VirtualRangeSelection,
                         clear_virtual_filter!,
                         set_virtual_search!,
                         virtual_table_query,
+                        apply_virtual_table_query!,
+                        data_query_summary,
+                        data_query_text,
+                        data_query_markdown,
+                        data_query_tsv,
                         virtual_table_column_at
 
 
@@ -873,6 +958,13 @@ using .Virtualization: AbstractDataSource,
                        replace_data!,
                        append_data!,
                        splice_data!,
+                       QueryDataSource,
+                       query_data_source,
+                       set_query_search!,
+                       set_query_filter!,
+                       clear_query_filter!,
+                       clear_query!,
+                       toggle_query_sort!,
                        CallbackDataSource,
                        PageResult,
                        DataRequestToken,
@@ -882,6 +974,15 @@ using .Virtualization: AbstractDataSource,
                        DescendingSort,
                        SortTerm,
                        DataQuery,
+                       AbstractQueryFilter,
+                       EqualsFilter,
+                       ContainsFilter,
+                       RangeFilter,
+                       RegexFilter,
+                       query_equals,
+                       query_contains,
+                       query_range,
+                       query_regex,
                        PageStatus,
                        IdlePage,
                        LoadingPage,
@@ -930,6 +1031,20 @@ using .SemanticToolkit: SemanticDescriptor,
                         semantic_descriptor,
                         widget_semantic_descriptor,
                         widget_semantic_children,
+                        register_menu_semantic_handlers!,
+                        register_tabs_semantic_handlers!,
+                        register_button_semantic_handlers!,
+                        register_push_button_semantic_handlers!,
+                        register_text_input_semantic_handlers!,
+                        register_input_semantic_handlers!,
+                        register_text_box_semantic_handlers!,
+                        register_text_field_semantic_handlers!,
+                        register_password_input_semantic_handlers!,
+                        register_password_field_semantic_handlers!,
+                        register_search_input_semantic_handlers!,
+                        register_number_input_semantic_handlers!,
+                        register_text_area_semantic_handlers!,
+                        register_textarea_semantic_handlers!,
                         toolkit_semantic_tree,
                         SemanticBuilder,
                         SemanticBuildError,
@@ -941,13 +1056,14 @@ using .SemanticToolkit: SemanticDescriptor,
                         abort_semantic_tree!,
                         SemanticQuery,
                         SemanticQueryError,
-                        query_semantics,
-                        query_one_semantic,
                         SemanticPilot,
                         refresh_semantic_pilot!,
                         perform_semantic_action!,
                         take_semantic_announcements!,
                         semantic_pilot_snapshot
+
+import .SemanticToolkit: query_semantics,
+                         query_one_semantic
 
 
 using .Accessibility: SemanticRole,
@@ -1297,6 +1413,7 @@ using .Core: AbstractWidthPolicy,
              IndexedColor,
              LeftAlign,
              Line,
+             HorizontalAlignment,
              Margin,
              Modifiers,
              Position,
@@ -1466,26 +1583,41 @@ using .Widgets: ASCII_BORDERS,
                 BarChart,
                 Button,
                 ButtonState,
+                PushButton,
+                PushButtonState,
                 ChoiceOption,
                 Box,
                 Center,
                 CharacterWrap,
+                CheckBox,
+                CheckBoxState,
                 Checkbox,
                 CheckboxState,
                 Chart,
                 ChartDataset,
                 Clear,
                 Column,
+                Divider,
                 Grid,
                 Gauge,
                 Heatmap,
                 Histogram,
                 EditingBuffer,
+                Input,
+                InputState,
                 List,
                 ListItem,
                 ListState,
+                ListView,
+                ListViewState,
+                OptionList,
+                OptionListState,
+                CheckBoxList,
+                CheckBoxListState,
                 MultiSelect,
                 MultiSelectState,
+                SelectionList,
+                SelectionListState,
                 Menu,
                 MenuItem,
                 MenuState,
@@ -1494,6 +1626,8 @@ using .Widgets: ASCII_BORDERS,
                 Label,
                 Heading,
                 MarkupText,
+                has_block_role,
+                has_inline_role,
                 LineGauge,
                 LeftBorder,
                 NoBorders,
@@ -1501,20 +1635,34 @@ using .Widgets: ASCII_BORDERS,
                 Overlay,
                 Padding,
                 Paragraph,
+                PasswordField,
+                PasswordFieldState,
                 PasswordInput,
                 SearchInput,
                 SearchInputState,
                 NumberInput,
+                NumericInput,
                 NumberInputState,
+                increment_number_input!,
+                number_input_valid,
+                number_input_value,
+                set_number_text!,
+                set_number_value!,
                 RightBorder,
+                RadioBoxList,
+                RadioBoxListState,
                 RadioGroup,
                 RadioGroupState,
+                RadioSet,
+                RadioSetState,
                 Row,
                 Rule,
                 RuleDirection,
+                Separator,
                 Canvas,
                 CanvasContext,
                 Calendar,
+                CalendarState,
                 ScrollState,
                 ScrollView,
                 Scrollbar,
@@ -1526,6 +1674,10 @@ using .Widgets: ASCII_BORDERS,
                 Spinner,
                 SpinnerState,
                 Stack,
+                Static,
+                TextView,
+                Switch,
+                SwitchState,
                 Tab,
                 Tabs,
                 TabsState,
@@ -1535,11 +1687,19 @@ using .Widgets: ASCII_BORDERS,
                 TableState,
                 TextArea,
                 TextAreaState,
+                Textarea,
+                TextareaState,
+                TextBox,
+                TextBoxState,
+                TextField,
+                TextFieldState,
                 TextInput,
                 TextInputState,
                 Tree,
                 TreeNode,
                 TreeState,
+                TreeView,
+                TreeViewState,
                 TopBorder,
                 Toggle,
                 ToggleState,
@@ -1560,6 +1720,8 @@ using .Widgets: ASCII_BORDERS,
                 redo!,
                 select_all!,
                 selected_item,
+                selected_menu_item,
+                selected_menu_message,
                 selected_value,
                 selected_values,
                 set_text!,
@@ -1576,16 +1738,36 @@ using .Widgets: ASCII_BORDERS,
                 LogEntry,
                 LogState,
                 LogView,
+                RichLog,
+                RichLogState,
                 Notification,
                 NotificationCenter,
                 NotificationView,
                 clear_log!,
                 close_palette!,
+                command_palette_filtered_commands,
+                command_palette_query,
+                command_palette_selected_command,
                 dismiss_notification!,
                 expire_notifications!,
                 open_palette!,
                 push_log!,
-                push_notification!
+                push_notification!,
+                select_command!,
+                select_menu_item!,
+                select_next_command!,
+                select_next_menu_item!,
+                select_next_tab!,
+                select_previous_command!,
+                select_previous_menu_item!,
+                select_previous_tab!,
+                set_command_palette_query!
+
+selected_tab(widget::Tabs, state::TabsState) =
+    Widgets.selected_tab(widget, state)
+
+select_tab!(state::TabsState, widget::Tabs, index::Integer) =
+    Widgets.select_tab!(state, widget, index)
 
 using .Runtime: AbstractCommand,
                 AbstractSubscription,
@@ -1628,22 +1810,143 @@ using .Runtime: AbstractCommand,
                 update!
 
 using .Interaction: Binding,
+                    BindingLayer,
+                    BindingStack,
+                    BindingStackSnapshot,
                     BindingMap,
                     FocusEntry,
                     FocusRegistry,
+                    FocusSnapshot,
+                    activate_binding_layer!,
+                    active_binding_stack_binding_count,
+                    active_binding_stack_count,
+                    active_binding_stack_layer_names,
+                    active_binding_stack_layers,
+                    assert_binding_layer_documented,
+                    assert_binding_layers_documented,
+                    assert_binding_stack_documented,
+                    assert_binding_stack_layer,
+                    assert_bindings_documented,
+                    assert_no_binding_layer_conflicts,
+                    assert_no_binding_stack_conflicts,
+                    assert_no_binding_conflicts,
                     begin_focus_frame!,
                     bind!,
+                    bind_strict!,
+                    binding_conflict,
+                    binding_conflict_labels,
+                    binding_conflicts,
+                    binding_count,
+                    binding_display_records,
+                    binding_help_line,
+                    binding_help_lines,
+                    binding_help_json,
+                    binding_help_markdown,
+                    binding_help_text,
+                    binding_help_tsv,
+                    binding_keys,
+                    binding_label,
+                    binding_layer_active,
+                    binding_layer_conflict_labels,
+                    binding_layer_conflicts,
+                    binding_layer_count,
+                    binding_layer_documented,
+                    binding_layer_display_records,
+                    binding_layer_help_lines,
+                    binding_layer_help_text,
+                    binding_layer_help_json,
+                    binding_layer_help_markdown,
+                    binding_layer_help_tsv,
+                    binding_layer_keys,
+                    binding_layer_map,
+                    binding_layer_name,
+                    binding_layer_record,
+                    binding_layer_records,
+                    binding_layer_summary,
+                    binding_layers_documented,
+                    binding_layers_help_lines,
+                    binding_layers_help_text,
+                    binding_layers_summary,
+                    binding_record,
+                    binding_records,
+                    binding_stack_binding_count,
+                    binding_stack_conflict_labels,
+                    binding_stack_conflicts,
+                    binding_stack_count,
+                    binding_stack_documented,
+                    binding_stack_display_records,
+                    binding_stack_help_lines,
+                    binding_stack_help_text,
+                    binding_stack_help_json,
+                    binding_stack_help_markdown,
+                    binding_stack_help_tsv,
+                    binding_stack_keys,
+                    binding_stack_layer,
+                    binding_stack_layer_names,
+                    binding_stack_layers,
+                    binding_stack_name,
+                    binding_stack_records,
+                    binding_stack_snapshot,
+                    binding_stack_snapshot_record,
+                    binding_stack_summary,
+                    binding_summary,
+                    bindings_documented,
+                    can_focus,
+                    clear_focus!,
                     current_scope,
+                    deactivate_binding_layer!,
+                    described_binding_layer_display_records,
+                    described_binding_display_records,
+                    described_binding_stack_display_records,
+                    described_bindings,
                     focus!,
                     focus_at,
+                    focus_count,
                     focus_direction!,
+                    focus_first!,
+                    focus_index,
+                    focus_last!,
                     focus_next!,
+                    focus_order,
                     focus_previous!,
+                    focus_restore_depth,
+                    focus_restore_target,
+                    focus_restore_targets,
+                    focus_scope_depth,
+                    focus_scopes,
+                    focus_snapshot,
+                    focus_snapshot_record,
                     focused,
+                    has_binding,
+                    has_binding_conflicts,
+                    has_active_binding_layer,
+                    has_binding_layer_conflicts,
+                    has_binding_layer,
+                    has_binding_stack_conflicts,
+                    inactive_binding_stack_count,
+                    inactive_binding_stack_layer_names,
+                    inactive_binding_stack_layers,
+                    merge_bindings!,
+                    merged_binding_layers,
+                    merged_binding_stack,
+                    merged_bindings,
                     pop_focus_scope!,
+                    prepend_binding_layer!,
+                    push_binding_layer!,
                     push_focus_scope!,
                     register_focus!,
                     resolve_binding,
+                    resolve_binding_layer,
+                    resolve_binding_layers,
+                    resolve_binding_record,
+                    resolve_binding_stack,
+                    remove_binding_layer!,
+                    replace_binding_layer!,
+                    undocumented_binding_layer_records,
+                    undocumented_binding_layers_records,
+                    undocumented_binding_stack_records,
+                    undocumented_bindings,
+                    upsert_binding_layer!,
                     unbind!
 
 using .Toolkit: BubblePhase,
@@ -1660,12 +1963,34 @@ using .Toolkit: BubblePhase,
                 ToolkitModel,
                 Screen,
                 ScreenMode,
+                ScreenRegistry,
+                ScreenRouteMetadata,
+                ScreenHistory,
                 ScreenStack,
+                BackRegisteredScreen,
+                ClearOverlayScreens,
+                ClearScreens,
+                ForwardRegisteredScreen,
+                NavigateRegisteredScreen,
                 OverlayScreen,
                 PopScreen,
+                PopToScreen,
                 PushScreen,
+                PushRegisteredScreen,
                 ReplaceScreen,
                 ReplaceWithScreen,
+                ReplaceWithRegisteredScreen,
+                RemoveScreen,
+                back_registered_screen!,
+                back_screen_history!,
+                can_go_back,
+                can_go_forward,
+                clear_screen_route_disabled_reason!,
+                disable_screen_route!,
+                enable_screen_route!,
+                clear_overlay_screens!,
+                clear_screen_history!,
+                clear_screens!,
                 centered,
                 column,
                 dispatch!,
@@ -1675,38 +2000,181 @@ using .Toolkit: BubblePhase,
                 leaf,
                 render_toolkit!,
                 current_screen,
+                current_screen_history_id,
+                forward_registered_screen!,
+                forward_screen_history!,
+                has_registered_screen,
+                has_screen,
                 initialize_model,
                 pop_screen!,
+                pop_to_screen!,
                 push_screen!,
+                push_screen_history!,
+                push_registered_screen!,
+                registered_screen,
+                remove_screen!,
                 replace_screen!,
+                replace_screen_history!,
+                replace_registered_screen!,
+                register_screen!,
+                navigate_registered_screen!,
+                screen_history_count,
+                screen_history_empty,
+                screen_history_command_items,
+                screen_history_command_palette,
+                screen_history_command_palette_session,
+                screen_history_binding_layer,
+                screen_history_binding_map,
+                screen_history_json,
+                screen_history_markdown,
+                screen_history_menu,
+                screen_history_menu_items,
+                screen_history_menu_session,
+                screen_history_records,
+                screen_history_summary,
+                screen_history_tsv,
                 row,
+                screen_registry_command_items,
+                screen_registry_command_palette,
+                screen_registry_command_palette_session,
+                screen_registry_count,
+                screen_registry_empty,
+                screen_registry_filter_count,
+                screen_registry_filter_records,
+                screen_registry_group_json,
+                screen_registry_group_markdown,
+                screen_registry_group_records,
+                screen_registry_group_summary,
+                screen_registry_group_summary_text,
+                screen_registry_group_text,
+                screen_registry_group_tsv,
+                screen_registry_groups,
+                screen_registry_ids,
+                screen_registry_json,
+                screen_registry_markdown,
+                screen_registry_menu,
+                screen_registry_menu_items,
+                screen_registry_menu_session,
+                screen_registry_modes,
+                screen_registry_records,
+                screen_registry_screens,
+                screen_registry_summary,
+                screen_registry_summary_text,
+                screen_registry_tsv,
+                screen_registry_text,
+                screen_registry_binding_layer,
+                screen_registry_binding_map,
+                screen_route_description,
+                screen_route_disabled_reason,
+                screen_route_enabled,
+                screen_route_group,
+                screen_route_keywords,
+                screen_route_metadata,
+                screen_route_title,
+                set_screen_route_disabled_reason!,
+                set_screen_route_enabled!,
+                screen_stack_count,
+                screen_stack_empty,
+                screen_stack_element,
+                screen_stack_ids,
+                screen_stack_json,
+                screen_stack_markdown,
+                screen_stack_modes,
+                screen_stack_records,
+                screen_stack_summary,
+                screen_stack_tsv,
+                search_screen_registry_count,
+                search_screen_registry_command_items,
+                search_screen_registry_command_palette,
+                search_screen_registry_command_palette_session,
+                search_screen_registry_json,
+                search_screen_registry_markdown,
+                search_screen_registry_menu,
+                search_screen_registry_menu_items,
+                search_screen_registry_menu_session,
+                search_screen_registry_records,
+                search_screen_registry_tsv,
+                set_screen_route_metadata!,
                 stack,
                 state_for,
                 toolkit_subscriptions,
                 toolkit_update!,
-                toolkit_view
+                toolkit_view,
+                unregister_screen!
 
 using .Styles: DEFAULT_THEME,
                Selector,
                StyleContext,
+               StyleDiagnostics,
                StyleEngine,
+               StyleExplanation,
                StyleRule,
+               StyleResolutionStep,
                Stylesheet,
                Theme,
                add_rule!,
                add_stylesheet!,
                apply_style!,
                computed_style,
+               explain_style,
+               matching_style_rule_markdown,
+               matching_style_rule_records,
+               matching_style_rule_text,
+               matching_style_rule_tsv,
                matches,
                remove_rule!,
                set_theme!,
                specificity,
+               style_context_markdown,
+               style_context_record,
+               style_context_text,
+               style_context_tsv,
+               style_diagnostics,
+               style_diagnostics_markdown,
+               style_diagnostics_record,
+               style_diagnostics_text,
+               style_diagnostics_tsv,
+               style_explanation_markdown,
+               style_explanation_records,
+               style_explanation_summary,
+               style_explanation_summary_markdown,
+               style_explanation_summary_records,
+               style_explanation_summary_text,
+               style_explanation_summary_tsv,
+               style_explanation_text,
+               style_explanation_tsv,
+               style_rule_match_markdown,
+               style_rule_match_records,
+               style_rule_match_summary,
+               style_rule_match_text,
+               style_rule_match_tsv,
                theme_style,
+               unmatched_style_rule_markdown,
+               unmatched_style_rule_records,
+               unmatched_style_rule_text,
+               unmatched_style_rule_tsv,
                StyleDiagnostic,
                StylesheetParseError,
                load_stylesheet,
                parse_color,
                parse_stylesheet,
+               search_style_explanation_count,
+               search_style_diagnostics_count,
+               search_style_diagnostics_markdown,
+               search_style_diagnostics_records,
+               search_style_diagnostics_text,
+               search_style_diagnostics_tsv,
+               search_style_explanation_markdown,
+               search_style_explanation_records,
+               search_style_explanation_text,
+               search_style_explanation_tsv,
+               search_style_rule_match_count,
+               search_style_rule_match_markdown,
+               search_style_rule_match_records,
+               search_style_rule_match_text,
+               search_style_rule_match_tsv,
+               selector_match_reasons,
+               selector_text,
                try_parse_stylesheet
 
 using .Forms: FieldState,
@@ -1734,15 +2202,22 @@ using .Forms: FieldState,
               required_validator,
               reset_field!,
               reset_form!,
-              set_field!,
-              validate_field!,
-              validate_form!
+                  set_field!,
+                  validate_field!,
+                  validate_form!,
+                  register_form_semantic_handlers!
 
 using .Testing: BufferAssertionError,
                 ElementMatch,
                 RuntimePilot,
                 RuntimePilotResult,
                 ScheduledToken,
+                SnapshotArtifactRecord,
+                SnapshotArtifactSummary,
+                SnapshotBundle,
+                PilotEvidenceBundle,
+                PilotEvidenceSummary,
+                PilotStatus,
                 ToolkitPilot,
                 VirtualClock,
                 WidgetPilot,
@@ -1750,38 +2225,466 @@ using .Testing: BufferAssertionError,
                 advance_time!,
                 ansi_snapshot,
                 assert_ansi_snapshot,
+                assert_buffer,
                 assert_cell,
+                assert_command,
+                assert_exited,
+                assert_focus,
+                assert_message,
+                assert_messages,
+                assert_model,
+                assert_no_focus,
+                assert_no_messages,
+                assert_no_processed_messages,
+                assert_no_query,
+                assert_no_runtime_queue,
+                assert_pilot_evidence_bundle_artifacts,
+                assert_pilot_evidence_package_artifacts,
+                assert_pilot_evidence_package_report_artifacts,
+                assert_pilot_evidence_report_artifacts,
                 assert_plain_snapshot,
+                assert_pending_scheduled,
+                assert_query,
+                assert_query_one,
+                assert_processed_messages,
+                assert_runtime_queue,
+                assert_running,
+                assert_snapshot_bundle_artifacts,
+                assert_snapshot_bundle,
+                assert_structured_snapshot,
+                assert_svg_snapshot,
+                assert_virtual_time,
                 cancel_scheduled!,
                 click!,
+                double_click!,
+                drag!,
+                exit_result,
                 focus_element!,
+                focused_element,
                 hover!,
                 key!,
+                last_command,
+                messages,
                 mouse!,
                 paste!,
                 pending_scheduled,
+                pilot_exited,
+                pilot_evidence_artifact_manifest_markdown,
+                pilot_evidence_artifact_manifest_tsv,
+                pilot_evidence_artifact_summary,
+                pilot_evidence_bundle,
+                pilot_evidence_markdown,
+                pilot_evidence_manifest,
+                pilot_evidence_manifest_markdown,
+                pilot_evidence_manifest_records,
+                pilot_evidence_manifest_tsv,
+                pilot_evidence_package_artifact_manifest_markdown,
+                pilot_evidence_package_artifact_manifest_tsv,
+                pilot_evidence_package_artifact_summary,
+                pilot_evidence_package_artifact_summary_markdown,
+                pilot_evidence_package_artifact_summary_text,
+                pilot_evidence_package_artifact_summary_tsv,
+                pilot_evidence_package_manifest_markdown,
+                pilot_evidence_package_manifest_records,
+                pilot_evidence_package_manifest_tsv,
+                pilot_evidence_package_report_artifact_manifest_markdown,
+                pilot_evidence_package_report_artifact_manifest_tsv,
+                pilot_evidence_package_report_artifact_summary,
+                pilot_evidence_package_report_artifact_summary_markdown,
+                pilot_evidence_package_report_artifact_summary_text,
+                pilot_evidence_package_report_artifact_summary_tsv,
+                pilot_evidence_package_report_artifacts,
+                pilot_evidence_package_report_manifest_markdown,
+                pilot_evidence_package_report_manifest_records,
+                pilot_evidence_package_report_manifest_tsv,
+                pilot_evidence_package_report_summary,
+                pilot_evidence_package_report_summary_markdown,
+                pilot_evidence_package_report_summary_text,
+                pilot_evidence_package_report_summary_tsv,
+                pilot_evidence_package_summary,
+                pilot_evidence_package_summary_markdown,
+                pilot_evidence_package_summary_text,
+                pilot_evidence_package_summary_tsv,
+                pilot_evidence_report_artifact_manifest_markdown,
+                pilot_evidence_report_artifact_manifest_tsv,
+                pilot_evidence_report_artifact_summary,
+                pilot_evidence_report_artifact_summary_markdown,
+                pilot_evidence_report_artifact_summary_text,
+                pilot_evidence_report_artifact_summary_tsv,
+                pilot_evidence_report_artifacts,
+                pilot_evidence_report_manifest_markdown,
+                pilot_evidence_report_manifest_records,
+                pilot_evidence_report_manifest_tsv,
+                pilot_evidence_report_summary,
+                pilot_evidence_report_summary_markdown,
+                pilot_evidence_report_summary_text,
+                pilot_evidence_report_summary_tsv,
+                pilot_evidence_summary,
+                pilot_evidence_summary_markdown,
+                pilot_evidence_summary_text,
+                pilot_evidence_summary_tsv,
+                pilot_evidence_text,
+                pilot_evidence_tsv,
+                pilot_model,
+                pilot_status,
+                pilot_status_markdown,
+                pilot_status_text,
+                pilot_status_tsv,
+                processed_messages,
                 plain_snapshot,
+                press!,
                 query,
                 query_one,
+                read_pilot_evidence_manifest_records,
+                read_pilot_evidence_package_manifest_records,
+                read_pilot_evidence_package_report_manifest_records,
+                read_pilot_evidence_report_manifest_records,
+                read_snapshot_bundle_manifest_records,
+                right_click!,
                 resize_terminal!,
+                runtime_queue,
+                scroll_down!,
+                scroll_up!,
                 schedule_after!,
                 send!,
+                snapshot_artifact_summary_markdown,
+                snapshot_artifact_summary_text,
+                snapshot_artifact_summary_tsv,
+                snapshot_bundle_artifact_manifest_markdown,
+                snapshot_bundle_artifact_manifest_tsv,
+                snapshot_bundle_artifact_summary,
+                snapshot_bundle_artifacts,
+                snapshot_bundle_manifest,
+                snapshot_bundle_manifest_markdown,
+                snapshot_bundle_manifest_records,
+                snapshot_bundle_manifest_tsv,
+                snapshot_bundle_payloads,
+                snapshot_bundle_report_artifacts,
+                snapshot_bundle,
+                snapshot_bundle_summary,
+                snapshot_manifest_records_markdown,
+                snapshot_manifest_records_tsv,
                 structured_snapshot,
                 svg_snapshot,
                 take_messages!,
                 type_text!,
-                virtual_time_ns
+                verify_pilot_evidence_bundle,
+                verify_pilot_evidence_package,
+                verify_pilot_evidence_package_report_artifacts,
+                verify_pilot_evidence_report_artifacts,
+                verify_snapshot_bundle_artifacts,
+                virtual_time_ns,
+                wait_for_ansi_snapshot!,
+                wait_for_buffer!,
+                wait_for_cell!,
+                wait_for_command!,
+                wait_for_exit!,
+                wait_for_focus!,
+                wait_for_message!,
+                wait_for_model!,
+                wait_for_no_focus!,
+                wait_for_no_messages!,
+                wait_for_processed_messages!,
+                wait_for_no_query!,
+                wait_for_runtime_queue!,
+                wait_for_plain_snapshot!,
+                wait_for_pending_scheduled!,
+                wait_for_query!,
+                wait_for_running!,
+                wait_for_snapshot_bundle!,
+                wait_for_snapshot_bundle_where!,
+                wait_for_structured_snapshot!,
+                wait_for_svg_snapshot!,
+                wait_for_text!,
+                wait_for_virtual_time!,
+                wait_messages!,
+                wait_query!,
+                wait_runtime_queue!,
+                wait_query_one!,
+                wait_until!,
+                write_pilot_evidence_bundle,
+                write_pilot_evidence_package,
+                write_pilot_evidence_package_reports,
+                write_pilot_evidence_reports,
+                write_snapshot_bundle,
+                write_snapshot_bundle_reports
+
+"""
+    pilot_semantic_tree(pilot; kwargs...)
+
+Build a semantic tree from a rendered `WidgetPilot` or `ToolkitPilot`.
+
+For `ToolkitPilot`, this is a convenience wrapper around
+`toolkit_semantic_tree(pilot.tree; kwargs...)` for headless tests that should
+treat the pilot as the public test harness rather than reaching into its retained
+Toolkit tree. For `WidgetPilot`, it builds a one-widget tree from the widget's
+semantic descriptor and rendered pilot bounds.
+"""
+pilot_semantic_tree(pilot::ToolkitPilot; kwargs...) =
+    toolkit_semantic_tree(pilot.tree; kwargs...)
+
+function pilot_semantic_tree(
+    pilot::WidgetPilot;
+    id="widget",
+    label::AbstractString="Widget",
+    generation::Integer=0,
+    validate::Bool=true,
+)
+    node_id = string(id)
+    descriptor = widget_semantic_descriptor(pilot.widget, pilot.state)
+    area = pilot.backend.screen.area
+    tree = SemanticTree(
+        SemanticNode(
+            node_id,
+            descriptor.role;
+            label=isempty(descriptor.label) ? label : descriptor.label,
+            description=descriptor.description,
+            bounds=SemanticRect(area.row, area.column, area.width, area.height),
+            state=descriptor.state,
+            actions=descriptor.actions,
+            children=widget_semantic_children(pilot.widget, pilot.state, node_id),
+            metadata=merge(Dict{Symbol,Any}(:widget_type => typeof(pilot.widget)), descriptor.metadata),
+        );
+        generation,
+    )
+    if validate
+        diagnostics = validate_semantics(tree)
+        errors = SemanticDiagnostic[diagnostic for diagnostic in diagnostics if diagnostic.severity == :error]
+        isempty(errors) || throw(SemanticBuildError("widget pilot semantic tree validation failed", diagnostics))
+    end
+    return tree
+end
+
+"""
+    pilot_semantic_snapshot(pilot; kwargs...)
+
+Return the stable semantic snapshot for a rendered `WidgetPilot` or
+`ToolkitPilot`.
+
+This is a convenience wrapper around
+`semantic_snapshot(pilot_semantic_tree(pilot; kwargs...))`.
+"""
+pilot_semantic_snapshot(pilot; kwargs...) =
+    semantic_snapshot(pilot_semantic_tree(pilot; kwargs...))
+
+"""
+    query_semantics(pilot, query=SemanticQuery(); kwargs...)
+
+Query semantic nodes from a rendered `WidgetPilot` or `ToolkitPilot`.
+
+Keyword arguments are forwarded to `pilot_semantic_tree`, so tests can set tree
+labels or validation options without reaching into internal pilot fields.
+"""
+query_semantics(pilot::Union{WidgetPilot,ToolkitPilot}, query::SemanticQuery=SemanticQuery(); kwargs...) =
+    query_semantics(pilot_semantic_tree(pilot; kwargs...), query)
+
+"""
+    query_one_semantic(pilot, query; kwargs...)
+
+Return exactly one semantic node from a rendered `WidgetPilot` or `ToolkitPilot`,
+throwing `SemanticQueryError` when the query does not match exactly one node.
+"""
+query_one_semantic(pilot::Union{WidgetPilot,ToolkitPilot}, query::SemanticQuery; kwargs...) =
+    query_one_semantic(pilot_semantic_tree(pilot; kwargs...), query)
+
+"""
+    wait_for_semantic!(pilot::Union{WidgetPilot,ToolkitPilot}, query=SemanticQuery(); kwargs...)
+
+Advance deterministic pilot time until a semantic query matches at least one
+node, or throw `BufferAssertionError` on timeout.
+"""
+function wait_for_semantic!(
+    pilot::Union{WidgetPilot,ToolkitPilot},
+    query::SemanticQuery=SemanticQuery();
+    timeout_seconds::Real=1,
+    step_seconds::Real=0.016,
+    kwargs...,
+)
+    wait_until!(
+        pilot,
+        candidate -> !isempty(query_semantics(candidate, query; kwargs...));
+        timeout_seconds,
+        step_seconds,
+    )
+end
+
+"""
+    wait_for_no_semantic!(pilot::Union{WidgetPilot,ToolkitPilot}, query=SemanticQuery(); kwargs...)
+
+Advance deterministic pilot time until a semantic query matches no nodes, or
+throw `BufferAssertionError` on timeout.
+"""
+function wait_for_no_semantic!(
+    pilot::Union{WidgetPilot,ToolkitPilot},
+    query::SemanticQuery=SemanticQuery();
+    timeout_seconds::Real=1,
+    step_seconds::Real=0.016,
+    kwargs...,
+)
+    wait_until!(
+        pilot,
+        candidate -> isempty(query_semantics(candidate, query; kwargs...));
+        timeout_seconds,
+        step_seconds,
+    )
+end
+
+"""
+    wait_query_semantics!(pilot::Union{WidgetPilot,ToolkitPilot}, query=SemanticQuery(); kwargs...)
+
+Advance deterministic pilot time until a semantic query matches and return the
+matching nodes.
+"""
+function wait_query_semantics!(
+    pilot::Union{WidgetPilot,ToolkitPilot},
+    query::SemanticQuery=SemanticQuery();
+    timeout_seconds::Real=1,
+    step_seconds::Real=0.016,
+    kwargs...,
+)
+    wait_for_semantic!(pilot, query; timeout_seconds, step_seconds, kwargs...)
+    query_semantics(pilot, query; kwargs...)
+end
+
+"""
+    wait_query_one_semantic!(pilot::Union{WidgetPilot,ToolkitPilot}, query=SemanticQuery(); kwargs...)
+
+Advance deterministic pilot time until a semantic query matches, then return
+exactly one matching node.
+"""
+function wait_query_one_semantic!(
+    pilot::Union{WidgetPilot,ToolkitPilot},
+    query::SemanticQuery=SemanticQuery();
+    timeout_seconds::Real=1,
+    step_seconds::Real=0.016,
+    kwargs...,
+)
+    wait_for_semantic!(pilot, query; timeout_seconds, step_seconds, kwargs...)
+    query_one_semantic(pilot, query; kwargs...)
+end
+
+function _semantic_query_matches_for_assertion(source, query::SemanticQuery; kwargs...)
+    source isa WidgetPilot && return query_semantics(source, query; kwargs...)
+    source isa ToolkitPilot && return query_semantics(source, query; kwargs...)
+    isempty(kwargs) || throw(ArgumentError("semantic query keyword arguments are only supported for WidgetPilot and ToolkitPilot"))
+    return query_semantics(source, query)
+end
+
+function _semantic_query_assertion_match_summary(matches)
+    isempty(matches) && return "no matching semantic ids"
+    ids = String[node.id for node in Iterators.take(matches, 5)]
+    suffix = length(matches) > length(ids) ? ", ..." : ""
+    return "matched semantic ids: $(join(ids, ", "))$suffix"
+end
+
+function _semantic_snapshot_for_assertion(source; kwargs...)
+    source isa WidgetPilot && return pilot_semantic_snapshot(source; kwargs...)
+    source isa ToolkitPilot && return pilot_semantic_snapshot(source; kwargs...)
+    isempty(kwargs) || throw(ArgumentError("semantic snapshot keyword arguments are only supported for pilots"))
+    return semantic_snapshot(source)
+end
+
+_semantic_assertion_source_name(source) =
+    source isa WidgetPilot ? "WidgetPilot" :
+    source isa ToolkitPilot ? "ToolkitPilot" :
+    source isa SemanticPilot ? "SemanticPilot" :
+    source isa SemanticTree ? "SemanticTree" :
+    string(typeof(source))
+
+"""
+    assert_semantic_snapshot(source, expected; kwargs...)
+
+Assert a stable semantic snapshot for a semantic tree, `WidgetPilot`, or
+`ToolkitPilot`.
+"""
+function assert_semantic_snapshot(source, expected::AbstractString; kwargs...)
+    actual = _semantic_snapshot_for_assertion(source; kwargs...)
+    actual == expected || throw(BufferAssertionError(
+        "semantic snapshot mismatch for $(_semantic_assertion_source_name(source)):\nexpected: $(repr(String(expected)))\nactual:   $(repr(actual))",
+    ))
+    return source
+end
+
+assert_semantic_snapshot(source, expected::SemanticTree; kwargs...) =
+    assert_semantic_snapshot(source, semantic_snapshot(expected); kwargs...)
+
+"""
+    assert_semantic_query(source, query; count=nothing, minimum=nothing, maximum=nothing, kwargs...)
+
+Assert that a semantic tree, `SemanticPilot`, `WidgetPilot`, or `ToolkitPilot`
+matches a `SemanticQuery` exactly once by default, exactly `count` times when
+`count` is provided, at least `minimum` times, or at most `maximum` times.
+"""
+function assert_semantic_query(source, query::SemanticQuery; count=nothing, minimum=nothing, maximum=nothing, kwargs...)
+    (count === nothing || count isa Integer) ||
+        throw(ArgumentError("semantic query assertion count must be an integer or nothing"))
+    (minimum === nothing || minimum isa Integer) ||
+        throw(ArgumentError("semantic query assertion minimum must be an integer or nothing"))
+    (maximum === nothing || maximum isa Integer) ||
+        throw(ArgumentError("semantic query assertion maximum must be an integer or nothing"))
+    count === nothing || count >= 0 || throw(ArgumentError("semantic query assertion count cannot be negative"))
+    minimum === nothing || minimum >= 0 || throw(ArgumentError("semantic query assertion minimum cannot be negative"))
+    maximum === nothing || maximum >= 0 || throw(ArgumentError("semantic query assertion maximum cannot be negative"))
+    provided = count !== nothing ? 1 : 0
+    provided += minimum !== nothing ? 1 : 0
+    provided += maximum !== nothing ? 1 : 0
+    provided <= 1 || throw(ArgumentError("semantic query assertion accepts only one of count, minimum, or maximum"))
+    matches = _semantic_query_matches_for_assertion(source, query; kwargs...)
+    if minimum !== nothing
+        length(matches) >= minimum || throw(BufferAssertionError(
+            "semantic query mismatch for $(_semantic_assertion_source_name(source)): expected at least $(Int(minimum)) for $(repr(query)), got $(length(matches)); $(_semantic_query_assertion_match_summary(matches))",
+        ))
+    elseif maximum !== nothing
+        length(matches) <= maximum || throw(BufferAssertionError(
+            "semantic query mismatch for $(_semantic_assertion_source_name(source)): expected at most $(Int(maximum)) for $(repr(query)), got $(length(matches)); $(_semantic_query_assertion_match_summary(matches))",
+        ))
+    else
+        expected = count === nothing ? 1 : Int(count)
+        length(matches) == expected || throw(BufferAssertionError(
+            "semantic query mismatch for $(_semantic_assertion_source_name(source)): expected count $expected for $(repr(query)), got $(length(matches)); $(_semantic_query_assertion_match_summary(matches))",
+        ))
+    end
+    return source
+end
+
+"""
+    assert_no_semantic_query(source, query; kwargs...)
+
+Assert that a semantic tree, `SemanticPilot`, `WidgetPilot`, or `ToolkitPilot`
+does not match a `SemanticQuery`.
+"""
+assert_no_semantic_query(source, query::SemanticQuery; kwargs...) =
+    assert_semantic_query(source, query; count=0, kwargs...)
+
+assert_semantic_query(source::Union{SemanticTree,SemanticPilot}; count=nothing, minimum=nothing, maximum=nothing, kwargs...) =
+    assert_semantic_query(source, SemanticQuery(; kwargs...); count, minimum, maximum)
+
+assert_no_semantic_query(source::Union{SemanticTree,SemanticPilot}; kwargs...) =
+    assert_no_semantic_query(source, SemanticQuery(; kwargs...))
 
 
 include("AcceptanceWidgets.jl")
+
+select_tab!(state::TabViewState, widget::TabView, index::Integer) =
+    select_tab_view!(state, widget, index)
+
 include("DataWidgets.jl")
 include("EditingWidgets.jl")
 include("VisualizationWidgets.jl")
 include("ShellWidgets.jl")
 include("StreamingWidgets.jl")
 include("MediaWidgets.jl")
+include("WidgetCatalog.jl")
+include("Precompile.jl")
 include("API.jl")
 include("ExperimentalAPI.jl")
 export API, Experimental
+
+# Complete state factory mapping for widgets and compatibility aliases that are
+# introduced after Toolkit initialization.
+import .Toolkit: state_for
+state_for(::Widgets.RichLog) = LogState()
+state_for(::ProgressBar) = ProgressBarState()
+state_for(::Progress) = ProgressBarState()
 
 end

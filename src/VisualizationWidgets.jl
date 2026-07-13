@@ -54,9 +54,19 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Plot, state)
     return SemanticToolkit.SemanticDescriptor(
         Accessibility.ImageRole;
         label="Plot",
+        state=Accessibility.SemanticState(readonly=true),
+        actions=Accessibility.SemanticAction[
+            Accessibility.FocusSemanticAction,
+            Accessibility.SelectSemanticAction,
+        ],
         metadata=Dict(:width => widget.width, :height => widget.height),
     )
 end
+
+_visual_semantic_value(widget::Plot) = Dict{Symbol,Any}(:width => widget.width, :height => widget.height)
+
+register_plot_semantic_handlers!(dispatcher::Accessibility.SemanticDispatcher, id, widget::Plot) =
+    _register_readonly_visual_semantic_handlers!(dispatcher, id, widget, "plot semantic action is not supported")
 
 struct Meter
     value::Float64
@@ -114,13 +124,23 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Meter, state)
         Accessibility.ProgressRole;
         label=something(widget.label, "Meter"),
         state=Accessibility.SemanticState(
+            readonly=true,
             value_now=widget.value,
             value_min=widget.minimum,
             value_max=widget.maximum,
         ),
+        actions=Accessibility.SemanticAction[
+            Accessibility.FocusSemanticAction,
+            Accessibility.SelectSemanticAction,
+        ],
         metadata=Dict(:orientation => widget.orientation, :ratio => meter_ratio(widget)),
     )
 end
+
+_visual_semantic_value(widget::Meter) = Dict{Symbol,Any}(:value => widget.value, :minimum => widget.minimum, :maximum => widget.maximum, :ratio => meter_ratio(widget), :orientation => widget.orientation)
+
+register_meter_semantic_handlers!(dispatcher::Accessibility.SemanticDispatcher, id, widget::Meter) =
+    _register_readonly_visual_semantic_handlers!(dispatcher, id, widget, "meter semantic action is not supported")
 
 struct Timeline{T}
     items::Vector{TimelineItem{T}}
@@ -215,7 +235,13 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Timeline, state::Tim
         Accessibility.ListRole;
         label="Timeline",
         state=Accessibility.SemanticState(focusable=true),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ScrollIntoViewSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+            Accessibility.SetValueSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+        ],
         metadata=Dict(:item_count => length(widget.items), :focused_index => state.timeline.focused),
     )
 end
@@ -228,10 +254,74 @@ function SemanticToolkit.widget_semantic_children(widget::Timeline, state::Timel
             label=item.title,
             description=item.detail,
             state=Accessibility.SemanticState(
+                focusable=true,
                 selected=state.timeline.focused == index,
                 value=string(item.status),
             ),
-            actions=[Accessibility.ActivateSemanticAction],
+            actions=[
+                Accessibility.FocusSemanticAction,
+                Accessibility.SelectSemanticAction,
+                Accessibility.ActivateSemanticAction,
+            ],
+            metadata=Dict(:value => item.value),
         ) for (index, item) in enumerate(widget.items)
     ]
 end
+
+function _set_timeline_focus!(state::TimelineState, value)
+    value isa Integer && begin
+        isempty(state.items) && (state.focused = nothing; return true)
+        state.focused = clamp(Int(value), 1, length(state.items))
+        return true
+    end
+    token = lowercase(strip(string(value)))
+    index = findfirst(item -> item.value == value || lowercase(item.title) == token || lowercase(string(item.value)) == token, state.items)
+    index === nothing && return false
+    state.focused = index
+    return true
+end
+
+function register_timeline_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    state::TimelineState,
+)
+    node_id = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+        if request.action == Accessibility.FocusSemanticAction
+            return Accessibility.SemanticActionResult(true; value=state.focused)
+        elseif request.action == Accessibility.IncrementSemanticAction
+            move_timeline_focus!(state, 1)
+            return Accessibility.SemanticActionResult(true; value=state.focused)
+        elseif request.action == Accessibility.DecrementSemanticAction
+            move_timeline_focus!(state, -1)
+            return Accessibility.SemanticActionResult(true; value=state.focused)
+        elseif request.action == Accessibility.SetValueSemanticAction
+            _set_timeline_focus!(state, request.value) ||
+                return Accessibility.SemanticActionResult(false; message="timeline value must be an item, item label, or integer index")
+            return Accessibility.SemanticActionResult(true; value=state.focused)
+        end
+        return Accessibility.SemanticActionResult(false; message="timeline semantic action is not supported")
+    end)
+    for (registered_index, item) in enumerate(state.items)
+        value = item.value
+        Accessibility.register_semantic_handler!(dispatcher, "$(node_id)/$(registered_index)", function (request)
+            index = findfirst(candidate -> candidate.value == value, state.items)
+            index === nothing && return Accessibility.SemanticActionResult(false; message="timeline item is not available")
+            if request.action == Accessibility.FocusSemanticAction ||
+                    request.action == Accessibility.SelectSemanticAction ||
+                    request.action == Accessibility.ActivateSemanticAction
+                state.focused = index
+                return Accessibility.SemanticActionResult(true; value)
+            end
+            return Accessibility.SemanticActionResult(false; message="timeline item semantic action is not supported")
+        end)
+    end
+    return dispatcher
+end
+
+register_timeline_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    state::TimelineWidgetState,
+) = register_timeline_semantic_handlers!(dispatcher, id, state.timeline)

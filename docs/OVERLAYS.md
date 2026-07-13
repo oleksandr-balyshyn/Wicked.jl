@@ -1,5 +1,16 @@
 # Overlays
 
+Overlay manager, modal stack, tooltip, drawer, popover, and screen stack APIs are
+available through the stable `Wicked.API` facade.
+
+For simple immediate-mode layering inside one rectangle, use `Overlay`. It
+renders children in order, so later children paint over earlier children:
+
+```julia
+overlay = Overlay(Paragraph("dashboard"), Label("menu"))
+render!(buffer, overlay, area)
+```
+
 Wicked treats dialogs, popovers, menus, command palettes, tooltips, and temporary
 panels as overlays managed by one `OverlayManager`. The manager owns ordering,
 modal input barriers, dismissal policy, focus restoration metadata, and lifecycle

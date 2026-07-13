@@ -33,9 +33,19 @@ function SemanticToolkit.widget_semantic_descriptor(widget::ImageView, state)
     return SemanticToolkit.SemanticDescriptor(
         Accessibility.GroupRole;
         label="Image",
+        actions=[Accessibility.FocusSemanticAction, Accessibility.SelectSemanticAction],
         metadata=Dict(:pixel_width => widget.image.width, :pixel_height => widget.image.height, :format => widget.image.format),
     )
 end
+
+_visual_semantic_value(widget::ImageView) = Dict{Symbol,Any}(
+    :pixel_width => widget.image.width,
+    :pixel_height => widget.image.height,
+    :format => widget.image.format,
+)
+
+register_image_view_semantic_handlers!(dispatcher::Accessibility.SemanticDispatcher, id, widget::ImageView) =
+    _register_readonly_visual_semantic_handlers!(dispatcher, id, widget, "image view semantic action is not supported")
 
 """A compact image view that guarantees a Unicode cell fallback in all terminals."""
 struct BrailleImage
@@ -49,9 +59,19 @@ function SemanticToolkit.widget_semantic_descriptor(widget::BrailleImage, state)
     return SemanticToolkit.SemanticDescriptor(
         Accessibility.GroupRole;
         label="Unicode image fallback",
-        metadata=Dict(:pixel_width => widget.image.image.width, :pixel_height => widget.image.image.height),
+        actions=[Accessibility.FocusSemanticAction, Accessibility.SelectSemanticAction],
+        metadata=Dict(:pixel_width => widget.image.image.width, :pixel_height => widget.image.image.height, :format => widget.image.image.format),
     )
 end
+
+_visual_semantic_value(widget::BrailleImage) = Dict{Symbol,Any}(
+    :pixel_width => widget.image.image.width,
+    :pixel_height => widget.image.image.height,
+    :format => widget.image.image.format,
+)
+
+register_braille_image_semantic_handlers!(dispatcher::Accessibility.SemanticDispatcher, id, widget::BrailleImage) =
+    _register_readonly_visual_semantic_handlers!(dispatcher, id, widget, "braille image semantic action is not supported")
 
 struct SyntaxView
     code::CodeView
@@ -77,10 +97,22 @@ function SemanticToolkit.widget_semantic_descriptor(widget::SyntaxView, state::S
             invalid=any(diagnostic -> diagnostic.severity == CodeError, state.diagnostics),
             value="$(length(state.lines)) lines",
         ),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ScrollIntoViewSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:language => state.language, :revision => state.revision, :diagnostic_count => length(state.diagnostics)),
     )
 end
+
+register_syntax_view_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::SyntaxView,
+    state::SyntaxViewState,
+) = register_code_view_semantic_handlers!(dispatcher, id, widget.code, state)
 
 function ansi_plain_text(value::AbstractString)
     output = IOBuffer()
@@ -157,10 +189,29 @@ function SemanticToolkit.widget_semantic_descriptor(widget::AnsiView, state::Ans
             readonly=true,
             value="$(length(split(ansi_plain_text(widget.source), '\n'; keepempty=true))) lines",
         ),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.ScrollIntoViewSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:offset => state.row, :sanitized => true),
     )
 end
+
+register_ansi_view_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::AnsiView,
+    state::AnsiViewState,
+) = _register_scroll_state_semantic_handlers!(
+    dispatcher,
+    id,
+    state,
+    () -> length(split(ansi_plain_text(widget.source), '\n'; keepempty=true)),
+    widget.height,
+    "ANSI view",
+)
 
 struct Hyperlink{T}
     label::String
@@ -204,6 +255,26 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Hyperlink, state::Hy
     )
 end
 
+function register_hyperlink_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::Hyperlink,
+    state::HyperlinkState,
+)
+    node_id = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+        if request.action == Accessibility.FocusSemanticAction
+            state.focused = true
+            return Accessibility.SemanticActionResult(true; value=widget.target)
+        elseif request.action == Accessibility.ActivateSemanticAction
+            state.focused = true
+            return Accessibility.SemanticActionResult(true; value=widget.target)
+        end
+        return Accessibility.SemanticActionResult(false; message="hyperlink semantic action is not supported")
+    end)
+    return dispatcher
+end
+
 struct ColorPicker
     width::Int
     height::Int
@@ -241,6 +312,32 @@ function SemanticToolkit.widget_semantic_descriptor(::ColorPicker, state::ColorP
         state=Accessibility.SemanticState(focusable=true, value=color_hex(state)),
         actions=[Accessibility.FocusSemanticAction, Accessibility.SetValueSemanticAction, Accessibility.IncrementSemanticAction, Accessibility.DecrementSemanticAction],
     )
+end
+
+function register_color_picker_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::ColorPicker,
+    state::ColorPickerState,
+)
+    node_id = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+        if request.action == Accessibility.FocusSemanticAction
+            return Accessibility.SemanticActionResult(true; value=color_hex(state))
+        elseif request.action == Accessibility.SetValueSemanticAction
+            set_color_hex!(state, string(request.value)) ||
+                return Accessibility.SemanticActionResult(false; message="color value must be a #RRGGBB or #RRGGBBAA hex string")
+            return Accessibility.SemanticActionResult(true; value=color_hex(state))
+        elseif request.action == Accessibility.IncrementSemanticAction
+            result = handle_data_entry_key!(state, widget.bindings, :right)
+            return Accessibility.SemanticActionResult(result.consumed; value=color_hex(state))
+        elseif request.action == Accessibility.DecrementSemanticAction
+            result = handle_data_entry_key!(state, widget.bindings, :left)
+            return Accessibility.SemanticActionResult(result.consumed; value=color_hex(state))
+        end
+        return Accessibility.SemanticActionResult(false; message="color picker semantic action is not supported")
+    end)
+    return dispatcher
 end
 
 struct ThemePreview
@@ -298,7 +395,14 @@ function SemanticToolkit.widget_semantic_descriptor(::ThemePreview, state::Theme
         Accessibility.ListRole;
         label="Theme preview",
         state=Accessibility.SemanticState(focusable=true),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.SelectSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.SelectSemanticAction,
+            Accessibility.ActivateSemanticAction,
+            Accessibility.SetValueSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:selected_index => state.selected),
     )
 end
@@ -315,4 +419,92 @@ function SemanticToolkit.widget_semantic_children(widget::ThemePreview, state::T
             metadata=Dict(:theme_id => descriptor.id, :active => descriptor.id == active),
         ) for (index, descriptor) in enumerate(available_themes(widget.registry))
     ]
+end
+
+function _theme_preview_semantic_value(widget::ThemePreview, state::ThemePreviewState)
+    themes = available_themes(widget.registry)
+    selected = isempty(themes) ? nothing : themes[clamp(state.selected, 1, length(themes))]
+    active = active_theme_descriptor(widget.registry)
+    return Dict{Symbol,Any}(
+        :selected_index => state.selected,
+        :selected_theme => selected === nothing ? nothing : selected.id,
+        :active_theme => active.id,
+        :theme_count => length(themes),
+    )
+end
+
+function _select_theme_preview_index!(state::ThemePreviewState, themes, index::Integer)
+    isempty(themes) && return false
+    1 <= index <= length(themes) || return false
+    state.selected = Int(index)
+    return true
+end
+
+function _select_theme_preview_value!(state::ThemePreviewState, themes, value)
+    if value isa Integer
+        return _select_theme_preview_index!(state, themes, value)
+    end
+    parsed = tryparse(Int, string(value))
+    parsed !== nothing && return _select_theme_preview_index!(state, themes, parsed)
+    for (index, descriptor) in enumerate(themes)
+        string(descriptor.id) == string(value) && return _select_theme_preview_index!(state, themes, index)
+    end
+    return false
+end
+
+function _activate_theme_preview_selection!(widget::ThemePreview, state::ThemePreviewState, themes)
+    isempty(themes) && return false
+    index = clamp(state.selected, 1, length(themes))
+    state.selected = index
+    set_active_theme!(widget.registry, themes[index].id)
+    return true
+end
+
+function register_theme_preview_semantic_handlers!(
+    dispatcher::Accessibility.SemanticDispatcher,
+    id,
+    widget::ThemePreview,
+    state::ThemePreviewState,
+)
+    root_id = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, root_id, function (request)
+        themes = available_themes(widget.registry)
+        if request.action == Accessibility.FocusSemanticAction
+            return Accessibility.SemanticActionResult(true; value=_theme_preview_semantic_value(widget, state))
+        elseif request.action == Accessibility.IncrementSemanticAction
+            handled = _select_theme_preview_index!(state, themes, min(length(themes), state.selected + 1))
+            return Accessibility.SemanticActionResult(handled; value=_theme_preview_semantic_value(widget, state))
+        elseif request.action == Accessibility.DecrementSemanticAction
+            handled = _select_theme_preview_index!(state, themes, max(1, state.selected - 1))
+            return Accessibility.SemanticActionResult(handled; value=_theme_preview_semantic_value(widget, state))
+        elseif request.action == Accessibility.SetValueSemanticAction
+            handled = _select_theme_preview_value!(state, themes, request.value)
+            return Accessibility.SemanticActionResult(
+                handled;
+                value=_theme_preview_semantic_value(widget, state),
+                message=handled ? nothing : "theme preview semantic value must be an index or theme id",
+            )
+        elseif request.action == Accessibility.SelectSemanticAction || request.action == Accessibility.ActivateSemanticAction
+            handled = _activate_theme_preview_selection!(widget, state, themes)
+            return Accessibility.SemanticActionResult(handled; value=_theme_preview_semantic_value(widget, state))
+        end
+        return Accessibility.SemanticActionResult(false; message="theme preview semantic action is not supported")
+    end)
+
+    for (index, descriptor) in enumerate(available_themes(widget.registry))
+        child_id = "$(root_id)/$(descriptor.id)"
+        Accessibility.register_semantic_handler!(dispatcher, child_id, function (request)
+            if request.action == Accessibility.FocusSemanticAction || request.action == Accessibility.SelectSemanticAction
+                _select_theme_preview_index!(state, available_themes(widget.registry), index)
+                return Accessibility.SemanticActionResult(true; value=_theme_preview_semantic_value(widget, state))
+            elseif request.action == Accessibility.ActivateSemanticAction
+                themes = available_themes(widget.registry)
+                handled = _select_theme_preview_index!(state, themes, index) &&
+                    _activate_theme_preview_selection!(widget, state, themes)
+                return Accessibility.SemanticActionResult(handled; value=_theme_preview_semantic_value(widget, state))
+            end
+            return Accessibility.SemanticActionResult(false; message="theme preview item semantic action is not supported")
+        end)
+    end
+    return dispatcher
 end

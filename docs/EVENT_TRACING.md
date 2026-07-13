@@ -4,6 +4,11 @@ Event traces capture input, messages, commands, timers, resizes, checkpoints, an
 application-specific events in one monotonic sequence. They support reproducible
 bug reports and deterministic regression scenarios beyond a final screen snapshot.
 
+The recorder, immutable trace type, replay controller, overflow policies, replay
+statuses, snapshot helpers, and error drains are part of `Wicked.API`. Use them
+for deterministic tests, bug-report attachments, and application-specific replay
+tools.
+
 ## Record a session
 
 ```julia

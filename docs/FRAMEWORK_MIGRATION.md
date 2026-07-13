@@ -2,6 +2,54 @@
 
 Wicked.jl combines ideas from Ratatui, Textual, TamboUI, and Lanterna behind Julia-native APIs. This guide maps familiar concepts to Wicked.jl, identifies behavior that does not translate directly, and provides an incremental migration path. It is an architecture and API guide, not a claim that every feature has passed the production verification matrix. Consult the [Feature Parity Ledger](./FEATURE_PARITY.md) for the evidence boundary.
 
+For concrete widget names, use the public name map in the
+[Component Catalog](./COMPONENT_CATALOG.md#public-widget-name-map). It lists
+the stable `Wicked.API` names and their state contracts for common components
+such as panels, title bars, search fields, password fields, combo boxes, modal
+dialogs, file pickers, and loading indicators.
+The same map is available programmatically through `widget_vocabulary`,
+`search_widget_vocabulary`, `widget_vocabulary_entry`, and
+`widget_vocabulary_widget_names`:
+
+```julia
+using Wicked.API
+
+button_names = widget_vocabulary_widget_names("Button")
+text_entry_names = widget_vocabulary_widget_names("Single-line text field")
+matches = search_widget_vocabulary("TextInput")
+table = widget_vocabulary_markdown()
+```
+
+The same vocabulary can be exported from the catalog renderer:
+
+```sh
+julia --project=. scripts/render_widget_catalog.jl --vocabulary
+julia --project=. scripts/render_widget_catalog.jl --vocabulary-widgets --query "Single-line text field"
+```
+
+## Stable widget vocabulary quick map
+
+Use these names first when translating common examples from Ratatui, Textual,
+TamboUI, or Lanterna. They are application-facing `Wicked.API` names; lower-level
+helper types should stay qualified under their owning modules unless the API
+reference explicitly lists them.
+
+| Source-framework concept | Preferred Wicked API |
+| --- | --- |
+| Static text or label | `Label`, `Paragraph`, `Static`, `TextView`, `Heading`, `MarkupText` |
+| Divider or separator | `Rule`, `Separator`, `Divider` |
+| Button or push button | `Button`, `PushButton`, `SplitButton` |
+| Checkbox, toggle, radio, multiselect | `Checkbox`, `CheckBox`, `Toggle`, `Switch`, `RadioGroup`, `RadioSet`, `RadioBoxList`, `CheckBoxList`, `MultiSelect`, `SelectionList`, `TransferList` |
+| Text entry | `Input`, `TextInput`, `TextBox`, `TextField`, `PasswordInput`, `PasswordField`, `SearchInput`, `TextArea`, `Textarea` |
+| Advanced entry | `NumberInput`, `MaskedInput`, `Autocomplete`, `ComboBox`, `Combobox`, `TagInput` |
+| Lists, tables, and trees | `List`, `ListBox`, `ListView`, `OptionList`, `Table`, `DataTable`, `DataGrid`, `DataStateView`, `VirtualTable`, `Tree`, `TreeView`, `VirtualTree`, `TreeTable`, `PropertyList`, `KeyValueList`, `MetadataList`, `DescriptionList`, `DefinitionList` |
+| Navigation and shell | `Tabs`, `TabView`, `TabbedContentView`, `Menu`, `ContextMenu`, `MenuBar`, `MenuButton`, `NavigationRail`, `Sidebar`, `Toolbar`, `ShortcutBar` |
+| Overlays and top-level surfaces | `Dialog`, `Modal`, `Window`, `Popover`, `Tooltip`, `Drawer`, `Overlay`, `Layer` |
+| Feedback and empty/loading states | `Alert`, `Toast`, `NotificationView`, `ManagedNotificationView`, `Badge`, `Status`, `Skeleton`, `EmptyState`, `Placeholder`, `Progress`, `ProgressBar`, `LoadingIndicator`, `Spinner` |
+| Files, dates, and pickers | `FilePicker`, `DirectoryPicker`, `DirectoryTree`, `MultiFilePicker`, `DatePicker`, `DateInput`, `TimePicker`, `TimeInput`, `DateTimePicker`, `DateTimeInput`, `ColorPicker` |
+| Charts and rich content | `Sparkline`, `BarChart`, `Chart`, `Plot`, `Histogram`, `Heatmap`, `Canvas`, `MarkdownView`, `CodeView`, `SyntaxView`, `DiffView`, `LogView`, `RichLog` |
+| Developer and terminal views | `HelpView`, `Inspector`, `DevConsole`, `TerminalView`, `ProcessView`, `ReplView`, `LiveDisplay`, `TaskMonitor`, `Pretty`, `Digits` |
+
 ## Choose the closest Wicked.jl level
 
 Start at the level that matches the source application rather than rewriting the application around the largest Wicked abstraction.
@@ -18,6 +66,29 @@ Start at the level that matches the source application rather than rewriting the
 | Existing application with its own event loop       | Immediate widgets and a custom `InputSource`                   |
 
 The levels share geometry, text, layout, style, event, widget, and rendering contracts. An application can migrate one screen or widget at a time instead of switching architectures in one step.
+
+## Migration quickstart paths
+
+Use these stable quickstarts when translating a concrete source-framework
+feature. They are deliberately organized by developer task rather than by
+Wicked subsystem:
+
+| Porting task | Stable Wicked guide |
+| --- | --- |
+| Translate a Ratatui draw closure, buffer test, or custom widget | [Core API](API_CORE.md), [Immediate Widgets API](API_WIDGETS.md), and [Immediate-mode Tutorial](IMMEDIATE_MODE_TUTORIAL.md) |
+| Translate Textual `compose`, widget identity, focus, routed messages, or reactive fields | [Toolkit and Reactive API](API_TOOLKIT.md) and [Toolkit Tutorial](TOOLKIT_TUTORIAL.md) |
+| Translate Textual CSS or TamboUI stylesheet rules | [Core API styling quickstart](API_CORE.md#stable-styling-quickstart) and [Theme Management](THEMES.md) |
+| Translate workers, timers, subscriptions, or application commands | [Backends and Runtime API](API_BACKENDS_RUNTIME.md) and [Async Runtime](ASYNC_RUNTIME.md) |
+| Translate forms, validation, pickers, menus, dialogs, overlays, or navigation shells | [Controls API](API_CONTROLS.md), [Navigation and Forms API](API_NAVIGATION.md), and [Application Services](APPLICATION_SERVICES.md) |
+| Translate large lists, tables, trees, or lazy data views | [Virtualization API](API_VIRTUALIZATION.md) |
+| Translate Markdown, code panes, diffs, logs, terminal captures, or developer views | [Rich Content API](API_RICH_CONTENT.md) and [Semantics, Testing, and Diagnostics API](API_SEMANTICS_TESTING.md) |
+| Translate Pilot, DOM query, snapshot, semantic, or virtual-terminal tests | [Semantics, Testing, and Diagnostics API](API_SEMANTICS_TESTING.md) and [Accessibility and Testing](ACCESSIBILITY_TESTING.md) |
+| Translate global action registries, notifications, progress, themes, live reload, tracing, or extension-owned services | [Extensions and Services API](API_EXTENSIONS_SERVICES.md) and [Application Services](APPLICATION_SERVICES.md) |
+
+For a broader orientation, see the
+[API Reference Overview route map](API_REFERENCE.md#developer-route-map). For a
+short task-oriented mapping from source application shapes to Wicked examples,
+see the [Porting Cookbook](PORTING_COOKBOOK.md).
 
 ## Common concept map
 
@@ -46,7 +117,6 @@ The closest translation of a Ratatui draw closure renders ordinary widgets into 
 
 ```julia
 using Wicked.API
-using Wicked.Experimental: TestBackend
 
 backend = TestBackend(6, 40)
 terminal = Terminal(backend)
@@ -60,7 +130,6 @@ Keep selection, scrolling, cursor, and editor state outside the widget when that
 
 ```julia
 using Wicked.API
-using Wicked.Experimental: TestBackend
 
 backend = TestBackend(8, 40)
 terminal = Terminal(backend)
@@ -71,6 +140,16 @@ draw!(terminal) do frame
     render!(frame, widget, frame.area, state)
 end
 ```
+
+Built-in stateful widgets also support default-state rendering:
+
+```julia
+render!(Buffer(3, 40), widget, Rect(1, 1, 3, 40))
+```
+
+Use this only for previews, examples, and smoke tests. Production render loops
+should keep and reuse explicit state values, just as Ratatui applications keep
+their `ListState`, `TableState`, or custom state outside the widget value.
 
 ### Important differences from Ratatui
 
@@ -100,7 +179,6 @@ Represent a composed Textual widget tree as keyed `Element` values. Stable keys 
 
 ```julia
 using Wicked.API
-using Wicked.Experimental: ToolkitPilot, query_one
 
 root = Element(
     Button("Save");
@@ -148,7 +226,9 @@ Map Textual responsibilities by ownership:
 3. Port styles into the supported stylesheet grammar and inspect every unsupported-property diagnostic.
 4. Move event handlers into routed element handlers, named actions, or the managed `update!` boundary according to ownership.
 5. Replace workers with cancellable runtime commands and subscriptions that return messages.
-6. Port Pilot tests to `ToolkitPilot`, preferring IDs, semantic roles, states, and actions over tree-position selectors.
+6. Port Pilot tests to `ToolkitPilot`, `pilot_semantic_tree`,
+   `pilot_semantic_snapshot`, and `assert_semantic_snapshot`, preferring IDs,
+   semantic roles, states, and actions over tree-position selectors.
 7. Verify focus restoration, modal barriers, mount/unmount cleanup, and async completion ordering explicitly.
 
 The official Textual guides document its [widget model](https://textual.textualize.io/guide/widgets/), [events and messages](https://textual.textualize.io/guide/events/), [reactivity](https://textual.textualize.io/guide/reactivity/), and [workers](https://textual.textualize.io/guide/workers/).
@@ -175,7 +255,7 @@ TamboUI and Wicked both expose layered APIs over an immediate buffer. TamboUI fo
 - Julia constructor calls, keyword arguments, and `do` blocks replace Java builders and lambdas.
 - Julia multiple dispatch replaces widget interfaces and generic state interface implementations.
 - Wicked public coordinates remain one-based and use `(row, column)` order.
-- `Wicked.API` and selective `Wicked.Experimental` imports make the stability boundary explicit; TamboUI's current documentation labels the project experimental as a whole.
+- `Wicked.API` makes the stability boundary explicit; TamboUI's current documentation labels the project experimental as a whole.
 - Managed tasks use Julia tasks, channels, and structured cancellation rather than Java concurrency abstractions.
 
 ### TamboUI migration sequence
@@ -185,7 +265,11 @@ TamboUI and Wicked both expose layered APIs over an immediate buffer. TamboUI fo
 3. Translate `TuiRunner` updates and effects into a `WickedApp` model, `update!`, commands, and subscriptions.
 4. Give every Toolkit child a durable key before translating dynamic Java collections.
 5. Translate CSS rules property by property and treat diagnostics as migration failures until reviewed.
-6. Split Pilot tests by ownership: `WidgetPilot` for an immediate widget, `RuntimePilot` for update/command behavior, and `ToolkitPilot` for retained identity and routed interaction.
+6. Split Pilot tests by ownership: `WidgetPilot` for an immediate widget,
+   `RuntimePilot` for update/command behavior, and `ToolkitPilot` with
+   `pilot_semantic_tree`, `pilot_semantic_snapshot`, or
+   `assert_semantic_snapshot` for retained identity, routed interaction, and
+   semantic assertions.
 
 The official TamboUI documentation describes its [module and feature layers](https://tamboui.dev/docs/main/), [API levels](https://tamboui.dev/docs/main/api-levels.html), and [immediate buffer, text, widget, and event concepts](https://tamboui.dev/docs/main/core-concepts.html).
 
@@ -273,4 +357,4 @@ Use the [Validation Strategy](./VALIDATION_STRATEGY.md), [Terminal Compatibility
 
 ## Current limits
 
-Wicked's source and integration surface is broad, but the project does not yet claim production parity with the reference frameworks. In particular, the Linux candidate run, required real-terminal matrix, two-real-application release evidence, and final archived release record remain separate gates. APIs imported from `Wicked.Experimental` may change before `1.0`; isolate those imports and follow the [Migration Guide](./MIGRATION.md) when upgrading.
+Wicked's source and integration surface is broad, but the project does not yet claim production parity with the reference frameworks. In particular, the Linux candidate run, required real-terminal matrix, two-real-application release evidence, and final archived release record remain separate gates. Use `Wicked.API` for reviewed application code and keep subsystem internals qualified when upgrading.

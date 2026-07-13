@@ -4,6 +4,8 @@ using ..RichAdapters: KeyChord
 using ..RichContent: RichSpan, RichLine
 using ..AdvancedControls: SliderState,
                           RangeSliderState,
+                          LowerRangeHandle,
+                          UpperRangeHandle,
                           ScrollbarState,
                           HorizontalControl,
                           BreadcrumbState,
@@ -60,6 +62,8 @@ using ..Accessibility: SemanticRect,
                        ListRole,
                        ListItemRole,
                        DialogRole,
+                       FocusSemanticAction,
+                       SelectSemanticAction,
                        IncrementSemanticAction,
                        DecrementSemanticAction,
                        SetValueSemanticAction,
@@ -141,6 +145,10 @@ end
 function unbind_advanced_control_key!(bindings::AdvancedControlBindings, chord::KeyChord)
     pop!(bindings.actions, chord, nothing)
     return bindings
+end
+
+function unbind_advanced_control_key!(bindings::AdvancedControlBindings, key; modifiers...)
+    return unbind_advanced_control_key!(bindings, KeyChord(key; modifiers...))
 end
 
 function default_advanced_control_bindings()
@@ -489,17 +497,32 @@ function slider_semantic_node(state::SliderState, id; label::AbstractString="", 
             value_min=state.minimum,
             value_max=state.maximum,
         ),
-        actions=state.disabled ? [] : [SetValueSemanticAction, IncrementSemanticAction, DecrementSemanticAction],
+        actions=state.disabled ? [] : [FocusSemanticAction, SetValueSemanticAction, IncrementSemanticAction, DecrementSemanticAction],
     )
 end
 
 function range_slider_semantic_node(state::RangeSliderState, id; label::AbstractString="", bounds=nothing)
-    actions = state.disabled ? [] : [SetValueSemanticAction, IncrementSemanticAction, DecrementSemanticAction]
+    actions = state.disabled ? [] : [
+        FocusSemanticAction,
+        SelectSemanticAction,
+        ActivateSemanticAction,
+        SetValueSemanticAction,
+        IncrementSemanticAction,
+        DecrementSemanticAction,
+    ]
     children = SemanticNode[
         SemanticNode("$(id)/lower", SliderRole; label="Lower", state=SemanticState(enabled=!state.disabled, focusable=!state.disabled, value_now=state.lower, value_min=state.minimum, value_max=state.maximum), actions=actions),
         SemanticNode("$(id)/upper", SliderRole; label="Upper", state=SemanticState(enabled=!state.disabled, focusable=!state.disabled, value_now=state.upper, value_min=state.minimum, value_max=state.maximum), actions=actions),
     ]
-    return SemanticNode(id, GroupRole; label=label, bounds=bounds, state=SemanticState(enabled=!state.disabled), children=children)
+    return SemanticNode(
+        id,
+        GroupRole;
+        label=label,
+        bounds=bounds,
+        state=SemanticState(enabled=!state.disabled, focusable=!state.disabled),
+        actions,
+        children,
+    )
 end
 
 function scrollbar_semantic_node(state::ScrollbarState, id; label::AbstractString="", bounds=nothing)

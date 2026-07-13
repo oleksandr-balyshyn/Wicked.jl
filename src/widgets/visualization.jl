@@ -472,12 +472,52 @@ function Calendar(
     )
 end
 
-function render!(buffer::Buffer, widget::Calendar, area::Rect)
+mutable struct CalendarState
+    selected::Date
+    visible_year::Int
+    visible_month::Int
+    focused::Bool
+    activated::Union{Nothing,Date}
+end
+
+function CalendarState(
+    selected::Date;
+    visible_year::Integer=year(selected),
+    visible_month::Integer=month(selected),
+    focused::Bool=false,
+    activated::Union{Nothing,Date}=nothing,
+)
+    1 <= visible_month <= 12 || throw(ArgumentError("visible calendar month must be between 1 and 12"))
+    CalendarState(selected, Int(visible_year), Int(visible_month), focused, activated)
+end
+
+CalendarState(year::Integer, month::Integer, day::Integer=1; focused::Bool=false) =
+    CalendarState(Date(year, month, day); focused)
+
+CalendarState(widget::Calendar; focused::Bool=false) =
+    CalendarState(something(widget.selected, Date(widget.year, widget.month, 1)); visible_year=widget.year, visible_month=widget.month, focused)
+
+state_for(widget::Calendar) = CalendarState(widget)
+
+function _calendar_selected_style(widget::Calendar, state::CalendarState, date::Date, fallback::Style)
+    date == state.selected && return widget.selected_style
+    date in widget.marked && return widget.marked_style
+    fallback
+end
+
+function _render_calendar!(
+    buffer::Buffer,
+    widget::Calendar,
+    area::Rect,
+    year_value::Int,
+    month_value::Int,
+    selected::Union{Nothing,Date},
+)
     active = _visual_area(buffer, widget.block, area)
     isempty(active) && return buffer
     active.height >= 1 && render!(
         buffer,
-        Label(monthname(widget.month) * " " * string(widget.year); style=widget.header_style, alignment=CenterAlign),
+        Label(monthname(month_value) * " " * string(year_value); style=widget.header_style, alignment=CenterAlign),
         Rect(active.row, active.column, 1, active.width),
     )
     active.height >= 2 && draw_text!(
@@ -488,7 +528,7 @@ function render!(buffer::Buffer, widget::Calendar, area::Rect)
         style=widget.header_style,
         clip=active,
     )
-    first_date = Date(widget.year, widget.month, 1)
+    first_date = Date(year_value, month_value, 1)
     days = daysinmonth(first_date)
     starting_column = dayofweek(first_date) - 1
     for day in 1:days
@@ -497,13 +537,98 @@ function render!(buffer::Buffer, widget::Calendar, area::Rect)
         row >= active.row + active.height && break
         column = active.column + 3 * mod(index, 7)
         column + 1 >= active.column + active.width && continue
-        date = Date(widget.year, widget.month, day)
-        style = date == widget.selected ? widget.selected_style :
+        date = Date(year_value, month_value, day)
+        style = date == selected ? widget.selected_style :
                 date in widget.marked ? widget.marked_style : widget.style
         draw_text!(buffer, row, column, lpad(string(day), 2); style, clip=active)
     end
     buffer
 end
+
+function render!(buffer::Buffer, widget::Calendar, area::Rect)
+    _render_calendar!(buffer, widget, area, widget.year, widget.month, widget.selected)
+end
+
+function render!(buffer::Buffer, widget::Calendar, area::Rect, state::CalendarState)
+    _render_calendar!(buffer, widget, area, state.visible_year, state.visible_month, state.selected)
+end
+
+function _set_calendar_date!(state::CalendarState, date::Date)
+    state.selected = date
+    state.visible_year = year(date)
+    state.visible_month = month(date)
+    state.focused = true
+    state
+end
+
+function _shift_calendar_month(date::Date, delta::Integer)
+    first_target = Date(year(date), month(date), 1) + Month(Int(delta))
+    Date(year(first_target), month(first_target), min(day(date), daysinmonth(first_target)))
+end
+
+function _calendar_date_at(widget::Calendar, state::CalendarState, area::Rect, position::Position)
+    active = isnothing(widget.block) ? area : inner(widget.block, area)
+    contains(active, position) || return nothing
+    day_row = position.row - active.row - 2
+    day_row >= 0 || return nothing
+    day_column = div(position.column - active.column, 3)
+    0 <= day_column <= 6 || return nothing
+    first_date = Date(state.visible_year, state.visible_month, 1)
+    day_value = day_row * 7 + day_column - (dayofweek(first_date) - 1) + 1
+    1 <= day_value <= daysinmonth(first_date) || return nothing
+    Date(state.visible_year, state.visible_month, day_value)
+end
+
+function handle!(state::CalendarState, widget::Calendar, event::KeyEvent)
+    event.kind in (KeyPress, KeyRepeat) || return false
+    code = event.key.code
+    if code == :left
+        _set_calendar_date!(state, state.selected - Day(1))
+    elseif code == :right
+        _set_calendar_date!(state, state.selected + Day(1))
+    elseif code == :up
+        _set_calendar_date!(state, state.selected - Day(7))
+    elseif code == :down
+        _set_calendar_date!(state, state.selected + Day(7))
+    elseif code == :home
+        _set_calendar_date!(state, Date(state.visible_year, state.visible_month, 1))
+    elseif code == :end
+        first_date = Date(state.visible_year, state.visible_month, 1)
+        _set_calendar_date!(state, Date(state.visible_year, state.visible_month, daysinmonth(first_date)))
+    elseif code == :pageup
+        _set_calendar_date!(state, _shift_calendar_month(state.selected, -1))
+    elseif code == :pagedown
+        _set_calendar_date!(state, _shift_calendar_month(state.selected, 1))
+    elseif code == :enter || code == :space
+        state.focused = true
+        state.activated = state.selected
+    else
+        return false
+    end
+    true
+end
+
+function handle!(state::CalendarState, widget::Calendar, event::MouseEvent, area::Rect)
+    if event.action == MouseScroll
+        if event.button == WheelUpButton
+            _set_calendar_date!(state, _shift_calendar_month(state.selected, -1))
+            return true
+        elseif event.button == WheelDownButton
+            _set_calendar_date!(state, _shift_calendar_month(state.selected, 1))
+            return true
+        end
+        return false
+    end
+    event.button == LeftMouseButton || return false
+    event.action in (MousePress, MouseRelease) || return false
+    date = _calendar_date_at(widget, state, area, event.position)
+    date === nothing && return false
+    _set_calendar_date!(state, date)
+    event.action == MouseRelease && (state.activated = date)
+    true
+end
+
+activate(::Calendar, state::CalendarState) = state.activated
 
 mutable struct SpinnerState
     frame::Int
@@ -518,6 +643,8 @@ struct Spinner
     label::String
     style::Style
 end
+
+state_for(::Spinner) = SpinnerState()
 
 function Spinner(;
     frames=["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
@@ -542,6 +669,9 @@ function render!(buffer::Buffer, widget::Spinner, area::Rect, state::SpinnerStat
     )
     buffer
 end
+
+render!(buffer::Buffer, widget::Spinner, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
 
 function handle!(state::SpinnerState, widget::Spinner, ::TickEvent)
     state.frame = mod1(state.frame + 1, length(widget.frames))

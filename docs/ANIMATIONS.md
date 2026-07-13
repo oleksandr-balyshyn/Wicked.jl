@@ -1,6 +1,6 @@
 # Animations
 
-Wicked animations are driven by the application runtime. They do not create tasks
+Wicked animations are part of `Wicked.API` and are driven by the application runtime. They do not create tasks
 or sleep independently. This keeps terminal rendering deterministic: call
 `tick_animations!` once per frame or timer event, apply returned values, and render
 only when updates are produced.
@@ -90,3 +90,7 @@ equivalent.
 Policy changes affect animations scheduled afterward. Applications that change
 policy at runtime should cancel or replace existing nonessential animation keys as
 part of the same settings update.
+
+For a runnable public-API example that combines deterministic animations with
+spinners, skeletons, and loading indicators, see
+[`examples/animations_loading_quickstart.jl`](../examples/animations_loading_quickstart.jl).

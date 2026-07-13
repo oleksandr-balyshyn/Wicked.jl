@@ -4,7 +4,9 @@ using .Accessibility: ActivateSemanticAction,
                       AlertRole,
                       ButtonRole,
                       DismissSemanticAction,
+                      FocusSemanticAction,
                       LogRole,
+                      SelectSemanticAction,
                       SemanticAction,
                       SemanticActionRequest,
                       SemanticActionResult,
@@ -129,6 +131,7 @@ function notification_semantic_tree(
             label,
             bounds,
             state=SemanticState(readonly=true),
+            actions=SemanticAction[FocusSemanticAction, SelectSemanticAction],
             children,
         ),
     )
@@ -237,7 +240,14 @@ function bind_notification_semantics!(
     identifier = string(id)
     active = Base.Threads.Atomic{Bool}(true)
     execution = ReentrantLock()
-    handlers = Dict{String,Function}()
+    handlers = Dict{String,Function}(
+        identifier => function (request::SemanticActionRequest)
+            active[] || return SemanticActionResult(false; message="notification binding is inactive")
+            request.action in (FocusSemanticAction, SelectSemanticAction) ||
+                return SemanticActionResult(false; message="unsupported notification action")
+            return SemanticActionResult(true; value=notification_snapshots(manager))
+        end,
+    )
     for (index, snapshot) in enumerate(snapshots)
         notification_id = snapshot.notification.id
         if snapshot.dismissible
@@ -295,6 +305,48 @@ function bind_notification_semantics!(
         id,
         replace,
     )
+end
+
+register_managed_notification_view_semantic_handlers!(
+    dispatcher::SemanticDispatcher,
+    id,
+    widget::ManagedNotificationView;
+    newest_first::Bool=false,
+    now_ns=nothing,
+    replace::Bool=false,
+) = bind_notification_semantics!(
+    dispatcher,
+    widget.manager;
+    id,
+    newest_first,
+    now_ns,
+    replace,
+)
+
+function register_notification_view_semantic_handlers!(
+    dispatcher::SemanticDispatcher,
+    id,
+    widget::NotificationView,
+)
+    identifier = string(id)
+    Accessibility.register_semantic_handler!(dispatcher, identifier, function (request)
+        request.action in (FocusSemanticAction, SelectSemanticAction) ||
+            return SemanticActionResult(false; message="unsupported notification action")
+        return SemanticActionResult(true; value=copy(widget.center.notifications))
+    end)
+    for notification in widget.center.notifications
+        node_id = "$(identifier)/notification/$(notification.id)"
+        Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
+            request.action == DismissSemanticAction ||
+                return SemanticActionResult(false; message="unsupported notification action")
+            dismissed = dismiss_notification!(widget.center, notification.id)
+            return SemanticActionResult(
+                dismissed;
+                message=dismissed ? nothing : "notification is missing",
+            )
+        end)
+    end
+    return dispatcher
 end
 
 function unbind_notification_semantics!(binding::NotificationSemanticBinding)

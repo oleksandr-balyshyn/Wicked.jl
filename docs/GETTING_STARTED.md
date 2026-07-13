@@ -32,6 +32,10 @@ The package loads and precompiles on the active development environment. Stable
 release status still depends on the platform and real-terminal evidence tracked in
 the release checklist.
 
+Use `using Wicked.API` in application code. It contains the reviewed widget,
+layout, runtime, Toolkit, testing, graphics, reactive, and extension contracts.
+`Wicked.Experimental` is compatibility-only in the current baseline.
+
 ## Choose an application model
 
 Use immediate mode when the application already owns its state and needs direct,
@@ -44,13 +48,34 @@ automation queries.
 The models can be mixed. A Toolkit leaf can host an immediate-mode widget, and
 rich components eventually render into Core cells.
 
+## Pick the right quickstart
+
+Start with the guide that matches the kind of code you are writing:
+
+| Goal | Guide |
+| --- | --- |
+| Render directly into frames and buffers | [Immediate-mode Tutorial](IMMEDIATE_MODE_TUTORIAL.md), [Core API](API_CORE.md), and [Immediate Widgets API](API_WIDGETS.md) |
+| Compose standard application chrome | [Immediate Widgets API](API_WIDGETS.md) and `examples/app_shell_quickstart.jl` |
+| Build Textual-style component trees | [Toolkit Tutorial](TOOLKIT_TUTORIAL.md) and [Toolkit and Reactive API](API_TOOLKIT.md) |
+| Run a managed application with commands and tasks | [Backends and Runtime API](API_BACKENDS_RUNTIME.md) and [Async Runtime](ASYNC_RUNTIME.md) |
+| Define keybindings and shortcut help | [API Reference Overview](API_REFERENCE.md#developer-route-map) and `examples/keybindings_quickstart.jl` |
+| Stabilize or promote widget APIs | [Widget Stabilization Tracker](WIDGET_STABILIZATION.md) |
+| Style components with selectors and themes | [Core API styling quickstart](API_CORE.md#stable-styling-quickstart) and [Theme Management](THEMES.md) |
+| Add forms, menus, dialogs, pickers, and validation | [Controls API](API_CONTROLS.md) and [Navigation and Forms API](API_NAVIGATION.md) |
+| Render large data sets | [Virtualization API](API_VIRTUALIZATION.md) |
+| Add Markdown, code, diffs, logs, and terminal captures | [Rich Content API](API_RICH_CONTENT.md) |
+| Test without opening a real terminal | [Semantics, Testing, and Diagnostics API](API_SEMANTICS_TESTING.md) and [Accessibility and Testing](ACCESSIBILITY_TESTING.md) |
+| Coordinate actions, notifications, progress, themes, reload, and tracing | [Extensions and Services API](API_EXTENSIONS_SERVICES.md) and [Application Services](APPLICATION_SERVICES.md) |
+
+For ports from Ratatui, Textual, TamboUI, or Lanterna, use
+[Migrating from Other TUI Frameworks](FRAMEWORK_MIGRATION.md).
+
 ## Reactive state
 
 Signals are typed from their initial value and belong to one runtime.
 
 ```julia
 using Wicked.API
-using Wicked.Experimental
 
 runtime = ReactiveRuntime()
 count = Signal(0; runtime=runtime, name="count")
@@ -75,9 +100,7 @@ and versions return to their pre-transaction state.
 
 ## Reactive Toolkit elements
 
-`ReactiveElement` caches an element until a dependency changes. Its invalidation
-queue tells the runtime whether render, layout, style, semantics, or subscriptions
-must be refreshed.
+`ReactiveElement`, `ReactiveComponentState`, and `ReactiveClassSet` are stable APIs for connecting signals to Toolkit components. Their invalidation queues tell the runtime whether render, layout, style, semantics, or subscriptions must be refreshed.
 
 ```julia
 queue = ReactiveInvalidationQueue()
@@ -195,12 +218,12 @@ recording the complete error and backtrace.
 
 ## Next reading
 
-- `docs/IMMEDIATE_MODE_TUTORIAL.md` builds an immediate-mode interface.
-- `docs/TOOLKIT_TUTORIAL.md` builds a keyed declarative application.
-- `docs/ASYNC_RUNTIME.md` covers commands, subscriptions, and cancellation.
-- `docs/ACCESSIBILITY_TESTING.md` covers semantic trees and headless pilots.
-- `API_REFERENCE.md` defines public API conventions and capabilities.
-- `FEATURE_PARITY.md` records implementation evidence and intentional deltas.
-- `docs/ARCHITECTURE.md` explains layering and production gates.
-- `docs/COMPONENT_CATALOG.md` lists the component surface.
-- `docs/DEVELOPER_GUIDE.md` covers framework-level design rules.
+- [Immediate-mode Tutorial](IMMEDIATE_MODE_TUTORIAL.md) builds an immediate-mode interface.
+- [Toolkit Tutorial](TOOLKIT_TUTORIAL.md) builds a keyed declarative application.
+- [Async Runtime](ASYNC_RUNTIME.md) covers commands, subscriptions, and cancellation.
+- [Accessibility and Testing](ACCESSIBILITY_TESTING.md) covers semantic trees and headless pilots.
+- [API Reference Overview](API_REFERENCE.md) defines public API conventions and capabilities.
+- [Feature Parity Ledger](FEATURE_PARITY.md) records implementation evidence and intentional deltas.
+- [Architecture](ARCHITECTURE.md) explains layering and production gates.
+- [Component Catalog](COMPONENT_CATALOG.md) lists the component surface.
+- [Developer Guide](DEVELOPER_GUIDE.md) covers framework-level design rules.

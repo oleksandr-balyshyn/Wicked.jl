@@ -1,7 +1,9 @@
 @testset "Required acceptance widgets" begin
-    @test Border === Block
+    @test Border(title="Box") isa Border
     @test Rule().direction == HorizontalRule
-    @test RichText === Wicked.Text
+    rich = RichText("Ready")
+    @test rich isa RichText
+    @test render!(Buffer(1, 12), rich, Rect(1, 1, 1, 12)) isa Buffer
 
     @testset "dialog rendering and interaction" begin
         buttons = DialogButton{Symbol}[
@@ -63,6 +65,12 @@
         @test descriptor.metadata[:detail_count] == 2
         @test descriptor.metadata[:details] == ["Retry is available", "No state was lost"]
         @test Wicked.Toolkit.state_for(widget) === nothing
+        dispatcher = SemanticDispatcher()
+        register_error_view_semantic_handlers!(dispatcher, :error, widget)
+        pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(widget; id=:error, key=:error))); dispatcher)
+        error_result = perform_semantic_action!(pilot, "error", SelectSemanticAction)
+        @test error_result.handled
+        @test error_result.value[:message] == "database unavailable"
 
         zero = Buffer(0, 0)
         @test render!(zero, widget, zero.area) === zero
@@ -81,6 +89,15 @@
         @test message_descriptor.metadata[:codes] == [:required, :format]
         @test message_descriptor.metadata[:severities] == [:error, :warning]
         @test Wicked.Toolkit.state_for(message) === nothing
+        message_dispatcher = SemanticDispatcher()
+        register_validation_message_semantic_handlers!(message_dispatcher, :validation_message, message)
+        message_pilot = SemanticPilot(
+            SemanticTree(SemanticNode("validation_message", message_descriptor.role; label=message_descriptor.label)),
+            dispatcher=message_dispatcher,
+        )
+        message_result = perform_semantic_action!(message_pilot, "validation_message", SelectSemanticAction)
+        @test message_result.handled
+        @test message_result.value[:issue_count] == 2
 
         form = Form([FormField(:email; label="Email", initial="")])
         state = FormState(form)
@@ -93,10 +110,46 @@
         @test summary_descriptor.metadata[:field_ids] == [:email, :email]
         @test occursin("Email: Email is required", summary_descriptor.description)
         @test Wicked.Toolkit.state_for(summary) === nothing
+        summary_dispatcher = SemanticDispatcher()
+        register_validation_summary_semantic_handlers!(summary_dispatcher, :validation_summary, summary)
+        summary_pilot = SemanticPilot(
+            SemanticTree(SemanticNode("validation_summary", summary_descriptor.role; label=summary_descriptor.label)),
+            dispatcher=summary_dispatcher,
+        )
+        summary_result = perform_semantic_action!(summary_pilot, "validation_summary", SelectSemanticAction)
+        @test summary_result.handled
+        @test summary_result.value[:field_ids] == [:email, :email]
 
         informational = ValidationMessage([ValidationIssue(:hint, "Optional"; severity=:info)])
         informational_descriptor = Wicked.SemanticToolkit.widget_semantic_descriptor(informational, nothing)
         @test informational_descriptor.role == Wicked.Accessibility.StatusRole
+    end
+
+    @testset "feedback widget semantic handlers" begin
+        badge = Badge("READY")
+        status = Status("Connected"; severity=:success)
+        alert = Alert("Disk usage is high"; title="Warning", severity=:warning)
+        toast = Toast("Deploy finished"; title="Deploy", severity=:success, timeout=nothing)
+        dispatcher = SemanticDispatcher()
+        register_badge_semantic_handlers!(dispatcher, :badge, badge)
+        register_status_semantic_handlers!(dispatcher, :status, status)
+        register_alert_semantic_handlers!(dispatcher, :alert, alert)
+        register_toast_semantic_handlers!(dispatcher, :toast, toast)
+        tree = SemanticTree(SemanticNode(
+            "feedback",
+            GroupRole;
+            children=[
+                SemanticNode("badge", StatusRole; label="READY"),
+                SemanticNode("status", StatusRole; label="Status"),
+                SemanticNode("alert", AlertRole; label="Warning"),
+                SemanticNode("toast", StatusRole; label="Deploy"),
+            ],
+        ))
+        pilot = SemanticPilot(tree; dispatcher)
+        @test perform_semantic_action!(pilot, "badge", SelectSemanticAction).value[:text] == "READY"
+        @test perform_semantic_action!(pilot, "status", SelectSemanticAction).value[:severity] == :success
+        @test perform_semantic_action!(pilot, "alert", DismissSemanticAction).value[:severity] == :warning
+        @test perform_semantic_action!(pilot, "toast", DismissSemanticAction).value[:message] == "Deploy finished"
     end
 
     @testset "managed notification toolkit semantics" begin
@@ -154,6 +207,15 @@
         @test children[1].metadata[:key] == "q"
         @test children[2].description == "Show help"
         @test Wicked.Toolkit.state_for(widget) === nothing
+        dispatcher = SemanticDispatcher()
+        register_help_view_semantic_handlers!(dispatcher, :help, widget)
+        pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(widget; id=:help, key=:help))); dispatcher)
+        root_result = perform_semantic_action!(pilot, "help", FocusSemanticAction)
+        @test root_result.handled
+        @test root_result.value[:hint_count] == 2
+        hint_result = perform_semantic_action!(pilot, "help/hint/1", SelectSemanticAction)
+        @test hint_result.handled
+        @test hint_result.value[:key] == "q"
     end
 
     @testset "application chrome toolkit semantics" begin
@@ -170,6 +232,19 @@
         @test footer_descriptor.metadata[:hint_count] == 2
         @test footer_children[2].description == "Refresh"
 
+        titlebar = TitleBar("Wicked"; subtitle="Build monitor")
+        titlebar_descriptor = Wicked.SemanticToolkit.widget_semantic_descriptor(titlebar, nothing)
+        @test titlebar_descriptor.role == Wicked.Accessibility.HeadingRole
+        @test titlebar_descriptor.label == "Wicked"
+        @test titlebar_descriptor.description == "Build monitor"
+
+        statusbar = StatusBar([:q => "Quit", :r => "Refresh"])
+        statusbar_descriptor = Wicked.SemanticToolkit.widget_semantic_descriptor(statusbar, nothing)
+        statusbar_children = Wicked.SemanticToolkit.widget_semantic_children(statusbar, nothing, :statusbar)
+        @test statusbar_descriptor.role == Wicked.Accessibility.GroupRole
+        @test statusbar_descriptor.metadata[:hint_count] == 2
+        @test statusbar_children[2].description == "Refresh"
+
         badge = Badge("Healthy")
         badge_descriptor = Wicked.SemanticToolkit.widget_semantic_descriptor(badge, nothing)
         @test badge_descriptor.role == Wicked.Accessibility.StatusRole
@@ -183,6 +258,7 @@
         @test alert_descriptor.metadata[:severity] == :error
 
         @test Wicked.Toolkit.state_for(header) === nothing
+        @test Wicked.Toolkit.state_for(titlebar) === nothing
         @test Wicked.Toolkit.state_for(footer) === nothing
         @test Wicked.Toolkit.state_for(badge) === nothing
         @test Wicked.Toolkit.state_for(alert) === nothing
@@ -194,6 +270,12 @@
         @test digits_descriptor.role == Wicked.Accessibility.StatusRole
         @test digits_descriptor.state.value == "42"
         @test digits_descriptor.metadata[:spacing] == 2
+        digits_dispatcher = SemanticDispatcher()
+        register_digits_semantic_handlers!(digits_dispatcher, :digits, digits)
+        digits_pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(digits; id=:digits, key=:digits))); dispatcher=digits_dispatcher)
+        digits_result = perform_semantic_action!(digits_pilot, "digits", FocusSemanticAction)
+        @test digits_result.handled
+        @test digits_result.value[:value] == "42"
 
         pretty = Pretty((status=:ready, count=2); compact=true)
         pretty_descriptor = Wicked.SemanticToolkit.widget_semantic_descriptor(pretty, nothing)
@@ -201,6 +283,12 @@
         @test pretty_descriptor.state.readonly
         @test occursin("ready", pretty_descriptor.state.value)
         @test pretty_descriptor.metadata[:compact]
+        pretty_dispatcher = SemanticDispatcher()
+        register_pretty_semantic_handlers!(pretty_dispatcher, :pretty, pretty)
+        pretty_pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(pretty; id=:pretty, key=:pretty))); dispatcher=pretty_dispatcher)
+        pretty_result = perform_semantic_action!(pretty_pilot, "pretty", SelectSemanticAction)
+        @test pretty_result.handled
+        @test occursin("ready", pretty_result.value[:value])
 
         placeholder = Placeholder("No jobs"; symbol=".")
         placeholder_descriptor = Wicked.SemanticToolkit.widget_semantic_descriptor(placeholder, nothing)

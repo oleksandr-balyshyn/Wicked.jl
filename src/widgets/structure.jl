@@ -200,3 +200,45 @@ function render!(buffer::Buffer, rule::Rule, area::Rect)
     end
     buffer
 end
+
+"""
+    Separator(direction=HorizontalRule; kwargs...)
+
+Compatibility divider widget backed by `Rule`.
+
+`Separator` is stateless and preserves the same orientation, glyph, style,
+rendering, and measurement behavior as `Rule`.
+"""
+struct Separator
+    rule::Rule
+end
+
+Separator(direction::RuleDirection=HorizontalRule; kwargs...) =
+    Separator(Rule(direction; kwargs...))
+
+render!(buffer::Buffer, separator::Separator, area::Rect) =
+    render!(buffer, separator.rule, area)
+
+measure(separator::Separator, available::Rect) =
+    measure(separator.rule, available)
+
+"""
+    Divider(direction=HorizontalRule; kwargs...)
+
+Textual/TamboUI-style structural divider backed by `Separator`.
+
+`Divider` is stateless and preserves the same orientation, glyph, style,
+rendering, and measurement behavior as `Separator`.
+"""
+struct Divider
+    separator::Separator
+end
+
+Divider(direction::RuleDirection=HorizontalRule; kwargs...) =
+    Divider(Separator(direction; kwargs...))
+
+render!(buffer::Buffer, divider::Divider, area::Rect) =
+    render!(buffer, divider.separator, area)
+
+measure(divider::Divider, available::Rect) =
+    measure(divider.separator, available)

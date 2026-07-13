@@ -209,6 +209,8 @@ struct CommandPalette
     highlight_style::Style
 end
 
+state_for(::CommandPalette) = CommandPaletteState()
+
 function CommandPalette(
     commands;
     title::AbstractString="Command Palette",
@@ -247,6 +249,62 @@ function _filter_commands!(widget::CommandPalette, state::CommandPaletteState)
     state
 end
 
+"""Return the current command palette query text."""
+command_palette_query(state::CommandPaletteState) =
+    editing_text(state.query.editing)
+
+"""Set the command palette query text and refresh filtered command indexes."""
+function set_command_palette_query!(
+    state::CommandPaletteState,
+    widget::CommandPalette,
+    query::AbstractString;
+    record::Bool=true,
+)
+    set_text!(state.query, query; record)
+    state.selected = nothing
+    _filter_commands!(widget, state)
+end
+
+"""Return the currently visible enabled commands for a command palette state."""
+function command_palette_filtered_commands(widget::CommandPalette, state::CommandPaletteState)
+    _filter_commands!(widget, state)
+    CommandItem[widget.commands[index] for index in state.filtered]
+end
+
+"""Return the selected visible command, or `nothing` when no command is selected."""
+function command_palette_selected_command(widget::CommandPalette, state::CommandPaletteState)
+    _filter_commands!(widget, state)
+    isnothing(state.selected) && return nothing
+    isempty(state.filtered) && return nothing
+    widget.commands[state.filtered[state.selected]]
+end
+
+"""Move command palette selection to an absolute visible result index."""
+function select_command!(state::CommandPaletteState, widget::CommandPalette, index::Integer)
+    _filter_commands!(widget, state)
+    isempty(state.filtered) && (state.selected = nothing; return state)
+    state.selected = clamp(Int(index), 1, length(state.filtered))
+    state
+end
+
+"""Move command palette selection to the next visible command."""
+function select_next_command!(state::CommandPaletteState, widget::CommandPalette)
+    previous = state.selected
+    _filter_commands!(widget, state)
+    isempty(state.filtered) && (state.selected = nothing; return state)
+    state.selected = isnothing(previous) ? 1 : mod1(previous + 1, length(state.filtered))
+    state
+end
+
+"""Move command palette selection to the previous visible command."""
+function select_previous_command!(state::CommandPaletteState, widget::CommandPalette)
+    previous = state.selected
+    _filter_commands!(widget, state)
+    isempty(state.filtered) && (state.selected = nothing; return state)
+    state.selected = isnothing(previous) ? length(state.filtered) : mod1(previous - 1, length(state.filtered))
+    state
+end
+
 function render!(buffer::Buffer, widget::CommandPalette, area::Rect, state::CommandPaletteState)
     state.open || return buffer
     render!(buffer, Clear(), area)
@@ -269,6 +327,9 @@ function render!(buffer::Buffer, widget::CommandPalette, area::Rect, state::Comm
     buffer
 end
 
+render!(buffer::Buffer, widget::CommandPalette, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
 function render!(frame::Frame, widget::CommandPalette, area::Rect, state::CommandPaletteState)
     render!(frame.buffer, widget, area, state)
     state.open || return frame.buffer
@@ -284,12 +345,12 @@ function handle!(state::CommandPaletteState, widget::CommandPalette, event::KeyE
         state.open = false
         state.query.focused = false
         return true
-    elseif event.key.code == :up && !isempty(state.filtered)
-        state.selected = mod1(something(state.selected, 1) - 1, length(state.filtered))
-        return true
-    elseif event.key.code == :down && !isempty(state.filtered)
-        state.selected = mod1(something(state.selected, 0) + 1, length(state.filtered))
-        return true
+    elseif event.key.code == :up
+        select_previous_command!(state, widget)
+        return !isempty(state.filtered)
+    elseif event.key.code == :down
+        select_next_command!(state, widget)
+        return !isempty(state.filtered)
     elseif event.key.code == :enter
         return !isnothing(state.selected)
     end
@@ -305,8 +366,9 @@ function handle!(state::CommandPaletteState, widget::CommandPalette, event::Past
 end
 
 function activate(widget::CommandPalette, state::CommandPaletteState)
-    isnothing(state.selected) && return nothing
-    widget.commands[state.filtered[state.selected]].action
+    command = command_palette_selected_command(widget, state)
+    isnothing(command) && return nothing
+    command.action
 end
 
 open_palette!(state::CommandPaletteState) =
@@ -366,7 +428,29 @@ struct LogView
     block::Union{Nothing,Block}
 end
 
+state_for(::LogView) = LogState()
+
 LogView(; block=nothing) = LogView(block)
+
+"""
+    RichLog(; block=nothing)
+
+Textual-style rich log surface backed by `LogView` and `LogState`.
+
+`RichLog` is a stable compatibility name for applications porting Textual-style
+log panes. It intentionally shares `RichLogState` with `LogState` so existing
+log buffering, scrolling, and retention behavior stay identical to `LogView`.
+"""
+struct RichLog
+    view::LogView
+end
+
+"""Compatibility state alias for `RichLog`; identical to `LogState`."""
+const RichLogState = LogState
+
+RichLog(; block=nothing) = RichLog(LogView(; block))
+
+state_for(widget::RichLog) = state_for(widget.view)
 
 function render!(buffer::Buffer, widget::LogView, area::Rect, state::LogState)
     active = _visual_area(buffer, widget.block, area)
@@ -383,6 +467,15 @@ function render!(buffer::Buffer, widget::LogView, area::Rect, state::LogState)
     end
     buffer
 end
+
+render!(buffer::Buffer, widget::LogView, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+render!(buffer::Buffer, widget::RichLog, area::Rect, state::RichLogState) =
+    render!(buffer, widget.view, area, state)
+
+render!(buffer::Buffer, widget::RichLog, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
 
 function handle!(
     state::CommandPaletteState,
@@ -439,3 +532,15 @@ function handle!(state::LogState, ::LogView, event::KeyEvent; viewport_height::I
     end
     true
 end
+
+handle!(
+    state::RichLogState,
+    widget::RichLog,
+    event::MouseEvent,
+    area::Rect;
+    wheel_step::Integer=3,
+) =
+    handle!(state, widget.view, event, area; wheel_step)
+
+handle!(state::RichLogState, widget::RichLog, event::KeyEvent; viewport_height::Integer=1) =
+    handle!(state, widget.view, event; viewport_height)

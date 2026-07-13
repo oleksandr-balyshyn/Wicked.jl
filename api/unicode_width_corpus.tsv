@@ -1,0 +1,14 @@
+# Wicked.jl Unicode width corpus
+# case<TAB>escaped<TAB>expected_graphemes<TAB>expected_default_width<TAB>expected_ambiguous_width<TAB>notes
+case	escaped	expected_graphemes	expected_default_width	expected_ambiguous_width	notes
+ascii-letter	A	1	1	1	Baseline single-column ASCII.
+cjk-wide	\u754c	1	2	2	East Asian wide character.
+greek-ambiguous	\u03b1	1	1	2	East Asian ambiguous character changes under wide ambiguous policy.
+box-drawing-ambiguous	\u2500	1	1	2	Box drawing is ambiguous in EastAsianWidth data.
+heart-ambiguous	\u2665	1	1	2	Symbol fallback is ambiguous in EastAsianWidth data.
+middle-dot-ambiguous	\u00b7	1	1	2	Punctuation fallback is ambiguous in EastAsianWidth data.
+latin-combining	e\u0301	1	1	1	Combining mark remains one displayed grapheme.
+combining-mark-only	\u0301	1	0	0	Standalone combining mark has no cell width.
+emoji-zwj-woman-technologist	\U0001f469\u200d\U0001f4bb	1	2	2	Emoji ZWJ sequence occupies two terminal columns.
+mixed-wide-text	A\u754c	2	3	3	Text width sums ASCII plus wide CJK.
+mixed-ambiguous-text	A\u03b1	2	2	3	Text width reflects ambiguous-width policy.

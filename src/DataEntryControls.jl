@@ -282,8 +282,8 @@ mutable struct TagInputState
     end
 end
 
-_tag_key(state::TagInputState, value::String) =
-    state.case_sensitive ? value : lowercase(value)
+_tag_key(state::TagInputState, value::AbstractString) =
+    state.case_sensitive ? String(value) : lowercase(String(value))
 
 function add_tag!(state::TagInputState, tag::AbstractString)
     value = strip(String(tag))
