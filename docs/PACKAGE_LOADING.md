@@ -24,13 +24,14 @@ Pkg.activate(".")
 Pkg.instantiate()
 Pkg.precompile()      # recommended for CI/build reproducibility
 using Wicked.API
+Wicked.API.precompile_stable_workload!()
 ```
 
 ## Useful shell pattern
 
 ```sh
 julia --project=. --startup-file=no \
-  -e 'using Pkg; Pkg.activate("."); Pkg.instantiate(); Pkg.precompile(); using Wicked; using Wicked.API; @assert Base.get_extension(Wicked, :WickedHTTPWebSocketsExt) === nothing'
+  -e 'using Pkg; Pkg.activate("."); Pkg.instantiate(); Pkg.precompile(); using Wicked.API; Wicked.API.precompile_stable_workload!()'
 ```
 
 Use this in CI or release pipelines when startup latency and deterministic output are required.
