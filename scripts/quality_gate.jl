@@ -158,6 +158,17 @@ const PARITY_EVIDENCE_SCOPE_PHRASES = (
     "selector specificity, cascade order, role downgrade behavior, diagnostics, monochrome fallback",
     "browser deployment, WebSocket hardening, protocol versioning, security policy, real-client compatibility",
 )
+const PARITY_CLOSEOUT_ITEMS = (
+    "Layout parity closeout evidence covers constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior.",
+    "Input/event parity closeout evidence covers routed events, async delivery, cancellation behavior, focus restoration, and terminal lifecycle recovery.",
+    "Stateful-controls parity closeout evidence covers widget contract tests, state-transition tests, semantic snapshots, and stable widget candidate evidence.",
+    "Data-display parity closeout evidence covers virtual list/table/tree stress cases, stale data, loading/error slots, and screen-reader semantic state.",
+    "Runtime parity closeout evidence covers queue replacement, task cancellation races, redraw determinism, resource cleanup, and subscription shutdown.",
+    "Developer-experience parity closeout evidence covers API contract tests, Pilot/semantic query evidence, migration notes, examples, and documentation build output.",
+    "Styling/theming parity closeout evidence covers selector specificity, cascade order, role downgrade behavior, diagnostics, and monochrome fallback.",
+    "Remote-delivery parity closeout evidence covers browser deployment, WebSocket hardening, protocol versioning, security policy, and real-client compatibility.",
+    "`scripts/remote_protocol_fixture_audit.jl` passes against `api/remote_protocol_fixtures.tsv`.",
+)
 const REQUIRED_PARITY_CHECKLIST_ITEMS = (
     "Layout parity evidence covers constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior.",
     "Input/event parity evidence covers routed events, async delivery, cancellation behavior, focus restoration, and terminal lifecycle recovery.",
@@ -358,7 +369,7 @@ function check_experimental_promotion_ledger!()
     if isfile(EXPERIMENTAL_PROMOTION_AUDIT_SCRIPT)
         audit_failures = try
             include(EXPERIMENTAL_PROMOTION_AUDIT_SCRIPT)
-            getfield(Main, :ExperimentalPromotionAudit).audit(EXPERIMENTAL_PROMOTION_LEDGER)[1]
+            _invoke_audit_call!(:ExperimentalPromotionAudit, :audit, EXPERIMENTAL_PROMOTION_LEDGER)[1]
         catch error
             [sprint(showerror, error)]
         end
@@ -392,6 +403,21 @@ function _api_binding_is_type(name::AbstractString)
     isdefined(Wicked.API, symbol) || return false
     binding = getfield(Wicked.API, symbol)
     return binding isa Type || binding isa UnionAll
+end
+
+function _invoke_audit_call!(module_name::Symbol, function_name::Symbol, args...)
+    module_obj = getfield(Main, module_name)
+    method = getfield(module_obj, function_name)
+    try
+        applicable(method, args...) && return Base.invokelatest(method, args...)
+        applicable(method) && return Base.invokelatest(method)
+    catch error
+        if error isa MethodError
+            return ["$module_name.$function_name has no usable audit signature for the provided arguments"]
+        end
+        rethrow(error)
+    end
+    return ["$module_name.$function_name has no audit method"]
 end
 
 function check_component_catalog_contract!()
@@ -432,23 +458,23 @@ function check_component_catalog_contract!()
     include(COMPONENT_CATALOG_PUBLIC_MAP_HELPER)
     catalog = getfield(Main, :ComponentCatalogPublicMap)
     entries = try
-        catalog.read_entries(COMPONENT_CATALOG; root=ROOT)
+        catalog.read_entries(COMPONENT_CATALOG)
     catch error
         return [sprint(showerror, error)]
     end
     exclusions = try
-        catalog.read_exclusions(COMPONENT_CATALOG; root=ROOT)
+        catalog.read_exclusions(COMPONENT_CATALOG)
     catch error
         return [sprint(showerror, error)]
     end
     renderables = try
-        catalog.read_widget_coverage_renderables(WIDGET_COVERAGE_LEDGER; root=ROOT)
+        catalog.read_widget_coverage_renderables(WIDGET_COVERAGE_LEDGER)
     catch error
         push!(failures, sprint(showerror, error))
         Set{String}()
     end
     missing = try
-        catalog.missing_renderables(COMPONENT_CATALOG; coverage_path=WIDGET_COVERAGE_LEDGER, root=ROOT)
+        catalog.missing_renderables(COMPONENT_CATALOG; coverage_path=WIDGET_COVERAGE_LEDGER)
     catch error
         push!(failures, sprint(showerror, error))
         Set{String}()
@@ -711,7 +737,7 @@ function check_examples_readme_policy!()
     if isfile(PUBLIC_EXAMPLES_AUDIT_SCRIPT)
         audit_failures = try
             include(PUBLIC_EXAMPLES_AUDIT_SCRIPT)
-            getfield(Main, :PublicExamplesAudit).audit(ROOT)
+            _invoke_audit_call!(:PublicExamplesAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -720,7 +746,7 @@ function check_examples_readme_policy!()
     if isfile(EXAMPLE_FAMILY_AUDIT_SCRIPT)
         family_failures = try
             include(EXAMPLE_FAMILY_AUDIT_SCRIPT)
-            getfield(Main, :ExampleFamilyAudit).audit(ROOT)
+            _invoke_audit_call!(:ExampleFamilyAudit, :audit)
         catch error
             [sprint(showerror, error)]
         end
@@ -2145,7 +2171,7 @@ function check_parity_closeout_audit!()
         release_evidence = read(RELEASE_EVIDENCE, String)
         occursin("scripts/parity_closeout_audit.jl --require-complete", release_evidence) || push!(failures, "docs/RELEASE_EVIDENCE.md must identify parity closeout complete-mode as required release evidence")
         for item in PARITY_CLOSEOUT_ITEMS
-            item in release_evidence || push!(failures, "docs/RELEASE_EVIDENCE.md missing parity closeout evidence item: $item")
+            occursin(item, release_evidence) || push!(failures, "docs/RELEASE_EVIDENCE.md missing parity closeout evidence item: $item")
         end
     end
     isempty(failures) || return failures
