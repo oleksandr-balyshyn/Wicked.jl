@@ -309,10 +309,16 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
 
 [[deps.Wicked]]
-deps = ["Base64", "Dates", "REPL", "UUIDs", "Unicode"]
+deps = ["Base64", "Dates", "REPL", "SHA", "UUIDs", "Unicode"]
 path = "/home/worxbend/Wicked.jl"
 uuid = "fbfe6d93-aa95-4a38-a5f6-4229975dad61"
 version = "0.0.1"
+
+    [deps.Wicked.extensions]
+    WickedHTTPWebSocketsExt = "HTTP"
+
+    [deps.Wicked.weakdeps]
+    HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]

@@ -30,7 +30,7 @@ global tables. Contributions are owned by one extension and removed during
 deactivation or activation rollback.
 
 For a focused extension lifecycle example, see
-[`examples/extensions_quickstart.jl`](../examples/extensions_quickstart.jl).
+[`examples/extensions_quickstart.jl`](examples/extensions_quickstart.jl).
 
 ## Stable application-services quickstart
 
@@ -111,11 +111,11 @@ Call `pulse_services!` from the managed runtime, a timer, or a controlled
 headless test loop. Use `shutdown_services!` during application teardown so
 overlays, animations, notifications, and tracing converge deterministically.
 See [Application Services](APPLICATION_SERVICES.md) and
-[`examples/application_services.jl`](../examples/application_services.jl) for a
+[`examples/application_services.jl`](examples/application_services.jl) for a
 complete deterministic example.
 
 For a focused rendering-only feedback example, see
-[`examples/feedback_quickstart.jl`](../examples/feedback_quickstart.jl).
+[`examples/feedback_quickstart.jl`](examples/feedback_quickstart.jl).
 
 ```@autodocs
 Modules = [

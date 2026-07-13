@@ -52,7 +52,7 @@ and `register_tooltip_semantic_handlers!` when overlay tests should toggle,
 expand, collapse, focus, or dismiss these surfaces through semantic actions.
 
 For a runnable public-API example, see
-[`examples/disclosure_overlay_quickstart.jl`](../examples/disclosure_overlay_quickstart.jl).
+[`examples/disclosure_overlay_quickstart.jl`](examples/disclosure_overlay_quickstart.jl).
 
 ## Screen stack helpers
 
@@ -196,7 +196,7 @@ summary = screen_stack_summary(screens)
 ```
 
 For a runnable public-API example, see
-[`examples/screen_stack_quickstart.jl`](../examples/screen_stack_quickstart.jl).
+[`examples/screen_stack_quickstart.jl`](examples/screen_stack_quickstart.jl).
 
 ## Timeline helpers
 
@@ -359,7 +359,7 @@ render!(buffer, many, area, state)
 ```
 
 For a runnable public-API example with a temporary filesystem fixture, see
-[`examples/file_browser_quickstart.jl`](../examples/file_browser_quickstart.jl).
+[`examples/file_browser_quickstart.jl`](examples/file_browser_quickstart.jl).
 
 `DirectoryTreeState` is intentionally identical to `FileBrowserState`. The tree
 name changes the developer-facing concept and semantic label, not the underlying

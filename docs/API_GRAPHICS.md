@@ -28,7 +28,7 @@ they support.
 
 For a runnable public-API example with a deterministic raster fixture and
 Unicode fallback rendering, see
-[`examples/graphics_quickstart.jl`](../examples/graphics_quickstart.jl).
+[`examples/graphics_quickstart.jl`](examples/graphics_quickstart.jl).
 
 ## Release evidence
 

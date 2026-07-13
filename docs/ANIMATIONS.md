@@ -93,4 +93,4 @@ part of the same settings update.
 
 For a runnable public-API example that combines deterministic animations with
 spinners, skeletons, and loading indicators, see
-[`examples/animations_loading_quickstart.jl`](../examples/animations_loading_quickstart.jl).
+[`examples/animations_loading_quickstart.jl`](examples/animations_loading_quickstart.jl).

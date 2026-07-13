@@ -88,7 +88,7 @@ widgets. Use `screen_registry_tabs` and
 as a tab strip with explicit selected-tab state. Use `screen_stack_breadcrumb`
 when the active screen stack should be rendered as a breadcrumb trail.
 For a runnable example, see
-[`examples/screen_stack_quickstart.jl`](../examples/screen_stack_quickstart.jl).
+[`examples/screen_stack_quickstart.jl`](examples/screen_stack_quickstart.jl).
 
 Stylesheet-driven Toolkit applications should keep a reusable `StyleEngine`
 outside the render loop and pass it to `ToolkitTree` when CSS-like selectors,

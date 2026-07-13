@@ -223,7 +223,7 @@ gate for complete shortcut help metadata. Use `assert_bindings_documented(map)`
 when failures should include the undocumented shortcut labels.
 
 For a runnable public-API example, see
-[`examples/input_events_quickstart.jl`](../examples/input_events_quickstart.jl).
+[`examples/input_events_quickstart.jl`](examples/input_events_quickstart.jl).
 
 ```@autodocs
 Modules = [

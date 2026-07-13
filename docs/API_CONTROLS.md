@@ -344,7 +344,7 @@ Use `register_validation_message_semantic_handlers!` and
 tooling should inspect validation feedback through semantic actions.
 
 For a focused rendering example that includes validation feedback widgets, see
-[`examples/feedback_quickstart.jl`](../examples/feedback_quickstart.jl).
+[`examples/feedback_quickstart.jl`](examples/feedback_quickstart.jl).
 
 Use `Collapsible` when a section should disclose or hide child content while
 keeping expanded state explicit:
