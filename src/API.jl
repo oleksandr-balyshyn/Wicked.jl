@@ -2390,6 +2390,7 @@ const _STABLE_NAMES = (
     :run_async,
     :subscriptions,
     :post!,
+    :precompile_stable_workload!,
     :cancel!,
     :request_exit!,
     :execute_process,
