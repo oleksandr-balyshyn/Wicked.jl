@@ -166,6 +166,8 @@ end
 
 function render_json(rows)
     counts = summary(rows)
+    # JSON summary fields: "summary", "by_area", and "by_release_required" are intentionally
+    # present for release automation and summary dashboards.
     lines = String[
         "{",
         "  \"schema_version\": 1,",

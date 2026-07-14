@@ -22,13 +22,7 @@ row_action_result = invoke_virtual_row_action(row_actions, :open, rows[1], 1; ke
 @assert row_action_result.value == (:Build, "Build")
 row_shortcut_result = invoke_virtual_row_action_shortcut(row_actions, "enter", rows[1], 1; key=:Build)
 @assert row_shortcut_result.handled
-row_batch_result = invoke_virtual_row_action_batch(
-    row_actions,
-    :retry,
-    rows;
-    indices=1:length(rows),
-    keys=[:Build, :Test, :Release],
-)
+row_batch_result = invoke_virtual_row_action_batch(row_actions, :retry, rows; indices=1:length(rows), keys=[:Build, :Test, :Release])
 @assert row_batch_result isa VirtualRowActionBatchResult
 @assert row_batch_result.requested == 3
 @assert row_batch_result.handled == 2
