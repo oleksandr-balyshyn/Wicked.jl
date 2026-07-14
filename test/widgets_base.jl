@@ -61,12 +61,14 @@
         @test render_snapshot(horizontal(Label("A"), Label("B"); gap=1)) == layout_snapshot
         @test render_snapshot(hstack(Label("A"), Label("B"); gap=1)) == layout_snapshot
         @test render_snapshot(hbox(Label("A"), Label("B"); gap=1)) == layout_snapshot
+        @test render_snapshot(hsplit(Label("A"), Label("B"); gap=1)) == layout_snapshot
 
         column = Column(Label("A"), Label("B"); gap=1)
         column_snapshot = render_snapshot(column)
         @test render_snapshot(vertical(Label("A"), Label("B"); gap=1)) == column_snapshot
         @test render_snapshot(vstack(Label("A"), Label("B"); gap=1)) == column_snapshot
         @test render_snapshot(vbox(Label("A"), Label("B"); gap=1)) == column_snapshot
+        @test render_snapshot(vsplit(Label("A"), Label("B"); gap=1)) == column_snapshot
 
         @test render_snapshot(Stack(Label("A"), Label("B"))) ==
               render_snapshot(overlay(Label("A"), Label("B")))

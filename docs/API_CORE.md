@@ -27,6 +27,10 @@ root = vbox(
 )
 ```
 
+The API also exposes `horizontal`, `vertical`, and `overlay` aliases for teams
+migrating from Textual/React-style frameworks while keeping `row`, `column`, and
+`zstack` as the idiomatic Julia primitives.
+
 Use split-style aliases when porting source layout APIs:
 
 ```julia
