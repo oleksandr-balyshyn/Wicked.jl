@@ -155,6 +155,9 @@ layout helpers.
 """
 hbox(children...; kwargs...) = row(children...; kwargs...)
 
+"""Construct a horizontal container using `row` semantics with a UI-framework-neutral name."""
+horizontal(children...; kwargs...) = row(children...; kwargs...)
+
 """Construct a two-axis horizontal split container using `row` semantics.
 
 `hsplit` is a migration alias for split-style layout APIs that use fixed
@@ -194,6 +197,9 @@ vstack(children...; kwargs...) = column(children...; kwargs...)
 """Construct a vertical container using `column` semantics using `vbox` naming."""
 vbox(children...; kwargs...) = column(children...; kwargs...)
 
+"""Construct a vertical container using `column` semantics with a UI-framework-neutral name."""
+vertical(children...; kwargs...) = column(children...; kwargs...)
+
 """Construct a two-axis vertical split container using `column` semantics.
 
 `vsplit` is a migration alias for split-style layout APIs that use stacked
@@ -208,6 +214,13 @@ stack(children...; kwargs...) = Element(nothing; children, layout=:stack, kwargs
 composition where later children are layered above earlier children.
 """
 zstack(children...; kwargs...) = stack(children...; kwargs...)
+
+"""Construct an overlay stack using `zstack` semantics.
+
+This alias is useful for ports from frameworks that use an explicit `overlay` name
+for layered composition.
+"""
+overlay(children...; kwargs...) = zstack(children...; kwargs...)
 
 function grid(
     children...;

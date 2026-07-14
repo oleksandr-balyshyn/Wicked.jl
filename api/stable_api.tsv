@@ -1728,6 +1728,7 @@ center	function
 centered	function
 hbox	function
 hstack	function
+horizontal	function
 hsplit	function
 choose_current_directory!	function
 choose_file_entry!	function
@@ -2182,6 +2183,7 @@ open_overlay!	function
 open_palette!	function
 osc52_query	function
 osc52_sequence	function
+overlay	function
 overlay_count	function
 overlay_entries	function
 overlay_errors	function
@@ -3290,6 +3292,7 @@ visible_completions	function
 visible_range	function
 visible_virtual_columns	function
 vstack	function
+vertical	function
 vsplit	function
 wait_for_ansi_snapshot!	function
 wait_for_buffer!	function

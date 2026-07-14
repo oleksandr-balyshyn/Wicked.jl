@@ -95,8 +95,8 @@ The review policy is documented in
 | Flow/wrap layout | `Wrap` or `Flow` | Stateless |
 | Group composition | `Group` | Stateless |
 | Layer composition | `Layer` | Stateless |
-| Horizontal layout | `Row` | Stateless |
-| Vertical layout | `Column` | Stateless |
+| Horizontal layout | `Row`, `hbox`, `hstack`, `horizontal` | Stateless |
+| Vertical layout | `Column`, `vbox`, `vstack`, `vertical` | Stateless |
 | Grid layout | `Grid` | Stateless |
 | Centered layout | `Center` | Stateless |
 | Box container | `Box` | Stateless |
@@ -114,7 +114,7 @@ The review policy is documented in
 | Sidebar shell | `Sidebar` | Stateless |
 | Toolbar | `Toolbar` | Stateless |
 | Shortcut bar | `ShortcutBar` | Stateless |
-| Layered overlay composition | `Overlay` or `Stack` | Stateless |
+| Layered overlay composition | `Overlay`, `Stack`, or `overlay` | Stateless |
 | Single-line text field | `Input`, `TextBox`, `TextField`, or `TextInput` | `InputState`, `TextBoxState`, `TextFieldState`, or `TextInputState` |
 | Search field | `SearchInput` | `SearchInputState` |
 | Password field | `PasswordInput` or `PasswordField` | `TextInputState` or `PasswordFieldState` |

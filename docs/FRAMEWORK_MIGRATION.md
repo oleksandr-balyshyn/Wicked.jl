@@ -58,9 +58,9 @@ When porting existing code, start with these direct aliases:
 | --- | --- | --- |
 | Ratatui horizontal layout | `Layout::Direction::Horizontal`, `Layout::constraints` composition | `row(...)` |
 | Ratatui vertical layout | `Layout::Direction::Vertical`, `Layout::constraints` composition | `column(...)` |
-| Textual/Tui-like H/V containers | `Horizontal` / `Vertical` style containers | `hbox(...)`, `hstack(...)`, `vbox(...)`, `vstack(...)` |
+| Textual/Tui-like H/V containers | `Horizontal` / `Vertical` style containers | `hbox(...)`, `hstack(...)`, `horizontal(...)`, `vbox(...)`, `vstack(...)`, `vertical(...)` |
 | Ratatui split-style composition | two-pane or row/column constraints | `hsplit(...)`, `vsplit(...)` |
-| Overlay composition | layered / stacked containers | `zstack(...)` |
+| Overlay composition | layered / stacked containers | `overlay(...)`, `zstack(...)` |
 | Single centered child | `Centered` helper or shell centering wrappers | `centered(...)` |
 
 A migration snippet:
@@ -69,7 +69,7 @@ A migration snippet:
 using Wicked.API
 
 # Ratatui-like row
-layout_row = hstack(
+layout_row = horizontal(
     row_title,
     row_body,
     row_status;
@@ -78,7 +78,7 @@ layout_row = hstack(
 )
 
 # Textual-like column
-layout_column = vbox(
+layout_column = vertical(
     status_label,
     detail_panel,
     controls;
@@ -86,7 +86,7 @@ layout_column = vbox(
 )
 
 # Modal-style overlay stack
-screen = zstack(
+screen = overlay(
     background_view,
     tooltip_view,
     key=:overlay_stack,
