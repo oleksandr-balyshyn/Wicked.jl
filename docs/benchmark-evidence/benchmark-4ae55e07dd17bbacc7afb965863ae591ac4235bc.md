@@ -4,7 +4,7 @@
 
 | Field | Value |
 | --- | --- |
-| Release-candidate commit | e73b2740c522af7d54d0d17e33bcacfd90cedf77 |
+| Release-candidate commit | 4ae55e07dd17bbacc7afb965863ae591ac4235bc |
 | Date and UTC time | 2026-07-14 00:46:29 UTC |
 | Julia version | 1.12.6 |
 | Linux distribution, kernel, architecture, and shell | Ubuntu 24.04, Linux 7.0.0-27-generic, x86_64, bash |
