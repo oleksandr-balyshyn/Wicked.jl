@@ -85,9 +85,23 @@ function read_tsv_table(path::AbstractString)
     isfile(path) || return Dict{String,String}[]
     rows = Dict{String,String}[]
     header = String[]
+    commented_header = String[]
     for raw_line in eachsplit(read(path, String), '\n')
         line = strip(raw_line)
-        (isempty(line) || startswith(line, "#")) && continue
+        isempty(line) && continue
+        if startswith(line, "#")
+            candidate = strip(line[2:end])
+            marker_index = findfirst("<TAB>", candidate)
+            if marker_index !== nothing
+                commented_header = split(replace(candidate, "<TAB>" => "\t"), '\t'; keepempty=true)
+                continue
+            end
+            continue
+        end
+        if isempty(header) && !isempty(commented_header)
+            header = copy(commented_header)
+            commented_header = String[]
+        end
         cells = split(raw_line, '\t'; keepempty=true)
         if isempty(header)
             header = String.(cells)
@@ -127,7 +141,7 @@ function stable_candidate_has_widget(widget::AbstractString, source_file::Abstra
 end
 
 function widget_coverage_has_widget(widget::AbstractString, source_file::AbstractString)
-    accepted_names = Set(("Wicked.$widget", "Wicked.Widgets.$widget"))
+    accepted_names = Set((widget, "Wicked.$widget", "Wicked.Widgets.$widget"))
     rows = read_tsv_table(WIDGET_COVERAGE_PATH)
     return any(rows) do row
         get(row, "widget_type", "") in accepted_names && get(row, "source", "") == source_file
