@@ -4,8 +4,11 @@ Run examples from the repository root:
 
 ```sh
 julia --project=. examples/application_services.jl
+julia --project=. examples/app_shell_quickstart.jl
+julia --project=. examples/keybindings_quickstart.jl
 julia --project=. examples/immediate_quickstart.jl
 julia --project=. examples/layout_quickstart.jl
+julia --project=. examples/screen_stack_quickstart.jl
 julia --project=. examples/text_quickstart.jl
 julia --project=. examples/scrolling_quickstart.jl
 julia --project=. examples/input_events_quickstart.jl
@@ -45,9 +48,11 @@ Ratatui, Textual, TamboUI, and Lanterna-style feature family it demonstrates.
 
 | Goal | Example |
 | --- | --- |
+| Build application shell primitives | `app_shell_quickstart.jl` |
 | Learn Ratatui-style immediate rendering with explicit state | `immediate_quickstart.jl` |
 | Compose rows, columns, boxes, wrapping flows, and overlays | `layout_quickstart.jl` |
 | Render labels, paragraphs, headings, markup, separators, and dividers | `text_quickstart.jl` |
+| Use keyboard shortcuts and keybinding helpers | `keybindings_quickstart.jl` |
 | Build scrollable panes, viewports, and scrollbars | `scrolling_quickstart.jl` |
 | Route typed key, mouse, paste, resize, focus, tick, and custom events | `input_events_quickstart.jl` |
 | Render tables, data tables, trees, tree tables, and property panes | `data_display_quickstart.jl` |

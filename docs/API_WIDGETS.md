@@ -338,7 +338,8 @@ render!(Buffer(3, 24), list, Rect(1, 1, 3, 24), state)
 
 Use `ListBox`, `ListView`, or `OptionList` when porting code from retained TUI
 libraries that name the same pattern as a list box, list view, or option list.
-They keep the same `ListState` contract as `List`:
+`List`, `ListBox`, `ListView`, and `OptionList` share `ListState` as their state
+contract:
 
 ```julia
 box = ListBox(["Build", "Test", "Release"])
@@ -351,6 +352,14 @@ view_state = state_for(view)
 
 options = OptionList(["Build", "Test", "Release"])
 option_state = state_for(options)
+```
+
+`ListView` also accepts `ListViewState` explicitly when migrations prefer the
+canonical compatibility name; it is equivalent to `ListState`:
+
+```julia
+view = ListView(["Build", "Test", "Release"])
+view_state = ListViewState()
 ```
 
 Use `Input`, `TextBox`, `TextField`, or `TextInput` for single-line fields, and

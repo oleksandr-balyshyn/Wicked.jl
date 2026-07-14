@@ -295,6 +295,15 @@ state = state_for(widget)
 render!(buffer, widget, area, state)
 ```
 
+`RangeSlider` uses `RangeSliderState` as its state contract. Keep that state
+value while handling interaction so upper/lower bounds persist across draws:
+
+```julia
+widget = RangeSlider(0, 100; lower=20, upper=80, step=5, width=24)
+state = RangeSliderState(0, 100; lower=20, upper=80, step=5)
+render!(buffer, widget, area, state)
+```
+
 Use `register_range_slider_semantic_handlers!` when automation should set both
 handles, move the active handle, switch handles, or directly set the lower/upper
 semantic child nodes.
