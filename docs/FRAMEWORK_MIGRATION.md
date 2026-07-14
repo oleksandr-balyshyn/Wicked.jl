@@ -50,6 +50,52 @@ reference explicitly lists them.
 | Charts and rich content | `Sparkline`, `BarChart`, `Chart`, `Plot`, `Histogram`, `Heatmap`, `Canvas`, `MarkdownView`, `CodeView`, `SyntaxView`, `DiffView`, `LogView`, `RichLog` |
 | Developer and terminal views | `HelpView`, `Inspector`, `DevConsole`, `TerminalView`, `ProcessView`, `ReplView`, `LiveDisplay`, `TaskMonitor`, `Pretty`, `Digits` |
 
+## Layout and container migration aliases
+
+When porting existing code, start with these direct aliases:
+
+| Source pattern | Source name | Wicked equivalent |
+| --- | --- | --- |
+| Ratatui horizontal layout | `Layout::Direction::Horizontal`, `Layout::constraints` composition | `row(...)` |
+| Ratatui vertical layout | `Layout::Direction::Vertical`, `Layout::constraints` composition | `column(...)` |
+| Textual/Tui-like H/V containers | `Horizontal` / `Vertical` style containers | `hbox(...)`, `hstack(...)`, `vbox(...)`, `vstack(...)` |
+| Overlay composition | layered / stacked containers | `zstack(...)` |
+| Single centered child | `Centered` helper or shell centering wrappers | `centered(...)` |
+
+A migration snippet:
+
+```julia
+using Wicked.API
+
+# Ratatui-like row
+layout_row = hstack(
+    row_title,
+    row_body,
+    row_status;
+    constraints=[Fill(1), Fill(2), Fill(1)],
+    key=:header_row,
+)
+
+# Textual-like column
+layout_column = vbox(
+    status_label,
+    detail_panel,
+    controls;
+    key=:left_column,
+)
+
+# Modal-style overlay stack
+screen = zstack(
+    background_view,
+    tooltip_view,
+    key=:overlay_stack,
+)
+```
+
+These aliases are stable and part of the supported public migration layer. Prefer
+the base `row`/`column` names for idiomatic Julia code when you do not need
+source-level familiarity.
+
 ## Choose the closest Wicked.jl level
 
 Start at the level that matches the source application rather than rewriting the application around the largest Wicked abstraction.

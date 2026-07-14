@@ -1726,6 +1726,8 @@ carousel_item	function
 carousel_window	function
 center	function
 centered	function
+hbox	function
+hstack	function
 choose_current_directory!	function
 choose_file_entry!	function
 clamp	function
@@ -3213,6 +3215,7 @@ unmatched_style_rule_records	function
 unmatched_style_rule_text	function
 unmatched_style_rule_tsv	function
 unpin_virtual_column!	function
+vbox	function
 unregister_action!	function
 unregister_drop_target!	function
 unregister_extension!	function
@@ -3285,6 +3288,7 @@ visible_completion_range	function
 visible_completions	function
 visible_range	function
 visible_virtual_columns	function
+vstack	function
 wait_for_ansi_snapshot!	function
 wait_for_buffer!	function
 wait_for_cell!	function
@@ -3465,6 +3469,7 @@ with_resource_scope	function
 with_semantic_node	function
 with_terminal	function
 with_trace_span	function
+zstack	function
 write_clipboard!	function
 write_pilot_evidence_bundle	function
 write_pilot_evidence_package	function

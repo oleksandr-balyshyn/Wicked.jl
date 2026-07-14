@@ -129,6 +129,11 @@ const _STABLE_NAMES = (
     # Ergonomic Toolkit composition and routed event contracts.
     :row,
     :column,
+    :hstack,
+    :vstack,
+    :hbox,
+    :vbox,
+    :zstack,
     :grid,
     :stack,
     :centered,

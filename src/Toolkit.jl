@@ -141,6 +141,20 @@ function row(
     )
 end
 
+"""Construct a horizontal container using `row` semantics.
+
+`hstack` is a convenience alias for migration from frameworks with explicit
+horizontal-stack terminology (for example Textual and TuiKit-style APIs).
+"""
+hstack(children...; kwargs...) = row(children...; kwargs...)
+
+"""Construct a horizontal container using `row` semantics using `hbox` naming.
+
+`hbox` is a lightweight compatibility alias for Ratatui/JS-style horizontal box
+layout helpers.
+"""
+hbox(children...; kwargs...) = row(children...; kwargs...)
+
 function column(
     children...;
     key=nothing,
@@ -164,7 +178,22 @@ function column(
     )
 end
 
+"""Construct a vertical container using `column` semantics.
+
+`vstack` is a compatibility alias for migration from retained-widget frameworks.
+"""
+vstack(children...; kwargs...) = column(children...; kwargs...)
+
+"""Construct a vertical container using `column` semantics using `vbox` naming."""
+vbox(children...; kwargs...) = column(children...; kwargs...)
+
 stack(children...; kwargs...) = Element(nothing; children, layout=:stack, kwargs...)
+"""Construct an overlay stack using `stack` semantics.
+
+`zstack` is a compatibility alias for retained-toolkit style absolute overlay
+composition where later children are layered above earlier children.
+"""
+zstack(children...; kwargs...) = stack(children...; kwargs...)
 
 function grid(
     children...;
