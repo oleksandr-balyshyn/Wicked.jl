@@ -148,7 +148,9 @@ the retained `ElementInstance` for diagnostics and advanced integrations;
 Use `Element` and the layout helpers from `Wicked.API` when an application should
 feel closer to Textual or TamboUI while still rendering through Wicked's
 immediate-mode core. Keep `key` stable for state retention and `id` stable for
-focus, queries, and semantic automation:
+focus, queries, and semantic automation. You can use `row`, `column`, `hbox`,
+`vbox`, `hsplit`, and `vsplit` directly, plus the migration aliases
+`HStack`, `VStack`, `HBox`, `VBox`, `HSplit`, `VSplit`, and `ZStack`:
 
 Toolkit focus uses the same `FocusRegistry` contract as immediate applications:
 tab and reverse-tab traverse focusable elements in deterministic order, pointer

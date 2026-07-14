@@ -511,6 +511,9 @@ Group	unionall
 GroupRole	value
 HIDDEN	value
 HYPER	value
+HSplit	function
+HStack	function
+HBox	function
 HardBreak	datatype
 Header	datatype
 Heading	datatype
@@ -525,6 +528,10 @@ HorizontalLayout	value
 HorizontalRule	value
 HorizontalScrollbar	value
 HorizontalSplit	value
+VBox	function
+VStack	function
+VSplit	function
+ZStack	function
 Hyperlink	unionall
 HyperlinkState	datatype
 IOGraphicsSink	unionall
@@ -785,6 +792,7 @@ PausedProgress	value
 PendingAnimation	value
 PendingReload	value
 PendingStep	value
+Percent	function
 Percentage	datatype
 PilotEvidenceBundle	datatype
 PilotEvidenceSummary	datatype

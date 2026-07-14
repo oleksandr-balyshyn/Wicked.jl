@@ -148,12 +148,18 @@ horizontal-stack terminology (for example Textual and TuiKit-style APIs).
 """
 hstack(children...; kwargs...) = row(children...; kwargs...)
 
+"""Compatibility migration alias for upper-case layout naming conventions."""
+HStack(children...; kwargs...) = row(children...; kwargs...)
+
 """Construct a horizontal container using `row` semantics using `hbox` naming.
 
 `hbox` is a lightweight compatibility alias for Ratatui/JS-style horizontal box
 layout helpers.
 """
 hbox(children...; kwargs...) = row(children...; kwargs...)
+
+"""Compatibility migration alias for upper-case layout naming conventions."""
+HBox(children...; kwargs...) = row(children...; kwargs...)
 
 """Construct a horizontal container using `row` semantics with a UI-framework-neutral name."""
 horizontal(children...; kwargs...) = row(children...; kwargs...)
@@ -164,6 +170,9 @@ horizontal(children...; kwargs...) = row(children...; kwargs...)
 directional composition (for example textual split panes and Ratatui-style rows).
 """
 hsplit(children...; kwargs...) = row(children...; kwargs...)
+
+"""Compatibility migration alias for upper-case split naming conventions."""
+HSplit(children...; kwargs...) = row(children...; kwargs...)
 
 function column(
     children...;
@@ -194,8 +203,14 @@ end
 """
 vstack(children...; kwargs...) = column(children...; kwargs...)
 
+"""Compatibility migration alias for upper-case layout naming conventions."""
+VStack(children...; kwargs...) = column(children...; kwargs...)
+
 """Construct a vertical container using `column` semantics using `vbox` naming."""
 vbox(children...; kwargs...) = column(children...; kwargs...)
+
+"""Compatibility migration alias for upper-case layout naming conventions."""
+VBox(children...; kwargs...) = column(children...; kwargs...)
 
 """Construct a vertical container using `column` semantics with a UI-framework-neutral name."""
 vertical(children...; kwargs...) = column(children...; kwargs...)
@@ -207,6 +222,9 @@ children (for example docked stacks and tabular side-by-side transitions).
 """
 vsplit(children...; kwargs...) = column(children...; kwargs...)
 
+"""Compatibility migration alias for upper-case split naming conventions."""
+VSplit(children...; kwargs...) = column(children...; kwargs...)
+
 stack(children...; kwargs...) = Element(nothing; children, layout=:stack, kwargs...)
 """Construct an overlay stack using `stack` semantics.
 
@@ -214,6 +232,9 @@ stack(children...; kwargs...) = Element(nothing; children, layout=:stack, kwargs
 composition where later children are layered above earlier children.
 """
 zstack(children...; kwargs...) = stack(children...; kwargs...)
+
+"""Compatibility migration alias for upper-case overlay naming conventions."""
+ZStack(children...; kwargs...) = stack(children...; kwargs...)
 
 """Construct an overlay stack using `zstack` semantics.
 
@@ -1969,6 +1990,12 @@ export BubblePhase,
        has_registered_screen,
        has_screen,
        centered,
+       HBox,
+       HStack,
+       HSplit,
+       VBox,
+       VStack,
+       VSplit,
        hbox,
        hsplit,
        hstack,
@@ -1979,6 +2006,7 @@ export BubblePhase,
        element_instance,
        element_path_components,
        element_state,
+       ZStack,
        vbox,
        vertical,
        vsplit,

@@ -28,6 +28,8 @@ struct Percentage <: Constraint
     Percentage(value::Real) = 0 <= value <= 100 ? new(Float64(value)) :
         throw(ArgumentError("percentage must be between 0 and 100"))
 end
+"""Compatibility constructor alias for percentage-style constraints."""
+Percent(value::Real) = Percentage(value)
 
 struct Ratio <: Constraint
     numerator::Int
@@ -511,6 +513,7 @@ export CenterFlex,
        Max,
        Min,
        Percentage,
+       Percent,
        Ratio,
        SpaceAround,
        SpaceBetween,

@@ -29,7 +29,9 @@ root = vbox(
 
 The API also exposes `horizontal`, `vertical`, and `overlay` aliases for teams
 migrating from Textual/React-style frameworks while keeping `row`, `column`, and
-`zstack` as the idiomatic Julia primitives.
+`zstack` as the idiomatic Julia primitives. For source-porting convenience, the
+same concepts are also available as `HBox`, `HStack`, `HSplit`, `VBox`, `VStack`,
+`VSplit`, and `ZStack`.
 
 Use split-style aliases when porting source layout APIs:
 
@@ -45,7 +47,17 @@ stack_root = vsplit(
     leaf(List(items_right));
     constraints=[Fill(1), Fill(2)],
 )
+
+# Upper-case aliases are intentionally supported for source migrations.
+stack_root = VSplit(
+    leaf(List(items_left)),
+    leaf(List(items_right));
+    constraints=[Fill(1), Fill(2)],
+)
 ```
+
+`Percentage` is the canonical percentage constraint constructor and `Percent`
+is a migration-friendly alias.
 
 `row` and `column` create flex containers. `grid` creates a `GridLayout`.
 `stack` overlays children in paint order. `centered(child; height, width)` keeps

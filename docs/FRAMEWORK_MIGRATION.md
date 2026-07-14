@@ -58,10 +58,11 @@ When porting existing code, start with these direct aliases:
 | --- | --- | --- |
 | Ratatui horizontal layout | `Layout::Direction::Horizontal`, `Layout::constraints` composition | `row(...)` |
 | Ratatui vertical layout | `Layout::Direction::Vertical`, `Layout::constraints` composition | `column(...)` |
-| Textual/Tui-like H/V containers | `Horizontal` / `Vertical` style containers | `hbox(...)`, `hstack(...)`, `horizontal(...)`, `vbox(...)`, `vstack(...)`, `vertical(...)` |
-| Ratatui split-style composition | two-pane or row/column constraints | `hsplit(...)`, `vsplit(...)` |
-| Overlay composition | layered / stacked containers | `overlay(...)`, `zstack(...)` |
+| Textual/Tui-like H/V containers | `Horizontal` / `Vertical` style containers | `row(...)`, `column(...)`, `hbox(...)`, `hstack(...)`, `horizontal(...)`, `vbox(...)`, `vstack(...)`, `vertical(...)`, `HBox(...)`, `HStack(...)`, `VBox(...)`, `VStack(...)` |
+| Ratatui split-style composition | two-pane or row/column constraints | `hsplit(...)`, `vsplit(...)`, `HSplit(...)`, `VSplit(...)` |
+| Overlay composition | layered / stacked containers | `overlay(...)`, `zstack(...)`, `ZStack(...)` |
 | Single centered child | `Centered` helper or shell centering wrappers | `centered(...)` |
+| Percentage constraints | `Constraint::Percentage(25)` style ratios | `Percentage(25)`, `Percent(25)` |
 
 A migration snippet:
 
@@ -83,6 +84,14 @@ layout_column = vertical(
     detail_panel,
     controls;
     key=:left_column,
+)
+
+# SwiftUI-like migration aliases
+layout_toolbar = HStack(
+    status_indicator,
+    Button("Run"),
+    Button("Stop");
+    constraints=[Fill(1), Fill(2), Fill(1)],
 )
 
 # Modal-style overlay stack
