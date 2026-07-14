@@ -32,10 +32,23 @@ julia --project=. -e 'using Test, Wicked, Wicked.API; include("test/api_contract
 julia --project=. benchmark/run.jl --quick --check
 julia --project=. --startup-file=no scripts/pty_gate.jl
 julia --project=. --startup-file=no scripts/api_audit.jl
+julia --project=. --startup-file=no scripts/widget_promotion_requirements_audit.jl
 julia --project=. --startup-file=no scripts/widget_stabilization_gate.jl
+julia --project=. --startup-file=no scripts/stable_promotion_packet_audit.jl
 julia --project=. --startup-file=no scripts/render_widget_family_closeout.jl --format markdown --columns family,status,docs,examples,blockers,blocker_details --release-check --require-total-count "$(julia --project=. --startup-file=no scripts/render_widget_family_closeout.jl --count)"
 julia --project=. --startup-file=no scripts/render_widget_family_closeout.jl --format json
 julia --project=. --startup-file=no scripts/render_widget_family_closeout.jl --summary --format tsv
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --coverage-status
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --coverage-summary --format tsv
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --coverage-summary-json
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --coverage-gaps --format markdown
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --coverage-issue-names source_mismatch
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --stability --require-stability-ready
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --coverage-issue-names missing_record
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --coverage-issue-names missing_checks
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --coverage-status --require-clean-git
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --surface-release-status --require-surface-release-ready
+julia --project=. --startup-file=no scripts/render_widget_catalog.jl --surface-release-json
 julia --project=. --startup-file=no scripts/widget_family_closeout_schema_audit.jl
 julia --project=. --startup-file=no scripts/stable_widget_stabilization_schema_audit.jl
 julia --project=. --startup-file=no scripts/stable_widget_surface_release_schema_audit.jl
@@ -144,6 +157,8 @@ artifact is described by
 `scripts/stable_widget_surface_release_schema_audit.jl`, which checks that the
 top-level `release_ready` decision agrees with coverage, stability, family
 closeout, and git metadata flags.
+For a local immutable-candidate audit this is the `--surface-release-status
+--require-surface-release-ready` mode.
 CI renders the release-required widget promotion checklist from
 `api/widget_promotion_requirements.tsv` to
 `ci-artifacts/widget-promotion-requirements.md` and
@@ -204,7 +219,10 @@ example path listed in `examples/README.md` and
 stable API token mentions in the focused docs and public examples, and
 representative precompile workload coverage recorded in
 `api/widget_family_evidence.tsv`. The full ledger contract is documented in
-[Widget Family Evidence Ledger](WIDGET_FAMILY_EVIDENCE.md).
+[Widget Family Evidence Ledger](WIDGET_FAMILY_EVIDENCE.md). Matching
+`precompile_token` coverage is accepted when each type-backed
+`stable_api_token` has exact spelling, or module-qualified spelling sharing the
+same final segment.
 `scripts/render_widget_family_closeout.jl` renders the same family ledger as a
 Markdown, TSV, or JSON planning artifact so release review can see which Ratatui,
 Textual, TamboUI, and Lanterna parity families are ready or blocked, including

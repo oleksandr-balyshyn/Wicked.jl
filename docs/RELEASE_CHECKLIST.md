@@ -34,10 +34,9 @@ run, or does not cover the full platform and behavior scope of the requirement.
       module-qualified spelling with the same final segment.
 - [ ] [Widget Family Evidence Ledger](WIDGET_FAMILY_EVIDENCE.md) is current for
       every stable widget family in the release candidate.
-- [ ] The immutable candidate's `api/widget_family_evidence.tsv` is archived
-      with release evidence and reviewed against the
-      [Widget Family Evidence Ledger](WIDGET_FAMILY_EVIDENCE.md) artifact
-      review criteria.
+- [ ] The immutable candidate's `api/widget_family_evidence.tsv` is archived with
+      release evidence and reviewed against artifact review criteria in
+      [Widget Family Evidence Ledger](WIDGET_FAMILY_EVIDENCE.md).
 - [ ] The CI `widget-family-closeout-<julia-version>` artifact is reviewed for
       every supported Julia quality job, and its
       `ci-artifacts/widget-family-closeout.md` report shows no blocked family

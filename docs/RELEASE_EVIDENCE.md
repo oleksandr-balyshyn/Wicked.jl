@@ -137,7 +137,8 @@ The following mandatory evidence remains missing or too weak to support a produc
   `ci-artifacts/widget-family-closeout.json`, so reviewers can inspect the exact
   family-level ready/blocked status, blocker details, compact
   total/ready/blocked counts, and dashboard-ready `schema_version`, `metadata`,
-  `summary`, and `families` rows used during release closeout. When available,
+  `summary`, and `families` rows used during release closeout. The command must
+  include `--require-blocked-count 0`. When available,
   `metadata.git_commit` must match the immutable candidate commit and
   `metadata.git_dirty` must be `false`. The CI command must use
   `--release-check` to require ready families, reject dirty-worktree evidence,
