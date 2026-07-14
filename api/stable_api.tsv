@@ -1728,6 +1728,7 @@ center	function
 centered	function
 hbox	function
 hstack	function
+hsplit	function
 choose_current_directory!	function
 choose_file_entry!	function
 clamp	function
@@ -3289,6 +3290,7 @@ visible_completions	function
 visible_range	function
 visible_virtual_columns	function
 vstack	function
+vsplit	function
 wait_for_ansi_snapshot!	function
 wait_for_buffer!	function
 wait_for_cell!	function

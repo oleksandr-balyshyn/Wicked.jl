@@ -155,6 +155,13 @@ layout helpers.
 """
 hbox(children...; kwargs...) = row(children...; kwargs...)
 
+"""Construct a two-axis horizontal split container using `row` semantics.
+
+`hsplit` is a migration alias for split-style layout APIs that use fixed
+directional composition (for example textual split panes and Ratatui-style rows).
+"""
+hsplit(children...; kwargs...) = row(children...; kwargs...)
+
 function column(
     children...;
     key=nothing,
@@ -186,6 +193,13 @@ vstack(children...; kwargs...) = column(children...; kwargs...)
 
 """Construct a vertical container using `column` semantics using `vbox` naming."""
 vbox(children...; kwargs...) = column(children...; kwargs...)
+
+"""Construct a two-axis vertical split container using `column` semantics.
+
+`vsplit` is a migration alias for split-style layout APIs that use stacked
+children (for example docked stacks and tabular side-by-side transitions).
+"""
+vsplit(children...; kwargs...) = column(children...; kwargs...)
 
 stack(children...; kwargs...) = Element(nothing; children, layout=:stack, kwargs...)
 """Construct an overlay stack using `stack` semantics.

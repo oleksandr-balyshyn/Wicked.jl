@@ -59,6 +59,7 @@ When porting existing code, start with these direct aliases:
 | Ratatui horizontal layout | `Layout::Direction::Horizontal`, `Layout::constraints` composition | `row(...)` |
 | Ratatui vertical layout | `Layout::Direction::Vertical`, `Layout::constraints` composition | `column(...)` |
 | Textual/Tui-like H/V containers | `Horizontal` / `Vertical` style containers | `hbox(...)`, `hstack(...)`, `vbox(...)`, `vstack(...)` |
+| Ratatui split-style composition | two-pane or row/column constraints | `hsplit(...)`, `vsplit(...)` |
 | Overlay composition | layered / stacked containers | `zstack(...)` |
 | Single centered child | `Centered` helper or shell centering wrappers | `centered(...)` |
 

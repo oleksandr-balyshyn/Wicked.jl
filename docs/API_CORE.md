@@ -12,8 +12,8 @@ render directly into a buffer.
 Toolkit applications can use the stable composition helpers from `Wicked.API`:
 
 ```julia
-root = column(
-    row(
+root = vbox(
+    hbox(
         leaf(Label("Status"));
         constraints=[Fill(1)],
     ),
@@ -24,6 +24,22 @@ root = column(
         columns=[Fill(1), Fill(1)],
     );
     constraints=[Length(1), Fill(1)],
+)
+```
+
+Use split-style aliases when porting source layout APIs:
+
+```julia
+split_root = hsplit(
+    leaf(List(items_top)),
+    leaf(List(items_bottom));
+    constraints=[Fill(2), Fill(1)],
+)
+
+stack_root = vsplit(
+    leaf(List(items_left)),
+    leaf(List(items_right));
+    constraints=[Fill(1), Fill(2)],
 )
 ```
 

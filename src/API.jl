@@ -134,6 +134,8 @@ const _STABLE_NAMES = (
     :hbox,
     :vbox,
     :zstack,
+    :hsplit,
+    :vsplit,
     :grid,
     :stack,
     :centered,
