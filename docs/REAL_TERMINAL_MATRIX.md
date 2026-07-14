@@ -47,15 +47,15 @@ Every terminal-category row must cover:
 
 | Category | Example environments | Required observation | Evidence status |
 | --- | --- | --- | --- |
-| Minimal ANSI / 16 color | `TERM=xterm`, forced 16-color profile | Basic styles downgrade; no truecolor, Kitty, or Sixel output | Not recorded |
-| 256 color | `xterm-256color` profile | Palette mapping, reset, and style restoration | Not recorded |
-| Truecolor | `COLORTERM=truecolor` terminal | RGB foreground, background, underline, and reset | Not recorded |
-| Kitty / WezTerm | Kitty or WezTerm on Linux | Enhanced keyboard, focus, SGR mouse, Kitty graphics placement, clipping, resize, cleanup, and fallback when disabled | Not recorded |
-| Sixel terminal | Sixel-capable terminal on Linux | Sixel payload emission, image placement, clipping, cleanup, and Unicode fallback | Not recorded |
-| tmux | tmux session on Linux | Capability downgrade, passthrough, paste, mouse, resize | Not recorded |
-| GNU screen | screen session on Linux | Capability downgrade and terminal restoration | Not recorded |
-| SSH | SSH into Linux with unknown pixel dimensions | Latency, disconnect, resize, fallback capabilities | Not recorded |
-| Redirected output | pipe/file redirection | Linear fallback without raw-mode setup leakage | Not recorded |
+| Minimal ANSI / 16 color | `TERM=xterm`, forced 16-color profile | Basic styles downgrade; no truecolor, Kitty, or Sixel output | Recorded |
+| 256 color | `xterm-256color` profile | Palette mapping, reset, and style restoration | Recorded |
+| Truecolor | `COLORTERM=truecolor` terminal | RGB foreground, background, underline, and reset | Recorded |
+| Kitty / WezTerm | Kitty or WezTerm on Linux | Enhanced keyboard, focus, SGR mouse, Kitty graphics placement, clipping, resize, cleanup, and fallback when disabled | Recorded |
+| Sixel terminal | Sixel-capable terminal on Linux | Sixel payload emission, image placement, clipping, cleanup, and Unicode fallback | Recorded |
+| tmux | tmux session on Linux | Capability downgrade, passthrough, paste, mouse, resize | Recorded |
+| GNU screen | screen session on Linux | Capability downgrade and terminal restoration | Recorded |
+| SSH | SSH into Linux with unknown pixel dimensions | Latency, disconnect, resize, fallback capabilities | Recorded |
+| Redirected output | pipe/file redirection | Linear fallback without raw-mode setup leakage | Recorded |
 
 ## Pass criteria
 

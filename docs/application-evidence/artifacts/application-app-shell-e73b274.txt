@@ -1,0 +1,12 @@
+ERROR: LoadError: AssertionError: layout.top_size == 2
+Stacktrace:
+ [1] top-level scope
+   @ ~/Wicked.jl/examples/app_shell_quickstart.jl:18
+ [2] include(mod::Module, _path::String)
+   @ Base ./Base.jl:306
+ [3] exec_options(opts::Base.JLOptions)
+   @ Base ./client.jl:317
+ [4] _start()
+   @ Base ./client.jl:550
+in expression starting at /home/worxbend/Wicked.jl/examples/app_shell_quickstart.jl:18
+application_exit:1
