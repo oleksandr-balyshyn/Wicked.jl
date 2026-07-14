@@ -51,6 +51,26 @@
               "Buffer(1x9, origin=(1, 1))\nA    B   "
         @test measure(row, Rect(1, 1, 2, 20)) == Size(1, 3)
 
+        render_snapshot(widget) = begin
+            snapshot = Buffer(1, 9)
+            render!(snapshot, widget, snapshot.area)
+            sprint(show, MIME"text/plain"(), snapshot)
+        end
+
+        layout_snapshot = render_snapshot(row)
+        @test render_snapshot(horizontal(Label("A"), Label("B"); gap=1)) == layout_snapshot
+        @test render_snapshot(hstack(Label("A"), Label("B"); gap=1)) == layout_snapshot
+        @test render_snapshot(hbox(Label("A"), Label("B"); gap=1)) == layout_snapshot
+
+        column = Column(Label("A"), Label("B"); gap=1)
+        column_snapshot = render_snapshot(column)
+        @test render_snapshot(vertical(Label("A"), Label("B"); gap=1)) == column_snapshot
+        @test render_snapshot(vstack(Label("A"), Label("B"); gap=1)) == column_snapshot
+        @test render_snapshot(vbox(Label("A"), Label("B"); gap=1)) == column_snapshot
+
+        @test render_snapshot(Stack(Label("A"), Label("B"))) ==
+              render_snapshot(overlay(Label("A"), Label("B")))
+
         padded = Padding(Label("x"); margin=Margin(1))
         @test measure(padded, Rect(1, 1, 10, 10)) == Size(3, 3)
         boxed = Box(Label("x"; alignment=CenterAlign); block=Block(symbols=ASCII_BORDERS))
