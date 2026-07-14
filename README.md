@@ -92,8 +92,9 @@ semantics = toolkit_semantic_tree(tree)
 
 ## Install and load
 
-Wicked targets Linux terminals on Julia `1.10` and later. The rendering core has
-no native UI or `ncurses` dependency.
+Wicked targets **Linux terminals** on Julia `1.10` and later. Windows and
+macOS are not supported targets today. The rendering core has no native UI or
+`ncurses` dependency.
 
 ```julia
 import Pkg
