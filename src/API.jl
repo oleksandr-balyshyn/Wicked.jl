@@ -3527,15 +3527,4 @@ for name in _STABLE_NAMES
     @eval export $(name)
 end
 
-"""
-    precompile_stable_workload!()
-
-Run the same conservative warmup payload that protects first-import latency in stable
-`Wicked` applications.
-
-The function intentionally keeps startup side effects minimal: it stays in-memory,
-does not open raw terminals, and does not activate optional integrations.
-"""
-precompile_stable_workload!() = _PARENT._precompile_common_workload!()
-
 end

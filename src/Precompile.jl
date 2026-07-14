@@ -2554,8 +2554,7 @@ function _precompile_common_workload!()
     search_widget_catalog_tsv(:button; columns=(:name, :status))
     search_widget_catalog_tsv(:button; columns=(:name, :status), header=false)
     is_stable_widget(:Button; catalog=catalog)
-    is_stable_widget(Widgets.Button; catalog=catalog)
-    is_stable_widget(Widgets.Button("Lookup", :lookup); catalog=catalog)
+    is_stable_widget("Button"; catalog=catalog)
     isempty(catalog) || widget_catalog_entry(first(catalog).name; catalog=catalog)
     assert_stable_widget(:Button; catalog=catalog)
 
@@ -2575,3 +2574,17 @@ end
 if ccall(:jl_generating_output, Cint, ()) == 1
     _precompile_common_workload!()
 end
+
+"""
+    precompile_stable_workload!()
+
+Run the same conservative warmup payload that protects first-import latency in stable
+`Wicked` applications.
+
+The workload intentionally keeps startup side effects minimal:
+
+- in-memory data only
+- no terminal mode changes
+- no optional dependency loading
+"""
+precompile_stable_workload!() = _precompile_common_workload!()
