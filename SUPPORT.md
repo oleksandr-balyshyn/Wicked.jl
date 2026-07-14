@@ -81,6 +81,9 @@ safety, testability, performance, maintenance cost, and compatibility policy.
 
 ## Supported scope
 
+Wicked is a **Linux terminal** library. We currently target Julia 1.10+ on Linux
+only.
+
 Maintainers can investigate Wicked.jl behavior on supported Julia versions and
 documented platforms. Requests may be closed or redirected when they concern:
 

@@ -127,3 +127,54 @@ A family is considered closeable when all of the following are true:
 11. Migration language and risk notes are recorded in [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
 
 This is expected to change as implementations advance; keep it updated every phase transition.
+
+## Next objective cycle: execution runway
+
+Implementation breadth is now mostly in place. The remaining work is proof and
+release posture. The objective is to make this library production-ready and
+predictable for users migrating from Ratatui, Textual, TamboUI, and Lanterna.
+
+### Milestone 1 — Immutable-candidate validation
+
+1. Run immutable-candidate repetition for all supported Julia Linux paths and attach
+   command logs, exit statuses, manifest hashes, terminal identity, and commit
+   metadata to evidence records.
+2. Regenerate and version terminal, application, benchmark, loading, documentation,
+   and semantic/accessibility evidence records.
+3. Require clean-git evidence for every release-mode gate that is used by CI.
+
+Minimum hard gates before release claim:
+
+- `scripts/quality_gate.jl`
+- `scripts/parity_closeout_audit.jl --require-complete`
+- `scripts/render_reference_parity_matrix.jl --release-status --require-release-ready`
+- `scripts/widget_stabilization_gate.jl --release-check`
+- `scripts/render_widget_family_closeout.jl --release-check`
+
+### Milestone 2 — Family closeout hardening
+
+For every family already marked implemented in docs, attach concrete closeout
+evidence before claiming production parity:
+
+- Layout and navigation behavior under clipping, resize, and narrow terminals.
+- Input/event routing, cancellation, focus restoration, and lifecycle recovery.
+- Stateful controls and data widgets (state transitions, virtualized stress cases,
+  stale-data handling, loading/error slots, semantic state).
+- Runtime reliability (queue replacement, redraw determinism, shutdown,
+  cancellation races).
+- Developer workflows (API contract, migration notes, public examples, docs build).
+- Styling/theming (selector specificity, cascade order, downgrade behavior,
+  monochrome fallback).
+- Remote transport and remote-delivery readiness (protocol, security, failure,
+  deployment evidence).
+
+### Milestone 3 — Cross-framework developer API polish
+
+Treat migration quality as a release-quality contract:
+
+- Keep stable constructor/state names as first-class API, avoid bare alias-only
+  compatibility entries in the public map.
+- Ensure every mapped concept has a focused guide and public example path.
+- Ensure representative precompile tokens exist for every type-backed stable API token.
+- Keep `docs/FEATURE_PARITY.md` and migration docs synchronized with any behavior
+  changes and intentional divergences.

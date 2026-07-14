@@ -369,7 +369,7 @@ function check_experimental_promotion_ledger!()
     if isfile(EXPERIMENTAL_PROMOTION_AUDIT_SCRIPT)
         audit_failures = try
             include(EXPERIMENTAL_PROMOTION_AUDIT_SCRIPT)
-            _invoke_audit_call!(:ExperimentalPromotionAudit, :audit, EXPERIMENTAL_PROMOTION_LEDGER)[1]
+            _invoke_audit_call!(:ExperimentalPromotionAudit, :audit, EXPERIMENTAL_PROMOTION_LEDGER)
         catch error
             [sprint(showerror, error)]
         end
@@ -409,8 +409,16 @@ function _invoke_audit_call!(module_name::Symbol, function_name::Symbol, args...
     module_obj = getfield(Main, module_name)
     method = getfield(module_obj, function_name)
     try
-        applicable(method, args...) && return Base.invokelatest(method, args...)
-        applicable(method) && return Base.invokelatest(method)
+        result = if isempty(args)
+            Base.invokelatest(method)
+        else
+            Base.invokelatest(method, args...)
+        end
+        result === nothing && return ["$module_name.$function_name has no usable audit signature for the provided arguments"]
+        if result isa Tuple
+            return result[1] isa AbstractVector ? result[1] : [string(result[1])]
+        end
+        return result isa AbstractVector ? result : [string(result)]
     catch error
         if error isa MethodError
             return ["$module_name.$function_name has no usable audit signature for the provided arguments"]
@@ -458,29 +466,29 @@ function check_component_catalog_contract!()
     include(COMPONENT_CATALOG_PUBLIC_MAP_HELPER)
     catalog = getfield(Main, :ComponentCatalogPublicMap)
     entries = try
-        catalog.read_entries(COMPONENT_CATALOG)
+        Base.invokelatest(catalog.read_entries, COMPONENT_CATALOG; root=ROOT)
     catch error
         return [sprint(showerror, error)]
     end
     exclusions = try
-        catalog.read_exclusions(COMPONENT_CATALOG)
+        Base.invokelatest(catalog.read_exclusions, COMPONENT_CATALOG; root=ROOT)
     catch error
         return [sprint(showerror, error)]
     end
     renderables = try
-        catalog.read_widget_coverage_renderables(WIDGET_COVERAGE_LEDGER)
+        Base.invokelatest(catalog.read_widget_coverage_renderables, WIDGET_COVERAGE_LEDGER; root=ROOT)
     catch error
         push!(failures, sprint(showerror, error))
         Set{String}()
     end
     missing = try
-        catalog.missing_renderables(COMPONENT_CATALOG; coverage_path=WIDGET_COVERAGE_LEDGER)
+        Base.invokelatest(catalog.missing_renderables, COMPONENT_CATALOG; coverage_path=WIDGET_COVERAGE_LEDGER)
     catch error
         push!(failures, sprint(showerror, error))
         Set{String}()
     end
-    widget_names = catalog.widget_names(entries)
-    state_names = catalog.state_contract_names(entries)
+    widget_names = Base.invokelatest(catalog.widget_names, entries)
+    state_names = Base.invokelatest(catalog.state_contract_names, entries)
     focused = IOBuffer()
     for path in FOCUSED_API_WIDGET_DOCS
         if !isfile(path)

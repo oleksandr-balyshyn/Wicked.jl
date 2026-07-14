@@ -912,11 +912,11 @@ function _experimental_widget_record_lookup(name; family=nothing)
     isempty(matches) || return matches[1]
     family_filter = _widget_catalog_family_filter(family)
     if family_filter === nothing
-        throw(ArgumentError("Wicked.Experimental binding is not exported for closeout: $symbol"))
+        throw(ArgumentError("compatibility binding is not exported for closeout: $symbol"))
     end
     throw(
         ArgumentError(
-            "Wicked.Experimental binding `$symbol` is not exported for family filter $(repr(family)); " *
+            "compatibility binding `$symbol` is not exported for family filter $(repr(family)); " *
             "use the same symbol without a family filter or update the widget catalog/ledger",
         ),
     )
@@ -2314,7 +2314,7 @@ end
 """
     experimental_widget_names(; family=nothing)
 
-Return exported compatibility bindings from `Wicked.Experimental` that still
+Return exported compatibility bindings from the compatibility namespace that still
 need a promotion, qualification, or removal decision. When `family` is provided,
 only bindings that also appear in the reviewed widget catalog for that family
 are returned.
@@ -2333,7 +2333,7 @@ end
 """
     experimental_widget_count(; family=nothing)
 
-Return the number of exported `Wicked.Experimental` bindings that still need
+Return the number of exported compatibility bindings that still need
 promotion closeout.
 """
 experimental_widget_count(; family=nothing) = length(experimental_widget_names(; family=family))
@@ -2341,7 +2341,7 @@ experimental_widget_count(; family=nothing) = length(experimental_widget_names(;
 """
     experimental_widget_records(; family=nothing)
 
-Return structured records for exported `Wicked.Experimental` bindings that
+Return structured records for exported compatibility bindings that
 still need a promotion, qualification, or removal decision.
 """
 function experimental_widget_records(; family=nothing)
@@ -2373,7 +2373,7 @@ end
 """
     experimental_widget_records_markdown(; family=nothing)
 
-Render exported `Wicked.Experimental` bindings as a GitHub-flavored Markdown
+Render exported compatibility bindings as a GitHub-flavored Markdown
 table with catalog linkage and required closeout decision fields.
 """
 function experimental_widget_records_markdown(; family=nothing)
@@ -2392,7 +2392,7 @@ end
 """
     experimental_widget_records_tsv(; family=nothing, header=true)
 
-Render exported `Wicked.Experimental` bindings as tab-separated values with
+Render exported compatibility bindings as tab-separated values with
 catalog linkage and required closeout decision fields.
 """
 function experimental_widget_records_tsv(; family=nothing, header::Bool=true)
@@ -2410,7 +2410,7 @@ end
 """
     experimental_widget_records_json(; family=nothing)
 
-Render exported `Wicked.Experimental` bindings as compact JSON for release
+Render exported compatibility bindings as compact JSON for release
 dashboards, CI artifacts, and experimental-promotion automation.
 """
 function experimental_widget_records_json(; family=nothing)
@@ -2433,7 +2433,7 @@ end
 """
     experimental_widget_record(name; family=nothing)
 
-Return one closeout record for one `Wicked.Experimental` binding.
+Return one closeout record for one compatibility binding.
 
 `name` may be a `Symbol`, `String`, widget type, or instance. Set `family`
 to restrict the lookup to one reviewed family while filtering.
@@ -2444,7 +2444,7 @@ experimental_widget_record(name; family=nothing) =
 """
     experimental_widget_readiness_record(name; family=nothing)
 
-Return a named-tuple readiness report for one `Wicked.Experimental` binding.
+Return a named-tuple readiness report for one compatibility binding.
 The report includes blockers and a boolean `ready` flag for stable-widget
 promotion readiness.
 """

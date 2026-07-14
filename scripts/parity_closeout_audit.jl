@@ -282,7 +282,11 @@ function closeout_requirements_json_failures(json::AbstractString)
 
     total == length(rows) ||
         push!(failures, "parity closeout requirements JSON total must equal row count")
-    sum(row.missing for row in rows) == missing ||
+    json_missing = 0
+    for row in rows
+        json_missing += row.missing
+    end
+    json_missing == missing ||
         push!(failures, "parity closeout requirements JSON missing total must equal row missing sum")
     release_ready == (missing == 0) ||
         push!(failures, "parity closeout requirements JSON release_ready must match missing count")
@@ -562,7 +566,10 @@ function json_escape(value)
 end
 
 function render_closeout_requirements_json(records)
-    total_missing = sum(record.missing for record in records)
+    total_missing = 0
+    for record in records
+        total_missing += record.missing
+    end
     lines = String[
         "{",
         "  \"schema_version\": 1,",
@@ -592,7 +599,10 @@ function render_closeout_requirements_json(records)
 end
 
 function render_closeout_requirements_status(records)
-    missing = sum(record.missing for record in records)
+    missing = 0
+    for record in records
+        missing += record.missing
+    end
     missing_families = String[record.family for record in records if record.missing > 0]
     families = isempty(missing_families) ? "none" : join(missing_families, ", ")
     return "parity_closeout_release_ready=$(missing == 0) total=$(length(records)) missing=$missing missing_families=$families"
