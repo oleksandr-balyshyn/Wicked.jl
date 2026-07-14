@@ -253,22 +253,25 @@ end
 
 function closeout_requirements_json_failures(json::AbstractString)
     failures = String[]
+    has_rows = occursin(r"\"rows\"\s*:\s*\[\s*\{", json)
     for required in (
         "\"schema_version\": 1",
         "\"total\":",
         "\"missing\":",
         "\"release_ready\":",
         "\"rows\": [",
-        "\"family\":",
-        "\"survey_family\":",
-        "\"parity_status\":",
-        "\"follow_up\":",
-        "\"required\":",
-        "\"observed\":",
-        "\"status\":",
-        "\"scope\":",
-        "\"scaffold_command\":",
+        has_rows ? "\"family\":" : "",
+        has_rows ? "\"survey_family\":" : "",
+        has_rows ? "\"parity_status\":" : "",
+        has_rows ? "\"follow_up\":" : "",
+        has_rows ? "\"required\":" : "",
+        has_rows ? "\"observed\":" : "",
+        has_rows ? "\"missing\":" : "",
+        has_rows ? "\"status\":" : "",
+        has_rows ? "\"scope\":" : "",
+        has_rows ? "\"scaffold_command\":" : "",
     )
+        isempty(required) && continue
         occursin(required, json) || push!(failures, "parity closeout requirements JSON missing required token: $required")
     end
     total = json_integer_value(json, "total")
@@ -316,7 +319,10 @@ function evidence_files(evidence_dir::AbstractString=EVIDENCE_DIR)
     isdir(evidence_dir) || return String[]
     return sort!(
         String[path for path in readdir(evidence_dir; join=true)
-        if isfile(path) && endswith(path, ".md") && basename(path) != "README.md"
+        if isfile(path) &&
+            endswith(path, ".md") &&
+            basename(path) != "README.md" &&
+            basename(path) != "parity_policy.md"
         ]
     )
 end

@@ -1587,7 +1587,16 @@ function _screen_element(screen::Screen, app, model)
     throw(ArgumentError("screen builder must accept (app, model), (model), or no arguments"))
 end
 
-function screen_stack_element(root, screens::ScreenStack, app=nothing, model=nothing)
+function screen_stack_element(::Nothing, screens::ScreenStack, app=nothing, model=nothing)
+    element = nothing
+    for screen in screens.screens
+        screen_element = _screen_element(screen, app, model)
+        element = screen.mode == ReplaceScreen || element === nothing ? screen_element : stack(element, screen_element)
+    end
+    return element
+end
+
+function screen_stack_element(root::Element, screens::ScreenStack, app=nothing, model=nothing)
     element = root
     for screen in screens.screens
         screen_element = _screen_element(screen, app, model)
