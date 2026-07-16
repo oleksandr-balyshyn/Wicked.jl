@@ -406,8 +406,8 @@ function _api_binding_is_type(name::AbstractString)
 end
 
 function _invoke_audit_call!(module_name::Symbol, function_name::Symbol, args...)
-    module_obj = getfield(Main, module_name)
-    method = getfield(module_obj, function_name)
+    module_obj = Base.invokelatest(getfield, Main, module_name)
+    method = Base.invokelatest(getfield, module_obj, function_name)
     try
         result = if isempty(args)
             Base.invokelatest(method)
@@ -464,31 +464,37 @@ function check_component_catalog_contract!()
         )
     end
     include(COMPONENT_CATALOG_PUBLIC_MAP_HELPER)
-    catalog = getfield(Main, :ComponentCatalogPublicMap)
+    catalog = Base.invokelatest(getfield, Main, :ComponentCatalogPublicMap)
+    catalog_read_entries = Base.invokelatest(getfield, catalog, :read_entries)
+    catalog_read_exclusions = Base.invokelatest(getfield, catalog, :read_exclusions)
+    catalog_read_widget_coverage_renderables = Base.invokelatest(getfield, catalog, :read_widget_coverage_renderables)
+    catalog_missing_renderables = Base.invokelatest(getfield, catalog, :missing_renderables)
+    catalog_widget_names = Base.invokelatest(getfield, catalog, :widget_names)
+    catalog_state_contract_names = Base.invokelatest(getfield, catalog, :state_contract_names)
     entries = try
-        Base.invokelatest(catalog.read_entries, COMPONENT_CATALOG; root=ROOT)
+        Base.invokelatest(catalog_read_entries, COMPONENT_CATALOG; root=ROOT)
     catch error
         return [sprint(showerror, error)]
     end
     exclusions = try
-        Base.invokelatest(catalog.read_exclusions, COMPONENT_CATALOG; root=ROOT)
+        Base.invokelatest(catalog_read_exclusions, COMPONENT_CATALOG; root=ROOT)
     catch error
         return [sprint(showerror, error)]
     end
     renderables = try
-        Base.invokelatest(catalog.read_widget_coverage_renderables, WIDGET_COVERAGE_LEDGER; root=ROOT)
+        Base.invokelatest(catalog_read_widget_coverage_renderables, WIDGET_COVERAGE_LEDGER; root=ROOT)
     catch error
         push!(failures, sprint(showerror, error))
         Set{String}()
     end
     missing = try
-        Base.invokelatest(catalog.missing_renderables, COMPONENT_CATALOG; coverage_path=WIDGET_COVERAGE_LEDGER)
+        Base.invokelatest(catalog_missing_renderables, COMPONENT_CATALOG; coverage_path=WIDGET_COVERAGE_LEDGER)
     catch error
         push!(failures, sprint(showerror, error))
         Set{String}()
     end
-    widget_names = Base.invokelatest(catalog.widget_names, entries)
-    state_names = Base.invokelatest(catalog.state_contract_names, entries)
+    widget_names = Base.invokelatest(catalog_widget_names, entries)
+    state_names = Base.invokelatest(catalog_state_contract_names, entries)
     focused = IOBuffer()
     for path in FOCUSED_API_WIDGET_DOCS
         if !isfile(path)
@@ -3954,9 +3960,9 @@ function check_stable_widget_surface!()
     family_failures = _invoke_audit_call!(:WidgetFamilyEvidenceAudit, :audit)
     isempty(family_failures) || return ["widget family evidence audit: $failure" for failure in family_failures]
     include(candidate_script)
-    return Base.invokelatest(() -> begin
-        rows = getfield(Main, :candidate_rows)()
-        failures = String[]
+        return Base.invokelatest(() -> begin
+            rows = Base.invokelatest(getfield, Main, :candidate_rows)()
+            failures = String[]
         expected_lines = ["widget\tsource\tsurface\tstatus\treason"]
         append!(
             expected_lines,
@@ -3984,12 +3990,12 @@ function check_stable_widget_surface!()
         if isfile(COMPATIBILITY_WIDGET_ALIAS_AUDIT_SCRIPT)
             include(COMPATIBILITY_WIDGET_ALIAS_AUDIT_SCRIPT)
             aliases = Base.invokelatest(() -> begin
-                audit = getfield(Main, :CompatibilityWidgetAliasAudit)
+                audit = Base.invokelatest(getfield, Main, :CompatibilityWidgetAliasAudit)
                 widgets = union(
-                    getfield(audit, :read_stable_widget_names)(),
-                    getfield(audit, :read_component_catalog_widget_names)(),
+                    Base.invokelatest(getfield, audit, :read_stable_widget_names)(),
+                    Base.invokelatest(getfield, audit, :read_component_catalog_widget_names)(),
                 )
-                getfield(audit, :find_widget_aliases)(widgets)
+                Base.invokelatest(Base.invokelatest(getfield, audit, :find_widget_aliases), widgets)
             end)
             for alias in aliases
                 push!(
@@ -4040,8 +4046,8 @@ end
 function check_parity_survey!()
     include(joinpath(ROOT, "scripts", "parity_audit.jl"))
     return Base.invokelatest(() -> begin
-        audit = getfield(Main, :ParityAudit)
-        getfield(audit, :check_reference_parity)()
+        audit = Base.invokelatest(getfield, Main, :ParityAudit)
+        Base.invokelatest(Base.invokelatest(getfield, audit, :check_reference_parity))
     end)
 end
 
