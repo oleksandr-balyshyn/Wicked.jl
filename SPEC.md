@@ -66,7 +66,7 @@ A production-ready surface requires all of the following to pass under Linux wit
 ## Non-goals
 
 - feature claims that are not represented in a completed parity family.
-- Windows targets.
+- macOS and Windows targets.
 - browser-first UX claims not backed by remote deployment evidence.
 
 ## Required artifacts before claiming production parity

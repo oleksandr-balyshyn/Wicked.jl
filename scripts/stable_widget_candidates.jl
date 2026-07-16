@@ -255,7 +255,9 @@ function candidate_rows(;
         status, reason = source_status == "complete" ? evidence_status(row, state_factories; root=source_root) : (source_status, source_reason)
         if widget in stable
             stable_kind = get(stable_kinds, widget, "")
-            stable_status = status == "complete" && stable_widget_binding(stable_kind) ? "stable" : "blocked"
+            stable_is_binding = stable_widget_binding(stable_kind)
+            stable_status = status == "complete" ? "stable" : "blocked"
+            stable_is_binding || (stable_status = "blocked")
             stable_reason = if !stable_widget_binding(stable_kind)
                 "stable widget must be a concrete or parameterized Wicked.API type binding, found `$(isempty(stable_kind) ? "missing" : stable_kind)`"
             elseif status == "complete"

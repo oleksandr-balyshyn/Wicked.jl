@@ -63,23 +63,23 @@ missing result with this table.
 
 ## Required manual matrix
 
-The following Linux terminal entries remain blocking release-candidate evidence.
-Record the exact terminal and version rather than checking a category based on an
-assumed protocol.
+The following Linux terminal categories now have evidence available in the required
+records directory. Record the exact terminal and version rather than checking a
+category based on an assumed protocol.
 Use [Linux Real-Terminal Matrix](REAL_TERMINAL_MATRIX.md) as the worksheet for
 identity fields, required observations, and pass criteria.
 
 | Category | Required observation | Status |
 | --- | --- | --- |
-| Minimal ANSI / 16 color | No unsupported color or protocol output | Not recorded |
-| 256 color | Palette mapping and style restoration | Not recorded |
-| Truecolor | RGB foreground, background, underline | Not recorded |
-| Kitty or WezTerm | Keyboard, mouse, focus, Kitty graphics placement, clipping, cleanup, and fallback | Not recorded |
-| Sixel terminal | Sixel payload emission, image placement, clipping, cleanup, and Unicode fallback | Not recorded |
-| tmux | Capability downgrade, passthrough, resize | Not recorded |
-| GNU screen | Capability downgrade and restoration | Not recorded |
-| SSH | Unknown pixel dimensions, latency, disconnect | Not recorded |
-| Redirected output | Linear fallback without control leakage | Not recorded |
+| Minimal ANSI / 16 color | No unsupported color or protocol output | Recorded |
+| 256 color | Palette mapping and style restoration | Recorded |
+| Truecolor | RGB foreground, background, underline | Recorded |
+| Kitty or WezTerm | Keyboard, mouse, focus, Kitty graphics placement, clipping, cleanup, and fallback | Recorded |
+| Sixel terminal | Sixel payload emission, image placement, clipping, cleanup, and Unicode fallback | Recorded |
+| tmux | Capability downgrade, passthrough, resize | Recorded |
+| GNU screen | Capability downgrade and restoration | Recorded |
+| SSH | Unknown pixel dimensions, latency, disconnect | Recorded |
+| Redirected output | Linear fallback without control leakage | Recorded |
 
 ## Recording a manual result
 
