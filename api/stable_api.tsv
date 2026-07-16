@@ -96,6 +96,7 @@ AuxiliaryDialogButton	value
 BLINK	value
 BOLD	value
 BackRegisteredScreen	unionall
+back_registered_screen	function
 BackendContribution	value
 Badge	datatype
 Bar	datatype
@@ -124,6 +125,7 @@ Breadcrumb	unionall
 BreadcrumbItem	unionall
 BreadcrumbState	unionall
 BubblePhase	value
+bubble_phase	value
 Buffer	datatype
 BufferAssertionError	datatype
 BufferRowView	datatype
@@ -487,6 +489,7 @@ FormField	datatype
 FormState	datatype
 ForwardAnimation	value
 ForwardRegisteredScreen	unionall
+forward_registered_screen	function
 Frame	datatype
 FrameCommand	datatype
 FrameMetrics	datatype
@@ -698,6 +701,7 @@ MultiSelectState	datatype
 NONE	value
 NUM_LOCK	value
 NavigateRegisteredScreen	unionall
+navigate_registered_screen	function
 NavigationRail	datatype
 NavigationRailState	datatype
 NoBorders	value
@@ -792,6 +796,7 @@ PausedProgress	value
 PendingAnimation	value
 PendingReload	value
 PendingStep	value
+percent	function
 Percent	function
 Percentage	datatype
 PilotEvidenceBundle	datatype
@@ -808,6 +813,8 @@ PointerPress	value
 PoliteAnnouncement	value
 PopScreen	datatype
 PopToScreen	unionall
+pop_to_screen	function
+pop_screen	function
 Popover	unionall
 PopoverPlacement	datatype
 PopoverResult	datatype
@@ -841,6 +848,8 @@ PushButton	unionall
 PushButtonState	datatype
 PushRegisteredScreen	unionall
 PushScreen	unionall
+push_registered_screen	function
+push_screen	function
 QueryDataSource	unionall
 QuoteBlock	datatype
 REMOTE_PROTOCOL_VERSION	value
@@ -865,6 +874,7 @@ RangeSliderHandle	datatype
 RangeSliderState	datatype
 RasterImage	datatype
 Ratio	datatype
+ratio	function
 ReactiveBinding	datatype
 ReactiveClassSet	datatype
 ReactiveComponentBinding	datatype
@@ -904,6 +914,7 @@ RemoteProtocolError	datatype
 RemoteProtocolLimits	datatype
 RemoteSession	unionall
 RemoveScreen	unionall
+remove_screen	function
 RemovedSemanticNode	value
 RenderFailure	value
 RenderInvalidation	value
@@ -913,6 +924,8 @@ ReplViewState	datatype
 ReplaceScreen	value
 ReplaceWithRegisteredScreen	unionall
 ReplaceWithScreen	unionall
+replace_with_registered_screen	function
+replace_with_screen	function
 ReplayCompleted	value
 ReplayController	datatype
 ReplayFailed	value
@@ -1129,6 +1142,8 @@ TabsState	datatype
 TagInput	datatype
 TagInputState	datatype
 TargetPhase	value
+capture_phase	value
+target_phase	value
 TaskCommand	unionall
 TaskMonitor	datatype
 TaskMonitorState	datatype
@@ -1759,12 +1774,14 @@ clear_log!	function
 clear_markdown_selection!	function
 clear_masked_input!	function
 clear_notifications!	function
+clear_overlay_screens	function
 clear_overlay_screens!	function
 clear_query!	function
 clear_query_filter!	function
 clear_rich_surface!	function
 clear_screen_history!	function
 clear_screen_route_disabled_reason!	function
+clear_screens	function
 clear_screens!	function
 clear_selection!	function
 clear_tags!	function

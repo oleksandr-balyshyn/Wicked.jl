@@ -30,6 +30,8 @@ struct Percentage <: Constraint
 end
 """Compatibility constructor alias for percentage-style constraints."""
 Percent(value::Real) = Percentage(value)
+"""Compatibility constructor alias for lowercase constraint-style percentage."""
+percent(value::Real) = Percentage(value)
 
 struct Ratio <: Constraint
     numerator::Int
@@ -41,6 +43,8 @@ struct Ratio <: Constraint
         new(Int(numerator), Int(denominator))
     end
 end
+"""Compatibility constructor alias for ratio constraints."""
+ratio(numerator::Integer, denominator::Integer) = Ratio(numerator, denominator)
 
 struct Fill <: Constraint
     weight::Int
@@ -514,7 +518,9 @@ export CenterFlex,
        Min,
        Percentage,
        Percent,
+       percent,
        Ratio,
+       ratio,
        SpaceAround,
        SpaceBetween,
        SpaceEvenly,

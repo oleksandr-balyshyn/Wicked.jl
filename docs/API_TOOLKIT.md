@@ -35,21 +35,27 @@ The stable Toolkit boundary is:
 
 Toolkit routes input through `on_event` callbacks after built-in widget handling.
 Callbacks receive `RoutedEvent(event, target, current, phase)` and the retained
-local state for the current element. `phase` is `TargetPhase` for the focused or
-hit element and `BubblePhase` for ancestors.
+local state for the current element. `phase` is `TargetPhase` (a.k.a.
+`target_phase` / `capture_phase`) for the focused or hit element and `BubblePhase`
+(a.k.a. `bubble_phase`) for ancestors.
 
 Toolkit applications can also keep Textual-style screens in a `ScreenStack`.
 Use `Screen` with `ReplaceScreen` for normal page replacement and
 `OverlayScreen` for stacked overlays. Return `PushScreen`,
 `PushRegisteredScreen`, `NavigateRegisteredScreen`, `BackRegisteredScreen`,
 `ForwardRegisteredScreen`, `PopScreen`, `PopToScreen`, `ReplaceWithScreen`,
-`ReplaceWithRegisteredScreen`, `RemoveScreen`, `ClearOverlayScreens`, or
+`ReplaceWithRegisteredScreen`, `RemoveScreen`, `ClearOverlayScreens`, and
 `ClearScreens` from `toolkit_update!` to mutate the stack through the managed
 Toolkit runtime. Use `ScreenRegistry`, `ScreenHistory`, `register_screen!`,
 `screen_history_command_palette`, and `screen_history_menu` when back/forward
 route history should be exposed through application command surfaces. Use
 `screen_registry_binding_map` and `screen_history_binding_map` when routes and
 route history should feed shortcut bars, help views, or keybinding resolution.
+Prefer snake_case command constructors when porting Textual-like code:
+`navigate_registered_screen`, `push_screen`, `push_registered_screen`,
+`back_registered_screen`, `forward_registered_screen`, `pop_screen`,
+`pop_to_screen`, `replace_with_screen`, `replace_with_registered_screen`,
+`remove_screen`, `clear_overlay_screens`, and `clear_screens`.
 `screen_route_metadata`, `screen_route_title`, `screen_route_description`,
 `screen_route_group`, `screen_route_keywords`, `screen_registry_groups`,
 `set_screen_route_metadata!`,
@@ -196,7 +202,8 @@ function counter_view(count)
             key=:increment,
             focusable=true,
             on_event=(event, state) -> begin
-                event.phase == TargetPhase || return nothing
+                event.phase == TargetPhase || event.phase == target_phase ||
+                event.phase == capture_phase || return nothing
                 event.event isa KeyEvent || return nothing
                 event.event.key.code == :enter || return nothing
                 return EventResponse(consumed=true, message=:increment)

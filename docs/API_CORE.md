@@ -56,8 +56,9 @@ stack_root = VSplit(
 )
 ```
 
-`Percentage` is the canonical percentage constraint constructor and `Percent`
-is a migration-friendly alias.
+`Percentage` is the canonical percentage constraint constructor with migration-friendly
+aliases `Percent` and `percent`. `Ratio` is available for proportion-based
+constraints with the lowercase compatibility alias `ratio`.
 
 `row` and `column` create flex containers. `grid` creates a `GridLayout`.
 `stack` overlays children in paint order. `centered(child; height, width)` keeps

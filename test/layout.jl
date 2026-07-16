@@ -13,17 +13,19 @@
             Rect(1, 10, 2, 6),
         ]
 
-        ratio = resolve(
+        ratio_regions = resolve(
             FlexLayout(HorizontalLayout, [Ratio(typemax(Int), typemax(Int)), Fill()]),
             Rect(1, 1, 1, 20),
         )
-        @test ratio == [Rect(1, 1, 1, 20), Rect(1, 21, 1, 0)]
+        @test ratio_regions == [Rect(1, 1, 1, 20), Rect(1, 21, 1, 0)]
 
         saturated_gap = resolve(
             FlexLayout(HorizontalLayout, [Length(1), Length(1), Length(1)]; gap=typemax(Int)),
             Rect(1, 1, 1, 5),
         )
         @test all(isempty, saturated_gap)
+        @test percent(25) == Percentage(25)
+        @test ratio(1, 3) == Ratio(1, 3)
     end
 
     @testset "overflow and alignment" begin

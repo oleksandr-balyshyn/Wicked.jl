@@ -629,6 +629,15 @@ render!(buffer::Buffer, tree::ToolkitTree, area::Rect) =
     BubblePhase
 end
 
+"""Migration alias for frameworks that use `target_phase` naming."""
+const target_phase::EventPhase = TargetPhase
+
+"""Migration alias for frameworks that use `capture` as the first routing phase."""
+const capture_phase::EventPhase = TargetPhase
+
+"""Migration alias for frameworks that use `bubble_phase` naming."""
+const bubble_phase::EventPhase = BubblePhase
+
 struct RoutedEvent{E<:AbstractEvent}
     event::E
     target::Any
@@ -1689,10 +1698,16 @@ struct PushScreen{S<:Screen}
     screen::S
 end
 
+"""Construct a push-screen command."""
+push_screen(screen::Screen) = PushScreen(screen)
+
 struct PushRegisteredScreen{R<:ScreenRegistry,K}
     registry::R
     id::K
 end
+
+"""Construct a push-registered-screen command."""
+push_registered_screen(registry::ScreenRegistry, id) = PushRegisteredScreen(registry, id)
 
 struct NavigateRegisteredScreen{R<:ScreenRegistry,K}
     registry::R
@@ -1701,10 +1716,17 @@ struct NavigateRegisteredScreen{R<:ScreenRegistry,K}
     record_history::Bool
 end
 
+"""Construct a navigate-registered-screen command."""
+navigate_registered_screen(registry::ScreenRegistry, id; replace=nothing, record_history::Bool=true) =
+    NavigateRegisteredScreen(registry, id; replace=replace, record_history=record_history)
+
 NavigateRegisteredScreen(registry::ScreenRegistry, id; replace=nothing, record_history::Bool=true) =
     NavigateRegisteredScreen{typeof(registry),typeof(id)}(registry, id, replace, record_history)
 
 struct PopScreen end
+
+"""Construct a pop-screen command."""
+pop_screen() = PopScreen()
 
 struct BackRegisteredScreen{R<:ScreenRegistry}
     registry::R
@@ -1714,6 +1736,10 @@ end
 BackRegisteredScreen(registry::ScreenRegistry; replace::Bool=true) =
     BackRegisteredScreen{typeof(registry)}(registry, replace)
 
+"""Construct a back-registered-screen command."""
+back_registered_screen(registry::ScreenRegistry; replace::Bool=true) =
+    BackRegisteredScreen(registry; replace=replace)
+
 struct ForwardRegisteredScreen{R<:ScreenRegistry}
     registry::R
     replace::Bool
@@ -1722,14 +1748,25 @@ end
 ForwardRegisteredScreen(registry::ScreenRegistry; replace::Bool=true) =
     ForwardRegisteredScreen{typeof(registry)}(registry, replace)
 
+"""Construct a forward-registered-screen command."""
+forward_registered_screen(registry::ScreenRegistry; replace::Bool=true) =
+    ForwardRegisteredScreen(registry; replace=replace)
+
 struct ReplaceWithScreen{S<:Screen}
     screen::S
 end
+
+"""Construct a replace-screen command."""
+replace_with_screen(screen::Screen) = ReplaceWithScreen(screen)
 
 struct ReplaceWithRegisteredScreen{R<:ScreenRegistry,K}
     registry::R
     id::K
 end
+
+"""Construct a replace-registered-screen command."""
+replace_with_registered_screen(registry::ScreenRegistry, id) =
+    ReplaceWithRegisteredScreen(registry, id)
 
 struct PopToScreen{K}
     id::K
@@ -1739,13 +1776,25 @@ end
 PopToScreen(id; inclusive::Bool=false) =
     PopToScreen{typeof(id)}(id, inclusive)
 
+"""Construct a pop-to-screen command."""
+pop_to_screen(id; inclusive::Bool=false) = PopToScreen(id; inclusive=inclusive)
+
 struct RemoveScreen{K}
     id::K
 end
 
+"""Construct a remove-screen command."""
+remove_screen(id) = RemoveScreen(id)
+
 struct ClearOverlayScreens end
 
+"""Construct a clear-overlay-screens command."""
+clear_overlay_screens() = ClearOverlayScreens()
+
 struct ClearScreens end
+
+"""Construct a clear-screens command."""
+clear_screens() = ClearScreens()
 
 """Runtime-owned domain, retained element tree, and navigation state."""
 mutable struct ToolkitModel{M}
@@ -1942,11 +1991,14 @@ function element_state(tree::ToolkitTree, id)
 end
 
 export BubblePhase,
+       bubble_phase,
+       capture_phase,
        DispatchResult,
        Element,
        ElementPath,
        ElementInstance,
        EventPhase,
+       target_phase,
        EventResponse,
        RoutedEvent,
        TargetPhase,
@@ -1961,19 +2013,31 @@ export BubblePhase,
        ScreenHistory,
        ScreenStack,
        OverlayScreen,
+       back_registered_screen,
+       forward_registered_screen,
+       clear_overlay_screens,
+       clear_screens,
        ClearOverlayScreens,
        ClearScreens,
        PopScreen,
+       pop_screen,
        PopToScreen,
+       pop_to_screen,
        PushScreen,
+       push_screen,
        PushRegisteredScreen,
+       push_registered_screen,
        NavigateRegisteredScreen,
+       navigate_registered_screen,
        BackRegisteredScreen,
        ForwardRegisteredScreen,
        ReplaceScreen,
+       replace_with_screen,
        ReplaceWithScreen,
+       replace_with_registered_screen,
        ReplaceWithRegisteredScreen,
        RemoveScreen,
+       remove_screen,
        clear_overlay_screens!,
        clear_screen_route_disabled_reason!,
        clear_screen_history!,

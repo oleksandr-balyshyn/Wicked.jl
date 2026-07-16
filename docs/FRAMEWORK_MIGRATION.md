@@ -61,8 +61,11 @@ When porting existing code, start with these direct aliases:
 | Textual/Tui-like H/V containers | `Horizontal` / `Vertical` style containers | `row(...)`, `column(...)`, `hbox(...)`, `hstack(...)`, `horizontal(...)`, `vbox(...)`, `vstack(...)`, `vertical(...)`, `HBox(...)`, `HStack(...)`, `VBox(...)`, `VStack(...)` |
 | Ratatui split-style composition | two-pane or row/column constraints | `hsplit(...)`, `vsplit(...)`, `HSplit(...)`, `VSplit(...)` |
 | Overlay composition | layered / stacked containers | `overlay(...)`, `zstack(...)`, `ZStack(...)` |
+| Textual event routing phases | `target`/`capture` and `bubble` handlers | `TargetPhase`, `target_phase`, `capture_phase`, `BubblePhase`, `bubble_phase` |
+| Textual toolkit navigation commands | `PushScreen`, `Back`, `Forward`, `Pop` message flow | `push_screen`, `push_registered_screen`, `navigate_registered_screen`, `back_registered_screen`, `forward_registered_screen`, `pop_screen`, `pop_to_screen`, `replace_with_screen`, `replace_with_registered_screen`, `remove_screen`, `clear_overlay_screens`, `clear_screens` |
 | Single centered child | `Centered` helper or shell centering wrappers | `centered(...)` |
-| Percentage constraints | `Constraint::Percentage(25)` style ratios | `Percentage(25)`, `Percent(25)` |
+| Percentage constraints | `Constraint::Percentage(25)` style ratios | `Percentage(25)`, `Percent(25)`, `percent(25)` |
+| Ratio constraints | `Constraint::Ratio(1, 3)`-style proportions | `Ratio(1, 3)`, `ratio(1, 3)` |
 
 A migration snippet:
 
