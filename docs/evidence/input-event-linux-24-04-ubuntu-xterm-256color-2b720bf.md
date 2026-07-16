@@ -50,4 +50,4 @@ paths when applicable.
 Record any behavior that remains incomplete, platform-specific, manually
 inspected, or dependent on follow-up hardening.
 
-- Formal cancellation-race stress matrix under high-throughput terminal input remains pending.
+- Formal cancellation-race stress coverage is now backed by `test/runtime.jl` in the `high-throughput task replacement and cancellation` testset; a long-duration mixed-workload stress pass is still recommended for release-grade confidence.

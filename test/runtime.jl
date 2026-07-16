@@ -54,7 +54,92 @@ function update!(::RuntimeWorkerApp, _, message)
     return nothing
 end
 
+struct RuntimeCancellationRaceApp <: WickedApp end
+
+mutable struct RuntimeCancellationRaceModel
+    requested::Int
+    completed::Int
+    latest_request::Int
+    failed::Int
+    release::Base.RefValue{Bool}
+end
+
+initialize(::RuntimeCancellationRaceApp) = RuntimeCancellationRaceModel(0, 0, 0, 0, Ref(false))
+app_view(::RuntimeCancellationRaceApp, model) = Label("requests=$(model.requested) completed=$(model.completed)")
+
+function update!(::RuntimeCancellationRaceApp, model::RuntimeCancellationRaceModel, message)
+    if message isa CustomEvent && message.payload == :work
+        model.requested += 1
+        request_id = model.requested
+        return TaskCommand(
+            () -> begin
+                while !model.release[]
+                    yield()
+                end
+                sleep(0.005)
+                request_id
+            end;
+            id=:search,
+            on_success=value -> (:completed, request_id, value),
+            on_error=_ -> (:failed, request_id),
+            replace=true,
+        )
+    elseif message == :cancel
+        return CancelCommand(:search)
+    elseif message isa Tuple{Symbol,Int,Int}
+        message[1] == :completed && (model.completed += 1; model.latest_request = message[2])
+        return nothing
+    elseif message isa Tuple{Symbol,Int}
+        message[1] == :failed && (model.failed += 1)
+        return nothing
+    end
+    return nothing
+end
+
 struct RuntimeBatchApp <: WickedApp end
+
+struct RuntimeShutdownStressApp <: WickedApp end
+
+mutable struct RuntimeShutdownStressModel
+    requested::Int
+    completed::Int
+    ticks::Int
+    released::Base.RefValue{Bool}
+end
+
+initialize(::RuntimeShutdownStressApp) = RuntimeShutdownStressModel(0, 0, 0, Ref(false))
+app_view(::RuntimeShutdownStressApp, model) = Label("ticks=$(model.ticks) completed=$(model.completed)")
+
+function update!(::RuntimeShutdownStressApp, model::RuntimeShutdownStressModel, message)
+    if message isa CustomEvent && message.payload == :work
+        model.requested += 1
+        request_id = model.requested
+        return TaskCommand(
+            () -> begin
+                while !model.released[]
+                    yield()
+                end
+                sleep(0.2)
+                request_id
+            end;
+            id=:search,
+            on_success=value -> (:finished, request_id, value),
+            replace=true,
+        )
+    elseif message isa Tuple{Symbol,Int,Int}
+        message[1] == :finished && (model.completed += 1)
+        return nothing
+    elseif message == :tick
+        model.ticks += 1
+        return nothing
+    end
+    return nothing
+end
+
+function subscriptions(::RuntimeShutdownStressApp, ::RuntimeShutdownStressModel)
+    (IntervalSubscription(:ticker, 0.001, :tick),)
+end
+
 initialize(::RuntimeBatchApp) = RuntimeCounterModel(0)
 app_view(::RuntimeBatchApp, model) = Label(string(model.count))
 function update!(::RuntimeBatchApp, model::RuntimeCounterModel, message)
@@ -143,6 +228,85 @@ end
             runtime_source(KeyEvent(Key(:q))),
         )
         @test fetch(run_async(runtime)) == 0
+    end
+
+    @testset "high-throughput task replacement and cancellation" begin
+        app = RuntimeCancellationRaceApp()
+        source = ChannelInputSource(256)
+        model = initialize(app)
+        runtime = ApplicationRuntime(
+            app,
+            model,
+            Terminal(TestBackend(1, 24)),
+            source;
+            config=RuntimeConfig(queue_capacity=1024),
+        )
+
+        task = run_async(runtime)
+        for _ in 1:64
+            post_event!(source, CustomEvent(:work))
+        end
+        model.release[] = true
+        sleep(0.02)
+        request_exit!(runtime, :done)
+        @test fetch(task) == :done
+        @test model.requested == 64
+        @test model.completed == 1
+        @test model.latest_request == 64
+        @test model.failed == 0
+
+        model = initialize(app)
+        source = ChannelInputSource(128)
+        runtime = ApplicationRuntime(
+            app,
+            model,
+            Terminal(TestBackend(1, 24)),
+            source;
+            config=RuntimeConfig(queue_capacity=1024),
+        )
+        task = run_async(runtime)
+        post_event!(source, CustomEvent(:work))
+        model.release[] = true
+        sleep(0.001)
+        post_event!(source, :cancel)
+        sleep(0.01)
+        request_exit!(runtime, :done)
+        @test fetch(task) == :done
+        @test model.requested == 1
+        @test model.completed == 0
+        @test model.failed == 0
+    end
+
+    @testset "subscription and command cleanup after shutdown" begin
+        app = RuntimeShutdownStressApp()
+        source = ChannelInputSource(256)
+        model = initialize(app)
+        runtime = ApplicationRuntime(
+            app,
+            model,
+            Terminal(TestBackend(1, 24)),
+            source;
+            config=RuntimeConfig(queue_capacity=1024, resize_poll_seconds=0.5),
+        )
+
+        task = run_async(runtime)
+        for _ in 1:24
+            post_event!(source, CustomEvent(:work))
+        end
+        sleep(0.01)
+        post_event!(source, :done)
+        request_exit!(runtime, :done)
+        @test fetch(task) == :done
+        sleep(0.05)
+        @test model.released[] == false
+        model.released[] = true
+        @test isempty(runtime.commands)
+        @test isempty(runtime.subscription_tasks)
+        @test isempty(runtime.subscription_specs)
+        tick_snapshot = model.ticks
+        sleep(0.05)
+        @test model.ticks == tick_snapshot
+        @test iszero(model.completed)
     end
 
     @testset "runtime controls" begin

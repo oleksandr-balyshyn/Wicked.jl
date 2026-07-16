@@ -60,10 +60,10 @@ end
     end
 
     mktempdir() do directory
-        write(joinpath(directory, "documentation-1-12-abcdef1234567890.md"), replace(documentation_record(), "Public example family index was included | passed" => "Public example family index was included | TODO"))
+        write(joinpath(directory, "documentation-1-12-abcdef1234567890.md"), replace(documentation_record(), "No Documenter warnings | passed" => "No Documenter warnings | TODO"))
         failures = DocumentationEvidenceAudit.audit(; evidence_dir=directory)
         @test any(occursin("contains TODO placeholder text"), failures)
-        @test any(occursin("placeholder behavior field: Public example family index was included"), failures)
+        @test any(occursin("placeholder behavior field: No Documenter warnings"), failures)
     end
 
     mktempdir() do directory

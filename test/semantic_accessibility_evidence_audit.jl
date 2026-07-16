@@ -64,10 +64,10 @@ end
     end
 
     mktempdir() do directory
-        write(joinpath(directory, "semantic-inputs-and-controls-abcdef1234567890.md"), replace(semantic_record(), "Semantic dispatch handlers registered for actionable widgets | passed" => "Semantic dispatch handlers registered for actionable widgets | TODO"))
+        write(joinpath(directory, "semantic-inputs-and-controls-abcdef1234567890.md"), replace(semantic_record(), "Semantic actions exposed for actionable widgets | passed" => "Semantic actions exposed for actionable widgets | TODO"))
         failures = SemanticAccessibilityEvidenceAudit.audit(; evidence_dir=directory)
         @test any(occursin("contains TODO placeholder text"), failures)
-        @test any(occursin("placeholder behavior field: Semantic dispatch handlers registered for actionable widgets"), failures)
+        @test any(occursin("placeholder behavior field: Semantic actions exposed for actionable widgets"), failures)
     end
 
     mktempdir() do directory

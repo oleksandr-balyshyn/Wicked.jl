@@ -50,4 +50,6 @@ paths when applicable.
 Record any behavior that remains incomplete, platform-specific, manually
 inspected, or dependent on follow-up hardening.
 
-- Additional long-duration cancellation and subscription shutdown stress remains to be validated in a sustained workload.
+- Long-duration cancellation and subscription shutdown stress is now covered by `test/runtime.jl` through
+  `high-throughput task replacement and cancellation` plus `subscription and command cleanup after shutdown`;
+  a sustained mixed-workload soak is still recommended for release-grade confidence.

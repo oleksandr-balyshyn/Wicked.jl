@@ -165,8 +165,10 @@ this section.
       role downgrade behavior, diagnostics, and monochrome fallback.
 - [ ] Remote-delivery parity evidence covers browser deployment, WebSocket
       hardening, protocol versioning, security policy, and real-client
-      compatibility. Use `docs/REMOTE_DELIVERY_EVIDENCE_TEMPLATE.md` for the
-      browser/WebSocket deployment record.
+      compatibility.
+- [ ] Remote-delivery evidence records use
+      `docs/REMOTE_DELIVERY_EVIDENCE_TEMPLATE.md` for browser/WebSocket
+      deployment and protocol validation.
 - [ ] `scripts/remote_protocol_fixture_audit.jl` passes against
       `api/remote_protocol_fixtures.tsv`.
 

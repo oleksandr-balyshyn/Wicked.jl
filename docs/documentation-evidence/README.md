@@ -28,3 +28,5 @@ Julia-version identities, missing strict Documenter settings, missing
 `docs/make.jl` command provenance, missing developer-orientation pages, missing
 public example family indexing, missing release/evidence gate links, and missing
 documentation artifacts.
+
+This requires at least two distinct supported Julia versions before a release.

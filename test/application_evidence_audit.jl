@@ -57,10 +57,10 @@ end
     end
 
     mktempdir() do directory
-        write(joinpath(directory, "exampleapp-abcdef1234567890.md"), replace(application_record(), "Application imports Wicked.API and does not import Wicked internals or Wicked.Experimental | passed" => "Application imports Wicked.API and does not import Wicked internals or Wicked.Experimental | TODO"))
+        write(joinpath(directory, "exampleapp-abcdef1234567890.md"), replace(application_record(), "Application startup and shutdown | passed" => "Application startup and shutdown | TODO"))
         failures = ApplicationEvidenceAudit.audit(; evidence_dir=directory)
         @test any(occursin("contains TODO placeholder text"), failures)
-        @test any(occursin("placeholder behavior field: Application imports Wicked.API and does not import Wicked internals or Wicked.Experimental"), failures)
+        @test any(occursin("placeholder behavior field: Application startup and shutdown"), failures)
     end
 
     mktempdir() do directory
