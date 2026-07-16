@@ -149,14 +149,14 @@ const PARITY_EVIDENCE_FAMILIES = (
     "Remote-delivery",
 )
 const PARITY_EVIDENCE_SCOPE_PHRASES = (
-    "constraint edge cases, clipping policy, resize continuity, narrow-terminal behavior",
-    "routed events, async delivery, cancellation behavior, focus restoration, terminal lifecycle recovery",
+    "constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior",
+    "routed events, async delivery, cancellation behavior, focus restoration, and terminal lifecycle recovery",
     "widget contract tests, state-transition tests, semantic snapshots, and stable widget candidate evidence",
     "virtual list/table/tree stress cases, stale data, loading/error slots, and screen-reader semantic state",
-    "queue replacement, task cancellation races, redraw determinism, resource cleanup, subscription shutdown",
+    "queue replacement, task cancellation races, redraw determinism, resource cleanup, and subscription shutdown",
     "API contract tests, Pilot/semantic query evidence, migration notes, examples, and documentation build output",
-    "selector specificity, cascade order, role downgrade behavior, diagnostics, monochrome fallback",
-    "browser deployment, WebSocket hardening, protocol versioning, security policy, real-client compatibility",
+    "selector specificity, cascade order, role downgrade behavior, diagnostics, and monochrome fallback",
+    "browser deployment, WebSocket hardening, protocol versioning, security policy, and real-client compatibility",
 )
 const PARITY_CLOSEOUT_ITEMS = (
     "Layout parity closeout evidence covers constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior.",

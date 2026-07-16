@@ -28,7 +28,7 @@ List the concrete behaviors exercised by this record. Use exact wording from
 `RELEASE_CHECKLIST.md` when possible. Use one of the reviewed family names listed
 in `docs/evidence/README.md`.
 
-- virtual list/table/tree stress cases, stale data, loading/error slots, screen-reader semantic state verified through virtualization and data family tests.
+- virtual list/table/tree stress cases, stale data, loading/error slots, and screen-reader semantic state were verified through virtualization and data family tests.
 
 ## Reference-library parity notes
 

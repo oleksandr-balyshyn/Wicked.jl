@@ -28,7 +28,7 @@ List the concrete behaviors exercised by this record. Use exact wording from
 `RELEASE_CHECKLIST.md` when possible. Use one of the reviewed family names listed
 in `docs/evidence/README.md`.
 
-- routed events, async delivery, cancellation behavior, focus restoration, terminal lifecycle recovery covered through event routing, queue delivery, and lifecycle tests.
+- routed events, async delivery, cancellation behavior, focus restoration, and terminal lifecycle recovery were covered through event routing, queue delivery, and lifecycle tests.
 
 ## Reference-library parity notes
 

@@ -300,8 +300,8 @@ outputs. Archive the resulting `evidence/`, `reports/`, and package-level report
 directories next to the promotion packet so CI and release reviewers can compare
 status files, manifests, summaries, snapshots, and package-level report
 manifests without rerunning the application manually.
-The standalone component-catalog self-check reports these as unmapped direct
-renderables. Use `scripts/component_catalog_public_map.jl --list-unmapped` when
+The standalone component-catalog self-check reports these as unmapped direct renderables.
+Use `scripts/component_catalog_public_map.jl --list-unmapped` when
 you only need the renderable names for review or release notes. Use
 `scripts/component_catalog_public_map.jl --list-exclusions` when reviewing the
 intentional internal renderable exclusions.

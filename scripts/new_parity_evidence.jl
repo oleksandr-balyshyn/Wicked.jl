@@ -19,14 +19,14 @@ const VALID_FAMILIES = Set((
     "Remote-delivery",
 ))
 const FAMILY_SCOPES = (
-    "Layout" => "constraint edge cases, clipping policy, resize continuity, narrow-terminal behavior",
-    "Input-event" => "routed events, async delivery, cancellation behavior, focus restoration, terminal lifecycle recovery",
+    "Layout" => "constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior",
+    "Input-event" => "routed events, async delivery, cancellation behavior, focus restoration, and terminal lifecycle recovery",
     "Stateful-controls" => "widget contract tests, state-transition tests, semantic snapshots, and stable widget candidate evidence",
-    "Data-display" => "virtual list/table/tree stress cases, stale data, loading/error slots, screen-reader semantic state",
-    "Runtime" => "queue replacement, task cancellation races, redraw determinism, resource cleanup, subscription shutdown",
+    "Data-display" => "virtual list/table/tree stress cases, stale data, loading/error slots, and screen-reader semantic state",
+    "Runtime" => "queue replacement, task cancellation races, redraw determinism, resource cleanup, and subscription shutdown",
     "Developer-experience" => "API contract tests, Pilot/semantic query evidence, migration notes, examples, and documentation build output",
-    "Styling-theming" => "selector specificity, cascade order, role downgrade behavior, diagnostics, monochrome fallback",
-    "Remote-delivery" => "browser deployment, WebSocket hardening, protocol versioning, security policy, real-client compatibility",
+    "Styling-theming" => "selector specificity, cascade order, role downgrade behavior, diagnostics, and monochrome fallback",
+    "Remote-delivery" => "browser deployment, WebSocket hardening, protocol versioning, security policy, and real-client compatibility",
 )
 const FAMILY_SCOPE_MAP = Dict(FAMILY_SCOPES)
 const GENERIC_PLACEHOLDER_PATTERN = r"(?i)\b(todo|placeholder|dummy)\b"

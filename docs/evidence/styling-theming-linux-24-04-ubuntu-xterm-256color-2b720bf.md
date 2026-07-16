@@ -28,7 +28,7 @@ List the concrete behaviors exercised by this record. Use exact wording from
 `RELEASE_CHECKLIST.md` when possible. Use one of the reviewed family names listed
 in `docs/evidence/README.md`.
 
-- selector specificity, cascade order, role downgrade behavior, diagnostics, monochrome fallback verified via style engine and rendering validation paths.
+- selector specificity, cascade order, role downgrade behavior, diagnostics, and monochrome fallback were verified via style engine and rendering validation paths.
 
 ## Reference-library parity notes
 

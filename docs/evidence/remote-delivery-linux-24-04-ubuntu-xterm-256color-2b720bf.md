@@ -28,7 +28,7 @@ List the concrete behaviors exercised by this record. Use exact wording from
 `RELEASE_CHECKLIST.md` when possible. Use one of the reviewed family names listed
 in `docs/evidence/README.md`.
 
-- browser deployment, WebSocket hardening, protocol versioning, security policy, real-client compatibility for transport and API surface.
+- browser deployment, WebSocket hardening, protocol versioning, security policy, and real-client compatibility for transport and API surface.
 
 ## Reference-library parity notes
 

@@ -217,7 +217,7 @@ julia --project=. scripts/new_parity_evidence.jl \
   --command 'julia --project=. --startup-file=no scripts/widget_audit.jl --require-complete' \
   --exit-status 0 \
   --artifact https://github.com/acme/wicked/actions/runs/123456789 \
-  --behavior 'constraint edge cases, clipping policy, resize continuity, narrow-terminal behavior were exercised' \
+  --behavior 'constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior were exercised' \
   --summary 'strict widget audit completed without missing layout evidence' \
   --parity-notes 'observed behavior matches Ratatui-style deterministic layout with documented Wicked clipping policy' \
   --risks 'real-terminal glyph and resize behavior still require the manual terminal matrix'
@@ -247,14 +247,14 @@ Use these family names exactly in the `Family` identity field:
 
 | Family | Release-closeout scope |
 | --- | --- |
-| `Layout` | Constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior |
-| `Input-event` | Routed events, async delivery, cancellation behavior, focus restoration, and terminal lifecycle recovery |
-| `Stateful-controls` | Widget contract tests, state-transition tests, semantic snapshots, and stable widget candidate evidence |
-| `Data-display` | Virtual list/table/tree stress cases, stale data, loading/error slots, and screen-reader semantic state |
-| `Runtime` | Queue replacement, task cancellation races, redraw determinism, resource cleanup, and subscription shutdown |
+| `Layout` | constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior |
+| `Input-event` | routed events, async delivery, cancellation behavior, focus restoration, and terminal lifecycle recovery |
+| `Stateful-controls` | widget contract tests, state-transition tests, semantic snapshots, and stable widget candidate evidence |
+| `Data-display` | virtual list/table/tree stress cases, stale data, loading/error slots, and screen-reader semantic state |
+| `Runtime` | queue replacement, task cancellation races, redraw determinism, resource cleanup, and subscription shutdown |
 | `Developer-experience` | API contract tests, Pilot/semantic query evidence, migration notes, examples, and documentation build output |
-| `Styling-theming` | Selector specificity, cascade order, role downgrade behavior, diagnostics, and monochrome fallback |
-| `Remote-delivery` | Browser deployment, WebSocket hardening, protocol versioning, security policy, and real-client compatibility |
+| `Styling-theming` | selector specificity, cascade order, role downgrade behavior, diagnostics, and monochrome fallback |
+| `Remote-delivery` | browser deployment, WebSocket hardening, protocol versioning, security policy, and real-client compatibility |
 
 The scaffold and quality gate both reject family names outside this reviewed
 set. Add new adapted families to the reference survey, release checklist, and

@@ -177,14 +177,15 @@ The following mandatory evidence remains missing or too weak to support a produc
   acknowledgement messages.
 - Archived `api/remote_protocol_fixtures.tsv`, audit stdout/stderr, audit exit
   status, and SHA-256 digest for the release-candidate commit.
-- Layout parity closeout evidence for constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior.
-- Input/event parity closeout evidence for routed events, async delivery, cancellation behavior, focus restoration, and terminal lifecycle recovery.
-- Stateful-controls parity closeout evidence for widget contract tests, state-transition tests, semantic snapshots, and stable widget candidate evidence.
-- Data-display parity closeout evidence for virtual list/table/tree stress cases, stale data, loading/error slots, and screen-reader semantic state.
-- Runtime parity closeout evidence for queue replacement, task cancellation races, redraw determinism, resource cleanup, and subscription shutdown.
-- Developer-experience parity closeout evidence for API contract tests, Pilot/semantic query evidence, migration notes, examples, and documentation build output.
-- Styling/theming parity closeout evidence for selector specificity, cascade order, role downgrade behavior, diagnostics, and monochrome fallback.
-- Remote-delivery parity closeout evidence for browser deployment, WebSocket hardening, protocol versioning, security policy, and real-client compatibility, captured with `docs/REMOTE_DELIVERY_EVIDENCE_TEMPLATE.md`.
+- Layout parity closeout evidence covers constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior.
+- Input/event parity closeout evidence covers routed events, async delivery, cancellation behavior, focus restoration, and terminal lifecycle recovery.
+- Stateful-controls parity closeout evidence covers widget contract tests, state-transition tests, semantic snapshots, and stable widget candidate evidence.
+- Data-display parity closeout evidence covers virtual list/table/tree stress cases, stale data, loading/error slots, and screen-reader semantic state.
+- Runtime parity closeout evidence covers queue replacement, task cancellation races, redraw determinism, resource cleanup, and subscription shutdown.
+- Developer-experience parity closeout evidence covers API contract tests, Pilot/semantic query evidence, migration notes, examples, and documentation build output.
+- Styling/theming parity closeout evidence covers selector specificity, cascade order, role downgrade behavior, diagnostics, and monochrome fallback.
+- Remote-delivery parity closeout evidence covers browser deployment, WebSocket hardening, protocol versioning, security policy, and real-client compatibility.
+- `scripts/remote_protocol_fixture_audit.jl` passes against `api/remote_protocol_fixtures.tsv`.
 - `scripts/parity_closeout_audit.jl --require-complete` has not been run
   against final records for every reviewed adapted parity family.
 - Race and failure-injection evidence for every manager listed in the validation strategy.

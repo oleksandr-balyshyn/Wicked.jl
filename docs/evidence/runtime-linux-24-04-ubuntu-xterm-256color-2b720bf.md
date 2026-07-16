@@ -28,7 +28,7 @@ List the concrete behaviors exercised by this record. Use exact wording from
 `RELEASE_CHECKLIST.md` when possible. Use one of the reviewed family names listed
 in `docs/evidence/README.md`.
 
-- queue replacement, task cancellation races, redraw determinism, resource cleanup, subscription shutdown verified for managed runtime workflows and service lifecycle.
+- queue replacement, task cancellation races, redraw determinism, resource cleanup, and subscription shutdown were verified for managed runtime workflows and service lifecycle.
 
 ## Reference-library parity notes
 

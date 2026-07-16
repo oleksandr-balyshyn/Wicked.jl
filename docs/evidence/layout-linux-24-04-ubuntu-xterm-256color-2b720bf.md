@@ -28,7 +28,7 @@ List the concrete behaviors exercised by this record. Use exact wording from
 `RELEASE_CHECKLIST.md` when possible. Use one of the reviewed family names listed
 in `docs/evidence/README.md`.
 
-- constraint edge cases, clipping policy, resize continuity, narrow-terminal behavior in mixed fixed+flex layouts, ratio/overlay constraints, and deterministic clipping tests were exercised by layout contract and acceptance suites.
+- constraint edge cases, clipping policy, resize continuity, and narrow-terminal behavior in mixed fixed+flex layouts, ratio/overlay constraints, and deterministic clipping tests were exercised by layout contract and acceptance suites.
 
 ## Reference-library parity notes
 

@@ -95,9 +95,8 @@ run, or does not cover the full platform and behavior scope of the requirement.
       `Wicked.API` widget type bindings and non-stateless state-contract type
       bindings, and every listed name appears in the focused widget, control,
       navigation, or utility API docs.
-- [ ] `scripts/component_catalog_public_map.jl` reports zero unmapped direct
-      renderables, with every internal direct renderable listed in the catalog
-      exclusions.
+- [ ] `scripts/component_catalog_public_map.jl` reports zero unmapped direct renderables,
+      with every internal direct renderable listed in the catalog exclusions.
 - [ ] `Wicked.Experimental` has no app-facing bindings, or every binding has a
       documented promotion/removal plan in `api/experimental_promotions.tsv`.
 - [ ] Every widget promoted during this release has a stable promotion packet
@@ -150,8 +149,8 @@ this section.
 
 - [ ] Layout parity evidence covers constraint edge cases, clipping policy, resize
       continuity, and narrow-terminal behavior.
-- [ ] Input/event parity evidence covers routed events, async delivery,
-      cancellation behavior, focus restoration, and terminal lifecycle recovery.
+- [ ] Input/event parity evidence covers routed events, async delivery, cancellation
+      behavior, focus restoration, and terminal lifecycle recovery.
 - [ ] Stateful-controls parity evidence covers widget contract tests,
       state-transition tests, semantic snapshots, and stable widget candidate
       evidence.
