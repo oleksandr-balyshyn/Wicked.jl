@@ -2,473 +2,345 @@
   <img src="assets/wicked-logo.svg" width="160" alt="Wicked.jl logo">
 </p>
 
-<h1 align="center">Wicked.jl</h1>
+<h1 align="center">Wicked.jl 🧙‍♀️</h1>
 
 <p align="center">
-  A Julia-first framework for serious terminal applications.
+  <b>Serious terminal user interfaces, in pure Julia.</b><br>
+  <i>The rendering power of Ratatui, the composition of Textual & Compose, the ergonomics of Terminus & Bubble&nbsp;Tea — one Julia-first framework.</i>
 </p>
 
 <p align="center">
   <a href="https://julialang.org/"><img src="https://img.shields.io/badge/Julia-1.10%2B-9558B2?logo=julia&logoColor=white" alt="Julia 1.10+"></a>
-  <img src="https://img.shields.io/badge/platform-Linux%20terminals-2F855A?logo=linux&logoColor=white" alt="Linux terminals only">
-  <img src="https://img.shields.io/badge/runtime-pure%20Julia-2F6F8F" alt="Pure Julia">
-  <img src="https://img.shields.io/badge/rendering-immediate%20%2B%20managed%20%2B%20declarative-183D3D" alt="Three API levels">
-  <a href="docs/FEATURE_PARITY.md"><img src="https://img.shields.io/badge/parity-evidence%20tracked-D18236" alt="Parity evidence tracked"></a>
+  <img src="https://img.shields.io/badge/platform-Linux%20terminals-2F855A?logo=linux&logoColor=white" alt="Linux terminals">
+  <img src="https://img.shields.io/badge/dependencies-pure%20Julia-2F6F8F" alt="Pure Julia">
+  <img src="https://img.shields.io/badge/API-immediate%20·%20managed%20·%20declarative-183D3D" alt="Three API levels">
+  <img src="https://img.shields.io/badge/widgets-180%2B-D18236" alt="180+ widgets">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
 </p>
-
-> [!WARNING]
-> Wicked.jl is `0.0.1` and under active development. Local implementation and
-> automated evidence are strong, but Linux real-terminal compatibility evidence,
-> immutable release-candidate approvals, and independent application validation
-> remain before a production release. See [Release Evidence](docs/RELEASE_EVIDENCE.md).
-
-## Build terminal software, not terminal glue
-
-Wicked.jl combines the best ideas from Ratatui, Textual, TamboUI, and Lanterna
-without importing their language or runtime constraints:
-
-| You need | Wicked gives you |
-| --- | --- |
-| Fast, explicit rendering | Buffers, frames, Unicode-aware cells, layouts, minimal diffs, and stateful widgets. |
-| Application structure | An explicit model/update/view runtime with commands, subscriptions, cancellation, and diagnostics. |
-| Polished composition | Keyed Toolkit elements, focus, routed events, forms, overlays, themes, semantic trees, and pilots. |
-| Trustworthy tests | Headless buffers, snapshots, semantic assertions, pilots, virtual time, and deterministic event routing. |
-
-```julia
-using Wicked.API
-
-buffer = Buffer(5, 42)
-frame = Frame(buffer)
-render!(frame, Paragraph("Deploy safely. Observe everything."), frame.area)
-```
-
-The same rendering primitives power dashboards, data explorers, interactive
-CLIs, administration consoles, and full-screen applications.
-
-## Choose your level
-
-### 1. Immediate mode: direct and deterministic
-
-Use widgets with explicit state when you own the frame loop.
-
-```julia
-using Wicked.API
-
-widget = List(["Build", "Test", "Release"])
-state = ListState(selected=1)
-buffer = Buffer(4, 24)
-
-render!(Frame(buffer), widget, buffer.area, state)
-handle!(state, widget, KeyEvent(Key(:down)); viewport_height=4)
-```
-
-### 2. Managed runtime: explicit application state
-
-Use the runtime when updates, commands, subscriptions, timers, workers, and
-cleanup should have a single observable lifecycle. The runtime is deliberately
-Elm-like: your application owns its model, `update!` changes it, and `view`
-renders it.
-
-Read the [architecture guide](docs/ARCHITECTURE.md) and
-[validation strategy](docs/VALIDATION_STRATEGY.md) before introducing services
-or background work.
-
-### 3. Toolkit: retained identity, immediate rendering underneath
-
-Use keyed elements for full applications with focus and routed input. Toolkit
-components reuse the same renderers as the immediate API.
-
-```julia
-using Wicked.API
-
-tree = ToolkitTree(
-    Element(Button("Deploy", :deploy); id=:deploy, key=:deploy, focusable=true),
-)
-frame = Frame(Buffer(3, 24))
-render_toolkit!(frame, tree)
-
-semantics = toolkit_semantic_tree(tree)
-```
-
-## Install and load
-
-Wicked targets **Linux terminals** on Julia `1.10` and later. The rendering
-core has no native UI or `ncurses` dependency.
-
-```julia
-import Pkg
-Pkg.add("Wicked") # when published to the Julia registry
-```
-
-For a local checkout or an unreleased branch:
-
-```julia
-import Pkg
-
-Pkg.develop(path="/path/to/Wicked.jl")
-Pkg.instantiate()
-Pkg.precompile()
-```
-
-Use the stable facade in application entry points:
-
-```julia
-using Wicked.API
-```
-
-`Wicked.API` is the default developer surface for applications, widgets,
-backends, runtime code, Toolkit components, testing utilities, and extension
-points. `Wicked.Experimental` remains as a compatibility module, but the current
-reviewed baseline has no application-facing experimental bindings. Future
-experimental exports require a promote, qualify, or remove decision in
-`api/experimental_promotions.tsv`.
-
-## Find the right API quickly
-
-Start from the stable API route map when choosing an architecture or porting code
-from another TUI framework: [API Reference Overview](docs/API_REFERENCE.md#developer-route-map).
-
-| If you are building | Start with |
-| --- | --- |
-| Ratatui-style immediate render loops | [Core API](docs/API_CORE.md) and [Immediate Widgets API](docs/API_WIDGETS.md) |
-| Standard app shell chrome | [Immediate Widgets API](docs/API_WIDGETS.md) and `examples/app_shell_quickstart.jl` |
-| Textual-style component trees and reactive state | [Toolkit and Reactive API](docs/API_TOOLKIT.md) |
-| Managed full-screen applications | [Backends and Runtime API](docs/API_BACKENDS_RUNTIME.md) |
-| Keybindings and shortcut help | [API Reference Overview](docs/API_REFERENCE.md#developer-route-map) and `examples/keybindings_quickstart.jl` |
-| Stabilizing or promoting widgets | [Widget Stabilization Tracker](docs/WIDGET_STABILIZATION.md) |
-| CSS-like styling and named themes | [Core styling quickstart](docs/API_CORE.md#stable-styling-quickstart) and [Theme Management](docs/THEMES.md) |
-| Forms, menus, dialogs, pickers, and controls | [Controls API](docs/API_CONTROLS.md) and [Navigation and Forms API](docs/API_NAVIGATION.md) |
-| Large virtualized lists, tables, and trees | [Virtualization API](docs/API_VIRTUALIZATION.md) |
-| Markdown, code, diffs, logs, and terminal captures | [Rich Content API](docs/API_RICH_CONTENT.md) |
-| Headless testing, pilots, semantics, and diagnostics | [Semantics, Testing, and Diagnostics API](docs/API_SEMANTICS_TESTING.md) |
-| Actions, notifications, progress, themes, reload, and services | [Extensions and Services API](docs/API_EXTENSIONS_SERVICES.md) |
-
-### Predictable precompilation
-
-Use this bootstrap command locally and in CI:
-
-```sh
-JULIA_NUM_THREADS=1 julia --project=. --startup-file=no \
-  -e 'using Pkg; Pkg.instantiate(); Pkg.precompile(); using Wicked.API'
-```
-
-`Pkg.precompile()` builds cache artifacts for the active Julia version,
-environment, and manifest. Wicked also ships a conservative precompile workload
-for the common in-memory render path: geometry, styles, text, buffers, layout
-containers, widget rendering, diffing, and the headless backend. It does not
-enter raw terminal mode, load optional dependencies, or run your application
-event loop.
-
-First startup is expected to be slower; later loads reuse valid cache entries.
-Full troubleshooting and environment guidance: [Loading and precompilation](docs/PACKAGE_LOADING.md).
-
-## What is included
-
-- **Core:** geometry, styles, grapheme-aware text, buffers, frames, capability
-  fallback, ANSI and test backends.
-- **Layout:** constraints, flex rows and columns, grids, docking, flow/wrap,
-  overlays, split panes, clipping, and scrolling.
-- **Controls:** text editing, lists, tables, trees, menus, tabs, forms,
-  navigation, command palettes, dialogs, notifications, and validation.
-- **Rich views:** Markdown, code and diff views, syntax, ANSI-safe text,
-  terminal/process views, images with Unicode fallbacks, charts, canvas, and
-  calendars.
-- **Application services:** focus, themes, accessibility semantics, clipboard,
-  drag/drop, virtualization, reactive state, diagnostics, tracing, and testing.
-
-See the [component catalog](docs/COMPONENT_CATALOG.md) for the complete surface
-and [feature parity](docs/FEATURE_PARITY.md) for evidence and deliberate deltas.
-When porting examples from Ratatui, Textual, TamboUI, or Lanterna, start with
-the [stable widget vocabulary quick map](docs/FRAMEWORK_MIGRATION.md#stable-widget-vocabulary-quick-map).
-For a deterministic tour of stable widget names, run
-[`examples/widget_gallery.jl`](examples/widget_gallery.jl).
-For programmatic discovery, use the stable widget catalog:
-
-```julia
-using Wicked.API
-
-widgets = stable_widget_catalog(status=:stable, surface=:stable)
-input_widgets = stable_widget_catalog(family=:inputs_and_controls)
-count = stable_widget_count()
-input_count = stable_widget_count(family=:inputs_and_controls)
-names = stable_widget_names()
-input_names = stable_widget_names(family="inputs-and-controls")
-families = stable_widget_families()
-family_catalog = stable_widget_family_catalog()
-family_slugs = stable_widget_family_slugs()
-families_text = widget_families_text()
-family_slugs_text = widget_family_slugs_text()
-vocabulary = widget_vocabulary()
-vocabulary_records = widget_vocabulary_records()
-button_vocab = widget_vocabulary_entry("Button")
-button_names = widget_vocabulary_widget_names("Button")
-text_entry_names = widget_vocabulary_widget_names("Single-line text field")
-vocabulary_matches = search_widget_vocabulary("TextInput")
-vocabulary_table = widget_vocabulary_markdown()
-vocabulary_tsv = widget_vocabulary_tsv()
-button_family = widget_catalog_family(:Button)
-button_family_slug = widget_catalog_family_slug(:Button)
-input_family_entry = widget_family_entry(:inputs_and_controls)
-input_family_records = widget_family_records(family=:inputs_and_controls)
-family_catalog_table = widget_family_catalog_markdown(columns=(:family, :family_slug, :count))
-family_catalog_tsv = widget_family_catalog_tsv(family=:inputs_and_controls, columns=(:family_slug, :count))
-matching_families = search_widget_families("button")
-matching_family_count = search_widget_family_count("button")
-matching_family_table = search_widget_family_catalog_markdown("button"; columns=(:family_slug, :count))
-matching_family_tsv = search_widget_family_catalog_tsv("button"; columns=(:family_slug, :count))
-input_family_widgets = widget_family_widgets(:inputs_and_controls)
-input_family_names = widget_family_widget_names(:inputs_and_controls)
-input_family_count = widget_family_widget_count(:inputs_and_controls)
-@assert is_stable_widget_family(:inputs_and_controls)
-@assert assert_stable_widget_family(:inputs_and_controls).slug == "inputs-and-controls"
-names_text = widget_names_text()
-input_names_text = widget_names_text(family="Inputs and controls")
-matching_names = search_widget_names_text("button")
-matching_input_names = search_widget_names_text("button"; family="Inputs and controls")
-sources = widget_source_files()
-sources_text = widget_source_files_text()
-matching_sources = search_widget_source_files_text("button")
-source_summary = widget_source_summary()
-source_summary_table = widget_source_summary_markdown()
-source_summary_tsv = widget_source_summary_tsv()
-family_summary = widget_family_summary()
-family_summary_table = widget_family_summary_markdown()
-family_summary_tsv = widget_family_summary_tsv()
-input_family_summary = widget_family_summary(family="Inputs and controls")
-matches = search_widgets("button")
-slug_matches = search_widgets("inputs-and-controls")
-input_matches = search_widgets("button"; family="Inputs and controls")
-match_count = search_widget_count("button")
-input_match_count = search_widget_count("button"; family="Inputs and controls")
-matches_table = search_widget_catalog_markdown("button"; columns=:name)
-slug_matches_table = search_widget_catalog_markdown("inputs-and-controls"; columns=(:name, :family_slug))
-matches_tsv = search_widget_catalog_tsv("button"; columns=(:name, :status))
-by_source = group_widgets(:source)
-by_family = group_widgets(:family)
-input_family = group_widgets(:family; family="Inputs and controls")
-summary = widget_catalog_summary()
-input_summary = widget_catalog_summary(family="Inputs and controls")
-table = widget_catalog_markdown(columns=(:name, :source))
-family_table = widget_catalog_markdown(columns=(:name, :family, :family_slug))
-input_table = widget_catalog_markdown(family="Inputs and controls", columns=(:name, :family))
-names_table = widget_catalog_markdown(columns=:name)
-records = widget_catalog_records()
-input_records = widget_catalog_records(family="Inputs and controls")
-tsv = widget_catalog_tsv(columns=(:name, :family, :status))
-input_tsv = widget_catalog_tsv(family="Inputs and controls", columns=(:name, :family))
-button = widget_catalog_entry(:Button)
-same = widget_catalog_entry(Button)
-@assert is_stable_widget(:Button)
-@assert is_stable_widget(Button("Run", :run))
-button_stability = widget_stability_report(:Button)
-stability_reports = widget_stability_reports()
-stability_gaps = widget_stability_gaps()
-stability_table = widget_stability_markdown(columns=(:name, :family, :ready, :blockers))
-stability_tsv = widget_stability_tsv(family=:inputs_and_controls, columns=(:name, :ready))
-stability_json = widget_stability_json()
-stability_summary = widget_stability_summary()
-stability_summary_text = widget_stability_summary_text()
-experimental_widgets = experimental_widget_names()
-candidate_widgets = candidate_widget_names()
-stabilization_status = widget_stabilization_status_record()
-stabilization_text = widget_stabilization_status_text()
-stabilization_json = widget_stabilization_status_json()
-stabilization_blockers = widget_stabilization_blockers()
-stabilization_blockers_text = widget_stabilization_blockers_text()
-@assert widget_stability_ready(:Button)
-widget_stability_is_complete = widget_stability_complete()
-widget_stability_is_complete && assert_widget_stability_complete()
-@assert assert_widget_stability_ready(:Button).ready
-stabilization_status.ready && assert_widget_stabilization_ready()
-family_closeouts = widget_family_closeout_reports()
-blocked_families = widget_family_closeout_gaps()
-closeout_summary = widget_family_closeout_summary()
-closeout_table = widget_family_closeout_markdown(columns=(:family, :status, :blockers))
-closeout_json = widget_family_closeout_json(status=:blocked)
-closeout_artifacts = widget_family_closeout_artifacts(columns=(:family, :status, :blockers))
-closeout_artifacts_json = widget_family_closeout_artifacts_json()
-closeout_artifacts_text = widget_family_closeout_artifacts_text()
-family_closeout_complete = widget_family_closeout_complete()
-family_closeout_complete && assert_widget_family_closeout_complete()
-@assert assert_widget_family_closeout_ready(:toolkit).ready
-surface_release = widget_surface_release_status_record()
-surface_release_text = widget_surface_release_status_text()
-widget_surface_release_ready() && assert_widget_surface_release_ready()
-```
-
-`WidgetCatalogEntry` records the widget name, implementation source, stable
-surface, stabilization status, and promotion reason from the reviewed widget
-candidate ledger. `WidgetFamilyEntry` records the reviewed family name, stable
-slug, widget count, and widget names. `WidgetFamilyCloseoutReport` records
-family-level docs, examples, stable API tokens, precompile tokens, notes, and
-source-level blockers from `api/widget_family_evidence.tsv`.
-Use `widget_family_closeout_complete` and
-`assert_widget_family_closeout_complete` when Julia release tooling needs to
-fail on any blocked family without shelling out to the renderer.
-Use `widget_surface_release_status_record`, `widget_surface_release_ready`,
-`assert_widget_surface_release_ready`, `widget_surface_release_status_text`, and
-`widget_surface_release_status_json` when tooling needs one combined stable
-widget-surface release gate.
-`WidgetVocabularyEntry` records the cross-library concept map used when porting
-Ratatui, Textual, TamboUI, and Lanterna examples to Wicked API names.
-`WidgetStabilityReport` combines the catalog row with behavior coverage
-evidence and reports blockers that must be closed before a candidate or
-compatibility widget can be treated as stable.
-Use `experimental_widget_names`, `candidate_widget_names`,
-`widget_stabilization_status_record`, `widget_stabilization_status_text`, and
-`widget_stabilization_status_json`, `widget_stabilization_blockers`, and
-`widget_stabilization_blockers_text`
-when release tooling needs to answer whether any compatibility or non-stable
-widget surface remains before running the heavier release gates.
-Catalog helpers derive cross-library families such as `"Inputs and controls"` or
-`"Data and virtualization"` for porting guides, galleries, and release closeout
-reports.
-
-## Build an application safely
-
-### Terminal lifecycle
-
-Terminal state is a resource boundary. Use a scoped terminal session so raw mode,
-alternate screen, cursor state, mouse tracking, focus reporting, and bracketed
-paste are restored after normal exit, errors, interrupts, or signals.
-
-```julia
-using Wicked.API
-
-terminal = Terminal(AnsiBackend(stdin, stdout))
-with_terminal(terminal) do active
-    draw!(active) do frame
-        render!(frame, Paragraph("Hello from Wicked.jl"), frame.area)
-    end
-end
-```
-
-For recovery procedures and fallback behavior, read
-[Terminal Recovery](docs/TERMINAL_RECOVERY.md) and
-[Terminal Compatibility](docs/TERMINAL_COMPATIBILITY.md).
-
-### Test before opening a real terminal
-
-Start with `Buffer` and `TestBackend` for deterministic rendering tests. Use
-`WidgetPilot`, `ToolkitPilot`, `RuntimePilot`, `pilot_semantic_tree`,
-`pilot_semantic_snapshot`, `SemanticQuery`, `query_semantics`,
-`query_one_semantic`, `assert_semantic_query`, and `assert_semantic_snapshot` for
-interaction and accessibility workflows. This keeps Unicode clipping, layout,
-focus, disabled state, keyboard, pointer, semantic queries, and accessibility
-behavior testable in CI.
-
-```sh
-julia --project=. --startup-file=no -e 'using Pkg; Pkg.test()'
-julia --project=. --startup-file=no scripts/widget_audit.jl --require-complete
-julia --project=. --startup-file=no scripts/compatibility_widget_alias_audit.jl
-julia --project=. --startup-file=no scripts/quality_gate.jl
-```
-
-## Developer workflow
-
-| Task | Command or reference |
-| --- | --- |
-| Install and warm caches | `julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'` |
-| Run all tests | `julia --project=. -e 'using Pkg; Pkg.test()'` |
-| Verify widget evidence | `julia --project=. scripts/widget_audit.jl --require-complete` |
-| Verify compatibility widget names | `julia --project=. scripts/compatibility_widget_alias_audit.jl` |
-| Verify public quality gates | `julia --project=. scripts/quality_gate.jl` |
-| Run terminal cleanup evidence | `julia --project=. scripts/pty_gate.jl` |
-| Track real-terminal evidence | [Linux Real-Terminal Matrix](docs/REAL_TERMINAL_MATRIX.md) |
-| Run widget gallery example | `julia --project=. examples/widget_gallery.jl` |
-| Render stable widget catalog | `julia --project=. scripts/render_widget_catalog.jl --format markdown --columns name,source,status --output stable-widgets.md` |
-| Count stable widgets | `julia --project=. scripts/render_widget_catalog.jl --count` |
-| Count focused widgets | `julia --project=. scripts/render_widget_catalog.jl --count --query button` |
-| Require focused widgets | `julia --project=. scripts/render_widget_catalog.jl --query button --min-count 1` |
-| Limit focused widgets | `julia --project=. scripts/render_widget_catalog.jl --query button --max-count 20` |
-| Render widget names | `julia --project=. scripts/render_widget_catalog.jl --names --output stable-widget-names.txt` |
-| Render widget sources | `julia --project=. scripts/render_widget_catalog.jl --sources --output stable-widget-sources.txt` |
-| Render widget families | `julia --project=. scripts/render_widget_catalog.jl --families --output stable-widget-families.txt` |
-| Render widget family slugs | `julia --project=. scripts/render_widget_catalog.jl --family-slugs --output stable-widget-family-slugs.txt` |
-| Render focused widget sources | `julia --project=. scripts/render_widget_catalog.jl --sources --query button` |
-| Render focused widget names | `julia --project=. scripts/render_widget_catalog.jl --names --query button` |
-| Render focused widget catalog | `julia --project=. scripts/render_widget_catalog.jl --query button --columns name,source` |
-| Render widgets by family slug | `julia --project=. scripts/render_widget_catalog.jl --query inputs-and-controls --columns name,family_slug,source` |
-| Render widget catalog summary | `julia --project=. scripts/render_widget_catalog.jl --summary --format tsv` |
-| Render widget source summary | `julia --project=. scripts/render_widget_catalog.jl --source-summary --format markdown` |
-| Render widget family summary | `julia --project=. scripts/render_widget_catalog.jl --family-summary --format markdown` |
-| Render widget family catalog | `julia --project=. scripts/render_widget_catalog.jl --family-catalog --format markdown` |
-| Render widget family slugs/counts | `julia --project=. scripts/render_widget_catalog.jl --family-catalog --columns family_slug,count` |
-| Search widget families | `julia --project=. scripts/render_widget_catalog.jl --family-catalog --query button --columns family_slug,count` |
-| Render input/control widgets | `julia --project=. scripts/render_widget_catalog.jl --family "Inputs and controls" --columns name,family,family_slug,source` |
-| Render widget stability readiness | `julia --project=. scripts/render_widget_catalog.jl --stability --columns name,family,ready,blockers` |
-| Render widget stability summary | `julia --project=. scripts/render_widget_catalog.jl --stability-summary --format tsv` |
-| Render widget stability status | `julia --project=. scripts/render_widget_catalog.jl --stability-status` |
-| Render widget stability JSON | `julia --project=. scripts/render_widget_catalog.jl --stability-json --output stable-widget-stability.json` |
-| Render widget stabilization closeout | `julia --project=. scripts/render_widget_catalog.jl --stabilization-status` |
-| Render widget stabilization blockers | `julia --project=. scripts/render_widget_catalog.jl --stabilization-blockers` |
-| Render widget stabilization JSON | `julia --project=. scripts/render_widget_catalog.jl --stabilization-json --output stable-widget-stabilization.json` |
-| Require widget stabilization readiness | `julia --project=. scripts/render_widget_catalog.jl --stabilization-status --require-stabilization-ready` |
-| Require widget stability readiness | `julia --project=. scripts/render_widget_catalog.jl --stability --require-stability-ready` |
-| Render stable widget-surface release status | `julia --project=. scripts/render_widget_catalog.jl --surface-release-status` |
-| Render stable widget-surface release JSON | `julia --project=. scripts/render_widget_catalog.jl --surface-release-json --output stable-widget-surface-release.json` |
-| Require stable widget-surface release readiness | `julia --project=. scripts/render_widget_catalog.jl --surface-release-status --require-surface-release-ready` |
-| Render cross-framework widget vocabulary | `julia --project=. scripts/render_widget_catalog.jl --vocabulary` |
-| List Wicked names for a porting concept | `julia --project=. scripts/render_widget_catalog.jl --vocabulary-widgets --query Button` |
-| Render widget family closeout | `julia --project=. scripts/render_widget_family_closeout.jl --format markdown --columns family,status,docs,examples,blockers,blocker_details` |
-| Render blocked widget families | `julia --project=. scripts/render_widget_family_closeout.jl --status blocked --columns family,status,blockers,blocker_details` |
-| Render widget family JSON | `julia --project=. scripts/render_widget_family_closeout.jl --format json` |
-| Summarize widget family readiness | `julia --project=. scripts/render_widget_family_closeout.jl --summary --format tsv` |
-| Run release closeout check | `julia --project=. scripts/render_widget_family_closeout.jl --release-check --require-total-count "$(julia --project=. scripts/render_widget_family_closeout.jl --count)"` |
-| Require ready widget families | `julia --project=. scripts/render_widget_family_closeout.jl --require-ready` |
-| Require clean git evidence | `julia --project=. scripts/render_widget_family_closeout.jl --require-clean-git` |
-| Require expected widget families | `julia --project=. scripts/render_widget_family_closeout.jl --require-total-count "$(julia --project=. scripts/render_widget_family_closeout.jl --count)"` |
-| Require zero blocked families | `julia --project=. scripts/render_widget_family_closeout.jl --require-blocked-count 0` |
-| Count focused widget families | `julia --project=. scripts/render_widget_family_closeout.jl --count --family toolkit` |
-| Render headerless TSV catalog | `julia --project=. scripts/render_widget_catalog.jl --format tsv --no-header --columns name,status` |
-| Append widget catalog summary | `julia --project=. scripts/render_widget_catalog.jl --summary --output stable-widgets.md --append` |
-| Draft stable widget promotion packet | `julia --project=. scripts/new_stable_promotion_packet.jl --family Stateful-controls --widget ComboBox --source src/AcceptanceWidgets.jl --candidate <sha> --decision promote` |
-| Draft parity evidence record | `julia --project=. scripts/new_parity_evidence.jl --family Layout --environment kitty --candidate <sha>` |
-| Build the manual | `julia --project=docs docs/make.jl` |
-
-When adding a public widget or subsystem, preserve the contract:
-
-1. Use shared buffers, layout, text, styles, events, and focus primitives.
-2. Keep interactive state explicit and testable.
-3. Provide constrained rendering, Unicode, keyboard, pointer, disabled, and
-   semantic behavior where relevant.
-4. Add immediate, Toolkit, and parity evidence before declaring the feature done.
-5. Record intentional reference-library differences in the parity artifacts.
-
-## Documentation map
-
-- [Architecture](docs/ARCHITECTURE.md): module boundaries and rendering pipeline.
-- [API Reference](docs/API_REFERENCE.md): public API conventions and capabilities.
-- [Component Catalog](docs/COMPONENT_CATALOG.md): widget and service inventory.
-- [Linux Real-Terminal Matrix](docs/REAL_TERMINAL_MATRIX.md): manual Linux
-  terminal evidence worksheet.
-- [Reference Parity Survey](docs/REFERENCE_PARITY_SURVEY.md): Ratatui, Textual,
-  TamboUI, and Lanterna mapping.
-- [Parity Execution Plan](docs/PARITY_EXECUTION_PLAN.md): family-level closure criteria.
-- [Stable Promotion Packet Template](docs/STABLE_PROMOTION_PACKET_TEMPLATE.md):
-  review packet for candidate or compatibility widgets promoted to `Wicked.API`.
-- [Release Checklist](docs/RELEASE_CHECKLIST.md): candidate and release workflow.
-- [Release Evidence](docs/RELEASE_EVIDENCE.md): what is verified locally and what
-  still requires external proof.
-- [Parity Evidence Template](docs/PARITY_EVIDENCE_TEMPLATE.md): record format for
-  adapted Ratatui/Textual/TamboUI/Lanterna parity evidence.
-- [Parity Evidence Records](docs/evidence/README.md): storage location for
-  candidate parity closeout records.
-- [Parity Evidence Policy](docs/evidence/parity_policy.json): machine-readable
-  family and evidence-shape contract.
-
-## Contributing
-
-Wicked is designed as a production library, not a collection of terminal demos.
-Public changes need explicit ownership, deterministic behavior, focused tests,
-semantic coverage, documented capability fallback, and reviewed API boundaries.
-
-Read [Feature Parity](docs/FEATURE_PARITY.md),
-[Release Checklist](docs/RELEASE_CHECKLIST.md), and
-[CONTRIBUTING.md](CONTRIBUTING.md) before starting a subsystem or widget family.
 
 ---
 
-<p align="center">
-  Built in Julia. Rendered as cells. Tested without a terminal.
-</p>
+> [!WARNING]
+> Wicked.jl is **`0.0.1`** and under active development. The implementation and
+> automated test coverage are extensive, but broad real-terminal validation and
+> a release-candidate freeze are still ahead. Great for building and
+> experimenting — pin the commit for anything you ship.
+
+## ✨ Why Wicked?
+
+Most terminal libraries make you pick a philosophy. Wicked gives you **three
+cooperating layers** over one fast, Unicode-correct rendering core — use the one
+that fits the moment, mix them freely.
+
+| | |
+| --- | --- |
+| ⚡ **Fast, explicit rendering** | Cell buffers, frames, minimal diffs, Unicode/East-Asian width, constraint + flex + grid layout, and 180+ stateful widgets. |
+| 🧭 **Real application structure** | An Elm-style `model → update → view` runtime with commands, subscriptions, timers, cancellation, and diagnostics. |
+| 🧩 **Declarative composition** | A keyed, reconciling Toolkit with a `@ui` DSL, React/Compose-style hooks, focus, routed events, screens, forms, and overlays. |
+| 🎨 **Styling that scales** | A typed style/theme system with CSS-like stylesheets, selectors, pseudo-states, roles, and light/dark/high-contrast. |
+| 🧪 **Tests you can trust** | Headless buffers, snapshots, semantic assertions, pilots, and virtual time — no real terminal required. |
+| 🌈 **Rich output** | Kitty / Sixel graphics, braille & block canvases, markdown, syntax highlighting, sparklines, charts, and more. |
+
+## 📦 Install
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/oleksandr-balyshyn/Wicked.jl")
+```
+
+```julia
+using Wicked.API   # the single, stable developer facade
+```
+
+Everything below is importable from `Wicked.API`.
+
+## 🚀 Quick taste
+
+```julia
+using Wicked.API
+
+buffer = Buffer(5, 42)                 # 5 rows × 42 cols
+frame  = Frame(buffer)
+render!(frame, Paragraph("Deploy safely. Observe everything."), frame.area)
+
+print(plain_snapshot(buffer))          # render anywhere — even headless
+```
+
+The same primitives power dashboards, data explorers, interactive CLIs, admin
+consoles, and full-screen apps.
+
+---
+
+## 🎚️ Choose your level
+
+### 1️⃣ Immediate mode — direct & deterministic
+
+Own the frame loop; give each widget explicit state.
+
+```julia
+using Wicked.API
+
+items = List(["Build", "Test", "Release"])
+state = ListState(selected=1)
+
+buffer = Buffer(4, 24)
+render!(Frame(buffer), items, buffer.area, state)
+
+handle!(state, items, KeyEvent(Key(:down)); viewport_height=4)  # → selects "Test"
+```
+
+### 2️⃣ Managed runtime — Elm-style applications
+
+Your app owns a model; `update!` changes it and returns commands; `app_view`
+renders it. Commands cover frames, delays/timers, batches, and exit.
+
+```julia
+using Wicked.API
+import Wicked.API: app_view, initialize, update!
+
+mutable struct CounterModel; count::Int; end
+struct CounterApp <: WickedApp end
+
+initialize(::CounterApp) = CounterModel(0)
+
+app_view(::CounterApp, m::CounterModel) =
+    Panel(Paragraph("count = $(m.count)"); block=Block(title="Counter"))
+
+function update!(::CounterApp, m::CounterModel, msg)
+    msg === :increment && (m.count += 1; return FrameCommand())
+    msg === :tick      && return DelayCommand(0.25, :increment)   # timer
+    msg === :quit      && return ExitCommand(m.count)
+    return NoCommand()
+end
+
+# Drive it headlessly with a pilot + virtual time:
+pilot = RuntimePilot(CounterApp(); height=3, width=24)
+send!(pilot, :increment)
+@assert occursin("count = 1", plain_snapshot(pilot))
+send!(pilot, :tick); advance_time!(pilot, 0.25)
+@assert occursin("count = 2", plain_snapshot(pilot))
+```
+
+Also available: `BatchCommand`, `MessageCommand`, subscriptions, and
+cancellation — one observable lifecycle for everything async.
+
+### 3️⃣ Declarative Toolkit — the `@ui` DSL, hooks & modifiers
+
+Describe the UI; the Toolkit reconciles it against retained state using stable
+`key`/`id`. Reusable **modifiers** read like Compose/Tailwind; **hooks**
+(`use_effect!`, `remember!`, …) manage local state and effects.
+
+```julia
+using Wicked.API
+
+const PRIMARY = then(
+    element_modifier(focusable=true),
+    element_modifier(classes=[:primary], style_role=:primary),
+)
+
+view(status) = @ui column(; constraints=[Length(1), Length(3)], gap=0) do
+    Element(Label("Deployment: $status"); id=:status, key=:status)
+    element(Button("Deploy", :deploy); id=:deploy, key=:deploy, modifier=PRIMARY)
+end
+
+pilot = ToolkitPilot(view("ready"); height=5, width=32)
+focus_element!(pilot, :deploy)
+key!(pilot, :enter)                    # → emits the :deploy message
+@assert :deploy in pilot.messages
+```
+
+Stateful components with hooks:
+
+```julia
+counter = component(initial=0, key=:counter, id=:counter) do state
+    n = component_value(state)
+    use_effect!(state, :n, (n,)) do _
+        # runs on mount / when n changes; return a cleanup closure
+        () -> nothing
+    end
+    "Local count: $n"
+end
+```
+
+---
+
+## 🧱 Layout in 30 seconds
+
+Ratatui-style constraints, flexbox distribution, and grids:
+
+```julia
+using Wicked.API
+
+# Constraints: Length, Min, Max, Percentage, Ratio, Fill
+row(
+    Element(Label("sidebar")),
+    Element(Label("content")),
+    Element(Label("aside"));
+    constraints=[Length(20), Fill(1), Percentage(25)],
+)
+
+# Flex alignment: StartFlex, CenterFlex, EndFlex,
+#                 SpaceBetween, SpaceAround, SpaceEvenly
+column(Element(Label("top")), Element(Label("bottom")); alignment=SpaceBetween, gap=1)
+
+grid(Element(Label("a")), Element(Label("b")); rows=[Length(1)], columns=[Fill(1), Fill(1)])
+
+# Inside a component, the @ui macro turns do-blocks into children:
+@ui column(; constraints=[Length(1), Length(1)]) do
+    Element(Label("top")); Element(Label("bottom"))
+end
+```
+
+Migration-friendly aliases exist too: `hstack`/`vstack`, `hbox`/`vbox`,
+`zstack`/`overlay`, `HStack`/`VStack`, … so ports from Textual, Ratatui, or JS
+frameworks read naturally.
+
+## 🎨 Styling & themes
+
+A typed `Style`/`Color`/`Modifiers` core, plus CSS-like stylesheets, roles, and
+themes with light/dark/high-contrast:
+
+```julia
+using Wicked.API
+
+sheet = parse_stylesheet("""
+Button.primary        { color: bright-cyan; }
+Button.primary:focus  { modifiers: bold underline; }
+""")
+
+theme = Theme(:app; roles=Dict(
+    :text   => Style(foreground=AnsiColor(15)),
+    :accent => Style(foreground=AnsiColor(6), modifiers=BOLD),
+))
+
+engine = StyleEngine(; theme, stylesheets=[sheet])   # feed to a ToolkitPilot / tree
+```
+
+Colors accept names (`"bright-cyan"`), hex (`"#00d7ff"`), `rgb(...)`, indexed,
+or the typed `AnsiColor` / `RGBColor` / `IndexedColor` constructors.
+
+## 🧰 The widget catalog (180+)
+
+<details open>
+<summary><b>A tour by category</b></summary>
+
+- 🧾 **Text & content** — `Paragraph`, `Label`, `Heading`, `MarkupText`, `MarkdownView`, `SyntaxView`, `Pretty`, `RichLog`, `LogView`
+- 📋 **Collections** — `List`, `Table`, `DataTable`, `DataGrid`, `TreeTable`, `Tree`, `OptionList`, `SelectionList`
+- 🗂️ **Navigation** — `Tabs`, `Menu`, `Breadcrumb`, `Pagination`, `Stepper`, `CommandPalette`, `Drawer`
+- 🎛️ **Controls** — `Button`, `Checkbox`, `Switch`, `Toggle`, `RadioGroup`, `Select`, `MultiSelect`, `ColorPicker`, `Calendar`
+- ⌨️ **Input** — `Input`, `TextArea`, `MaskedInput`, `PasswordField`, `NumberInput`, `SearchInput`, `CodeEditor`
+- 📊 **Visualization** — `Gauge`, `LineGauge`, `Sparkline`, `BarChart`, `Chart`, `Histogram`, `Heatmap`, `Canvas`, `Plot`
+- 🔔 **Feedback** — `Notification`, `NotificationCenter`, `Alert`, `Badge`, `Spinner`, `Progress`, `ProgressGroup`, `Skeleton`, `LoadingIndicator`
+- 🪟 **Structure** — `Block`, `Panel`, `Card`, `Divider`, `Rule`, `Scrollbar`, `Collapsible`, `Popover`, `Overlay`
+- 🗃️ **App chrome** — `Header`, `Footer`, `TitleBar`, `Status`, `KeyHint`, `HelpView`, `FileBrowser`, `TerminalView`, `ReplView`
+
+</details>
+
+Not sure of a name? Browse the **`examples/`** directory (each file is a runnable,
+tested demo) or the cross-library concept map in `api/widget_vocabulary.tsv`.
+
+## 🧬 Cross-library goodies
+
+Ideas borrowed from the best and made idiomatic (available as `Wicked.*`, ready
+to promote into `Wicked.API`):
+
+```julia
+using Wicked.API
+import Wicked   # these live on the module, ready to promote into Wicked.API
+
+# 🪢 Terminus/Compose-style scoped styling DSL → builds a native `Text`
+doc = Wicked.styled_text() do b
+    Wicked.styled(b; fg=:cyan, bold=true) do
+        Wicked.emit!(b, "Deploy ")
+        Wicked.styled(b; fg=:green) do; Wicked.emit!(b, "ready"); end
+    end
+    Wicked.newline!(b)
+    Wicked.emit!(b, "press q to quit"; dim=true)
+end
+render!(Frame(Buffer(2, 24)), Paragraph(doc), Rect(1, 1, 2, 24))
+
+# 🌊 Harmonica-style spring physics (smooth scroll / progress)
+s = Wicked.Spring(1/60; angular_frequency=8.0, damping_ratio=0.6)
+pos, vel = Wicked.spring_update(s, 0.0, 0.0, 1.0)
+
+# 🌗 Lip Gloss-style adaptive color + downsampling
+Wicked.adaptive_color("black", "white"; dark_background=true)
+Wicked.downsample_color(RGBColor(255, 128, 0), :ansi256)
+
+# ⌨️ Bubble Tea-style help from a single keybinding source of truth
+binds = [Wicked.KeyBinding("q", "quit"), Wicked.KeyBinding("?", "help")]
+Footer(Wicked.help_hints(binds))                    # feeds Footer / HelpView
+Wicked.short_help(binds; max_width=40)              # width-truncated one-liner
+
+# 🖼️ Multi-resolution canvas markers & shared-border layout
+pc = Wicked.PixelCanvas(4, 8; marker=:quadrant)     # :braille :quadrant :half_block :dot
+Wicked.overlap_layout(Rect(1, 1, 3, 20), [10, 10]; overlap=1)   # shared borders
+```
+
+## 🧪 Testing (no terminal needed)
+
+Everything renders to a buffer, so tests are fast and deterministic:
+
+```julia
+using Wicked.API
+
+pilot = RuntimePilot(CounterApp(); height=3, width=24)
+send!(pilot, :increment)
+
+@assert occursin("count = 1", plain_snapshot(pilot))    # text snapshot
+```
+
+Pilots (`RuntimePilot`, `ToolkitPilot`, `WidgetPilot`) support key/mouse input,
+focus, virtual time (`advance_time!`), semantic queries (`query_one`), and
+semantic-tree assertions.
+
+## 📚 Examples
+
+Every file in [`examples/`](examples/) is a self-contained, runnable, CI-tested
+program. Run any of them:
+
+```bash
+julia --project=. examples/immediate_quickstart.jl
+julia --project=. examples/toolkit_quickstart.jl
+julia --project=. examples/widget_gallery.jl
+```
+
+| Want to… | Start here |
+| --- | --- |
+| Render widgets by hand | `examples/immediate_quickstart.jl` |
+| Build a full app shell | `examples/app_shell_quickstart.jl` |
+| Use the Elm-style runtime | `examples/runtime_quickstart.jl` |
+| Compose declaratively | `examples/toolkit_quickstart.jl` |
+| Style with CSS-like sheets | `examples/styling_quickstart.jl` |
+| Charts & canvases | `examples/visualization_quickstart.jl`, `examples/graphics_quickstart.jl` |
+| Forms & controls | `examples/controls_quickstart.jl`, `examples/navigation_quickstart.jl` |
+| Big virtualized data | `examples/virtualization_quickstart.jl` |
+| Keybindings & help | `examples/keybindings_quickstart.jl` |
+| Tabs & disclosure | `examples/tabbed_content.jl`, `examples/disclosure_overlay_quickstart.jl` |
+| See everything | `examples/widget_gallery.jl` |
+
+## 🗺️ Project layout
+
+```
+src/         # the framework (Core, Layout, Runtime, Toolkit, widgets, …)
+examples/    # runnable, tested demos — the fastest way to learn the API
+test/        # the test suite: julia --project=. -e 'using Pkg; Pkg.test()'
+api/         # structured data ledgers (stable API surface, widget vocabulary)
+benchmark/   # allocation budgets
+```
+
+## 🛠️ Develop
+
+```bash
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+Contributions welcome — add a widget, wire up an example, and keep the tests
+green. The public surface lives behind `Wicked.API`.
+
+## 📄 License
+
+MIT — see [LICENSE.md](LICENSE.md).
+
+<p align="center"><sub>Built with ⚡ in pure Julia. Deploy safely. Observe everything.</sub></p>
