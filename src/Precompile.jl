@@ -2113,6 +2113,521 @@ function _precompile_common_workload!()
     Styles.search_style_explanation_text(style_explanation, "stylesheet")
     Styles.search_style_explanation_markdown(style_explanation, "stylesheet")
     Styles.search_style_explanation_tsv(style_explanation, "stylesheet")
+    precompile_modifier = Toolkit.then(
+        Toolkit.element_modifier(focusable=true, classes=[:primary]),
+        Toolkit.ElementModifier(id=:modified, key=:modified, tab_index=1),
+    )
+    precompile_modified = Toolkit.element(
+        Widgets.Button("Modified", :modified);
+        modifier=precompile_modifier,
+    )
+    precompile_modifier isa Toolkit.ElementModifier
+    Toolkit.modify(precompile_modified, Toolkit.ElementModifier(disabled=false))
+    precompile_component = Toolkit.component(initial=1, key=:component, id=:component) do state
+        value = Toolkit.component_value(state)
+        Toolkit.use_effect!(state, :value, (value,)) do
+            return nothing
+        end
+        Toolkit.column("Component: $value"; constraints=[Layout.Length(1)])
+    end
+    precompile_component_tree = Toolkit.ToolkitTree(precompile_component)
+    precompile_component.widget isa Toolkit.StatefulComponent
+    Toolkit.render_toolkit!(Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))), precompile_component_tree)
+    precompile_component_state = Toolkit.element_state(precompile_component_tree, :component)
+    precompile_component_state isa Toolkit.ComponentState
+    Toolkit.component_version(precompile_component_state)
+    Toolkit.component_invalidated(precompile_component_state)
+    Toolkit.set_component_value!(precompile_component_state, 2)
+    Toolkit.update_component_value!(+, precompile_component_state, 1)
+    Toolkit.invalidate_component!(precompile_component_state)
+    Toolkit.toolkit_invalidated(precompile_component_tree)
+    Toolkit.clear_component_invalidation!(precompile_component_state)
+    Toolkit.clear_toolkit_invalidation!(precompile_component_tree)
+    Toolkit.render_toolkit!(Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))), precompile_component_tree)
+    precompile_component_tree.root = Toolkit.element(Widgets.Label("Disposed"))
+    Toolkit.render_toolkit!(Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))), precompile_component_tree)
+    Toolkit.clear_component_effects!(precompile_component_state)
+    precompile_local = Toolkit.composition_local(
+        :density,
+        1;
+        value_type=Real,
+    )
+    precompile_slots = Toolkit.component_slots(
+        "Body";
+        header="Header",
+        actions=("Save", "Cancel"),
+    )
+    precompile_slots isa Toolkit.ComponentSlots
+    precompile_local isa Toolkit.CompositionLocal
+    Toolkit.has_slot(precompile_slots, :header)
+    Toolkit.slot_names(precompile_slots)
+    precompile_context_component = Toolkit.component(id=:precompile_context) do state
+        density = Toolkit.composition_value(state, precompile_local)
+        Toolkit.column(
+            Toolkit.slot(precompile_slots, :header)...,
+            "Density: $density";
+            constraints=[Layout.Length(1), Layout.Length(1)],
+        )
+    end
+    precompile_context_provider = Toolkit.provide_context(
+        precompile_local => 2;
+        children=(precompile_context_component,),
+    )
+    precompile_context_provider.widget isa Toolkit.ContextProvider
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 2, 24))),
+        Toolkit.ToolkitTree(precompile_context_provider),
+    )
+    precompile_remembered_ref = Ref{Any}(nothing)
+    precompile_remembered_component = Toolkit.component(id=:precompile_remembered) do state
+        count = Toolkit.remember!(state, :count, 1)
+        precompile_remembered_ref[] = count
+        doubled = Toolkit.derived_remember!(value -> value * 2, state, :doubled, (Toolkit.remembered_value(count),))
+        "$(Toolkit.remembered_value(count))/$(Toolkit.remembered_value(doubled))"
+    end
+    precompile_remembered_tree = Toolkit.ToolkitTree(precompile_remembered_component)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))),
+        precompile_remembered_tree,
+    )
+    precompile_remembered = precompile_remembered_ref[]
+    precompile_remembered isa Toolkit.RememberedValue
+    Toolkit.remembered_version(precompile_remembered)
+    Toolkit.set_remembered_value!(precompile_remembered, 2)
+    Toolkit.update_remembered_value!(+, precompile_remembered, 1)
+    precompile_boundary = Toolkit.error_boundary(
+        Toolkit.component(state -> error("precompile boundary failure"));
+        id=:precompile_boundary,
+        fallback=failure -> "Recovered",
+    )
+    precompile_boundary.widget isa Toolkit.ComponentErrorBoundary
+    precompile_boundary_tree = Toolkit.ToolkitTree(precompile_boundary)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))),
+        precompile_boundary_tree,
+    )
+    precompile_boundary_state = Toolkit.element_state(precompile_boundary_tree, :precompile_boundary)
+    precompile_boundary_state isa Toolkit.ComponentErrorBoundaryState
+    Toolkit.boundary_failed(precompile_boundary_state)
+    Toolkit.boundary_failure(precompile_boundary_state)
+    Toolkit.retry_error_boundary!(precompile_boundary_state)
+    precompile_resource = Toolkit.AsyncResource()
+    Toolkit.load_async_resource!(precompile_resource, token -> begin
+        Toolkit.throw_if_resource_cancelled(token)
+        1
+    end)
+    yield()
+    Toolkit.resource_status(precompile_resource)
+    Toolkit.resource_value(precompile_resource)
+    Toolkit.resource_failure(precompile_resource)
+    Toolkit.resource_generation(precompile_resource)
+    Toolkit.resource_loading(precompile_resource)
+    Toolkit.resource_succeeded(precompile_resource)
+    Toolkit.resource_failed(precompile_resource)
+    Toolkit.resource_cancelled(Toolkit.AsyncResourceToken())
+    Toolkit.resource_content(precompile_resource; success=value -> "Value: $value")
+    Toolkit.retry_async_resource!(precompile_resource)
+    Toolkit.cancel_async_resource!(precompile_resource)
+    precompile_async_component = Toolkit.async_resource_component(
+        () -> "ready";
+        id=:precompile_async,
+        success=value -> "Async: $value",
+    )
+    precompile_async_tree = Toolkit.ToolkitTree(precompile_async_component)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))),
+        precompile_async_tree,
+    )
+    precompile_tracked_signal = Reactive.Signal("tracked")
+    precompile_tracking = Reactive.track_reactive_reads() do
+        Reactive.signal_value(precompile_tracked_signal)
+    end
+    precompile_tracking.dependencies
+    precompile_tracked_component = ReactiveToolkit.tracked_component(id=:precompile_tracked) do state
+        "Tracked: $(Reactive.signal_value(precompile_tracked_signal))"
+    end
+    precompile_tracked_component.widget.view isa ReactiveToolkit.TrackedComponentView
+    precompile_tracked_tree = Toolkit.ToolkitTree(precompile_tracked_component)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))),
+        precompile_tracked_tree,
+    )
+    Reactive.set_signal!(precompile_tracked_signal, "updated")
+    precompile_controlled_value = Ref((count=1,))
+    precompile_controlled = Toolkit.state_binding(
+        () -> precompile_controlled_value[],
+        value -> (precompile_controlled_value[] = value),
+    )
+    precompile_count_binding = Toolkit.map_binding(
+        precompile_controlled;
+        get=value -> value.count,
+        set=(value, count) -> merge(value, (count=count,)),
+    )
+    precompile_controlled isa Toolkit.AbstractStateBinding
+    Toolkit.binding_value(precompile_count_binding)
+    Toolkit.set_binding_value!(precompile_count_binding, 2)
+    Toolkit.update_binding_value!(+, precompile_count_binding, 1)
+    precompile_signal_binding = ReactiveToolkit.signal_binding(precompile_tracked_signal)
+    Toolkit.binding_value(precompile_signal_binding)
+    precompile_binding_component = Toolkit.component(id=:precompile_binding) do state
+        binding = Toolkit.remember_binding!(state, :value, 1)
+        "Binding: $(Toolkit.binding_value(binding))"
+    end
+    precompile_binding_tree = Toolkit.ToolkitTree(precompile_binding_component)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))),
+        precompile_binding_tree,
+    )
+    precompile_slider_value = Ref(2.0)
+    precompile_slider_binding = Toolkit.state_binding(
+        () -> precompile_slider_value[],
+        value -> (precompile_slider_value[] = value),
+    )
+    precompile_slider = Slider(0, 10; value=2, width=11)
+    precompile_bound_slider = Toolkit.bound_element(
+        precompile_slider,
+        precompile_slider_binding;
+        id=:precompile_bound_slider,
+        state_factory=() -> SliderState(0, 10; value=2),
+        apply_value! = (state, value) -> set_slider!(state, value),
+        extract_value=state -> state.value,
+    )
+    precompile_bound_tree = Toolkit.ToolkitTree(precompile_bound_slider)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 11))),
+        precompile_bound_tree,
+    )
+    precompile_bound_state = Toolkit.element_state(precompile_bound_tree, :precompile_bound_slider)
+    precompile_bound_state isa Toolkit.BoundWidgetState
+    Toolkit.bound_widget_state(precompile_bound_state)
+    Toolkit.bound_property_element(
+        precompile_slider,
+        precompile_slider_binding,
+        :value;
+        state_factory=() -> SliderState(0, 10; value=2),
+    )
+    precompile_effect_events = Symbol[]
+    precompile_effect_component = Toolkit.component(id=:precompile_effects) do state
+        latest = Toolkit.remember_updated!(state, :latest, :ready)
+        Toolkit.disposable_effect!(state, :resource) do
+            push!(precompile_effect_events, :setup)
+            return () -> push!(precompile_effect_events, :cleanup)
+        end
+        Toolkit.side_effect!(state, :commit) do
+            Toolkit.remembered_value(latest)
+        end
+        "Effects"
+    end
+    precompile_effect_tree = Toolkit.ToolkitTree(precompile_effect_component)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 16))),
+        precompile_effect_tree,
+    )
+    precompile_produced_component = Toolkit.component(id=:precompile_produced) do state
+        produced = Toolkit.produce_state!(state, :value, 0, (1,)) do publish, token, value
+            publish(value)
+        end
+        Toolkit.produced_value(produced)
+        Toolkit.produced_version(produced)
+        Toolkit.produced_status(produced)
+        Toolkit.produced_failure(produced)
+        Toolkit.produced_running(produced)
+        Toolkit.produced_succeeded(produced)
+        Toolkit.produced_failed(produced)
+        "Produced"
+    end
+    precompile_produced_tree = Toolkit.ToolkitTree(precompile_produced_component)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 16))),
+        precompile_produced_tree,
+    )
+    precompile_saveable_registry = Toolkit.SaveableStateRegistry()
+    precompile_saveable_component = Toolkit.component(id=:precompile_saveable) do state
+        value = Toolkit.remember_saveable!(state, :value, 1)
+        "Saved: $(Toolkit.remembered_value(value))"
+    end
+    precompile_saveable_tree = Toolkit.ToolkitTree(
+        Toolkit.saveable_state_provider(
+            precompile_saveable_registry,
+            precompile_saveable_component;
+            scope=:precompile,
+        ),
+    )
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 16))),
+        precompile_saveable_tree,
+    )
+    Toolkit.saveable_state_snapshot(precompile_saveable_registry)
+    precompile_constraints_tree = Toolkit.ToolkitTree(
+        Toolkit.box_with_constraints(area -> "$(area.height)x$(area.width)"; id=:precompile_constraints),
+    )
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 2, 16))),
+        precompile_constraints_tree,
+    )
+    precompile_lazy_items = collect(1:12)
+    precompile_lazy_column = lazy_column(
+        precompile_lazy_items;
+        item=string,
+        height=3,
+        width=16,
+        id=:precompile_lazy_column,
+    )
+    precompile_lazy_grid = lazy_grid(
+        precompile_lazy_items;
+        item=string,
+        columns=2,
+        height=2,
+        width=16,
+        id=:precompile_lazy_grid,
+    )
+    precompile_lazy_row = lazy_row(
+        precompile_lazy_items;
+        item=string,
+        item_extent=4,
+        height=1,
+        width=16,
+        id=:precompile_lazy_row,
+    )
+    for (root, root_area) in (
+        (precompile_lazy_column, Core.Rect(1, 1, 3, 16)),
+        (precompile_lazy_grid, Core.Rect(1, 1, 2, 16)),
+        (precompile_lazy_row, Core.Rect(1, 1, 1, 16)),
+    )
+        Toolkit.render_toolkit!(Core.Frame(Core.Buffer(root_area)), Toolkit.ToolkitTree(root))
+    end
+    precompile_toggle_value = Ref(false)
+    precompile_choice_value = Ref(:first)
+    precompile_toggle_binding = Toolkit.state_binding(
+        () -> precompile_toggle_value[],
+        value -> (precompile_toggle_value[] = value),
+    )
+    precompile_choice_binding = Toolkit.state_binding(
+        () -> precompile_choice_value[],
+        value -> (precompile_choice_value[] = value),
+    )
+    precompile_interactions = Toolkit.column(
+        clickable(Widgets.Label("Click"); id=:precompile_clickable, on_click=() -> nothing),
+        combined_clickable(
+            Widgets.Label("Combined");
+            id=:precompile_combined_clickable,
+            on_click=() -> nothing,
+            on_double_click=() -> nothing,
+        ),
+        draggable(
+            Widgets.Label("Drag");
+            id=:precompile_draggable,
+            on_drag=gesture -> nothing,
+        ),
+        hoverable(Widgets.Label("Hover"); id=:precompile_hoverable),
+        toggleable(
+            Widgets.Label("Toggle");
+            id=:precompile_toggleable,
+            binding=precompile_toggle_binding,
+        ),
+        selectable(
+            Widgets.Label("Select");
+            id=:precompile_selectable,
+            binding=precompile_choice_binding,
+            value=:second,
+        );
+        constraints=[Layout.Length(1), Layout.Length(1), Layout.Length(1), Layout.Length(1), Layout.Length(1), Layout.Length(1)],
+    )
+    precompile_interaction_tree = Toolkit.ToolkitTree(precompile_interactions)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 6, 16))),
+        precompile_interaction_tree,
+    )
+    Toolkit.dispatch!(
+        precompile_interaction_tree,
+        Events.MouseEvent(Core.Position(2, 1), Events.NoMouseButton, Events.MouseMove),
+    )
+    Toolkit.dispatch!(
+        precompile_interaction_tree,
+        Events.MouseEvent(Core.Position(2, 1), Events.LeftMouseButton, Events.MousePress; click_count=2),
+    )
+    Toolkit.dispatch!(
+        precompile_interaction_tree,
+        Events.MouseEvent(Core.Position(2, 1), Events.LeftMouseButton, Events.MouseRelease; click_count=2),
+    )
+    Toolkit.capture_pointer!(precompile_interaction_tree, :precompile_draggable)
+    Toolkit.pointer_capture_target(precompile_interaction_tree)
+    Toolkit.has_pointer_capture(precompile_interaction_tree)
+    Toolkit.release_pointer!(precompile_interaction_tree, :precompile_draggable)
+    Toolkit.dispatch!(
+        precompile_interaction_tree,
+        Events.MouseEvent(Core.Position(3, 1), Events.LeftMouseButton, Events.MousePress),
+    )
+    Toolkit.dispatch!(
+        precompile_interaction_tree,
+        Events.MouseEvent(Core.Position(4, 2), Events.LeftMouseButton, Events.MouseDrag),
+    )
+    Toolkit.dispatch!(
+        precompile_interaction_tree,
+        Events.MouseEvent(Core.Position(4, 2), Events.LeftMouseButton, Events.MouseRelease),
+    )
+    precompile_drag_router = ToolkitDragRouter(DragDropManager(threshold=1))
+    precompile_drag_drop = drag_drop_provider(
+        precompile_drag_router,
+        Toolkit.column(
+            drag_source(
+                Widgets.Label("Source");
+                id=:precompile_drag_source,
+                payload=DragPayload("value"; mime="text/plain"),
+            ),
+            drop_target(
+                Widgets.Label("Target");
+                id=:precompile_drop_target,
+                on_drop=result -> nothing,
+                accepted_mime_prefixes=("text/",),
+            );
+            constraints=[Layout.Length(1), Layout.Length(1)],
+        ),
+    )
+    precompile_drag_drop_tree = Toolkit.ToolkitTree(precompile_drag_drop)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 2, 16))),
+        precompile_drag_drop_tree,
+    )
+    Toolkit.dispatch!(
+        precompile_drag_drop_tree,
+        Events.MouseEvent(Core.Position(1, 1), Events.LeftMouseButton, Events.MousePress),
+    )
+    Toolkit.dispatch!(
+        precompile_drag_drop_tree,
+        Events.MouseEvent(Core.Position(2, 1), Events.LeftMouseButton, Events.MouseDrag),
+    )
+    Toolkit.dispatch!(
+        precompile_drag_drop_tree,
+        Events.MouseEvent(Core.Position(2, 1), Events.LeftMouseButton, Events.MouseRelease),
+    )
+    precompile_key_input = preview_key_input(
+        key_input(
+            Toolkit.element(Widgets.Label("Keys"); id=:precompile_key_target, focusable=true);
+            id=:precompile_key_bubble,
+            keys=:enter,
+            kinds=Events.KeyPress,
+            on_key=event -> nothing,
+        );
+        id=:precompile_key_preview,
+        on_key=event -> nothing,
+    )
+    precompile_key_tree = Toolkit.ToolkitTree(precompile_key_input)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 16))),
+        precompile_key_tree,
+    )
+    Interaction.focus!(precompile_key_tree.state.focus, :precompile_key_target)
+    Toolkit.dispatch!(precompile_key_tree, Events.KeyEvent(Events.Key(:enter)))
+    precompile_pointer_input = preview_pointer_input(
+        pointer_input(
+            Toolkit.element(Widgets.Label("Pointer"); id=:precompile_pointer_target);
+            id=:precompile_pointer_normal,
+            actions=(Events.MousePress, Events.MouseDrag, Events.MouseRelease),
+            buttons=Events.LeftMouseButton,
+            capture_on_press=true,
+            on_pointer=event -> nothing,
+        );
+        id=:precompile_pointer_preview,
+        actions=Events.MousePress,
+        on_pointer=event -> nothing,
+    )
+    precompile_pointer_tree = Toolkit.ToolkitTree(precompile_pointer_input)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 16))),
+        precompile_pointer_tree,
+    )
+    Toolkit.dispatch!(
+        precompile_pointer_tree,
+        Events.MouseEvent(Core.Position(1, 1), Events.LeftMouseButton, Events.MousePress),
+    )
+    Toolkit.dispatch!(
+        precompile_pointer_tree,
+        Events.MouseEvent(Core.Position(2, 2), Events.LeftMouseButton, Events.MouseDrag),
+    )
+    Toolkit.dispatch!(
+        precompile_pointer_tree,
+        Events.MouseEvent(Core.Position(2, 2), Events.LeftMouseButton, Events.MouseRelease),
+    )
+    Interaction.focus!(precompile_interaction_tree.state.focus, :precompile_clickable)
+    Toolkit.dispatch!(precompile_interaction_tree, Events.KeyEvent(Events.Key(:enter)))
+    precompile_focus_requester = Toolkit.FocusRequester()
+    precompile_requested_focus = Toolkit.focus_requester(
+        Widgets.Label("Requested"),
+        precompile_focus_requester,
+    )
+    precompile_requested_tree = Toolkit.ToolkitTree(precompile_requested_focus)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 16))),
+        precompile_requested_tree,
+    )
+    Toolkit.focus_requester_target(precompile_focus_requester)
+    Toolkit.request_focus!(precompile_requested_tree, precompile_focus_requester)
+    Toolkit.focus_requester_focused(precompile_requested_tree, precompile_focus_requester)
+    Toolkit.release_focus!(precompile_requested_tree, precompile_focus_requester)
+    precompile_animation_manager = AnimationManager(policy=DisabledMotion, clock=() -> UInt64(0))
+    precompile_animation_target = Ref(0.0)
+    precompile_animation_component = animation_provider(precompile_animation_manager) do
+        Toolkit.component(id=:precompile_animated) do state
+            value = animate_value_as_state!(
+                state,
+                :value,
+                precompile_animation_target[];
+                duration=0.1,
+            )
+            string(animated_value(value))
+        end
+    end
+    precompile_animation_tree = Toolkit.ToolkitTree(precompile_animation_component)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 16))),
+        precompile_animation_tree,
+    )
+    precompile_animation_target[] = 1.0
+    precompile_animation_tree.root = precompile_animation_component
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 16))),
+        precompile_animation_tree,
+    )
+    precompile_effect_tree.root = Toolkit.element(Widgets.Label("Disposed"))
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 16))),
+        precompile_effect_tree,
+    )
+    precompile_tracked_tree.root = Toolkit.element(Widgets.Label("Disposed"))
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))),
+        precompile_tracked_tree,
+    )
+    yield()
+    precompile_async_tree.root = Toolkit.element(Widgets.Label("Disposed"))
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))),
+        precompile_async_tree,
+    )
+    precompile_reactive_signal = Reactive.Signal(1)
+    precompile_reactive_element = ReactiveToolkit.reactive_element(
+        :precompile_reactive,
+        value -> "Reactive: $value",
+        [precompile_reactive_signal],
+    )
+    precompile_reactive_component = ReactiveToolkit.reactive_component(
+        precompile_reactive_element;
+        id=:precompile_reactive,
+    )
+    precompile_reactive_tree = Toolkit.ToolkitTree(precompile_reactive_component)
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))),
+        precompile_reactive_tree,
+    )
+    Reactive.set_signal!(precompile_reactive_signal, 2)
+    precompile_reactive_state = Toolkit.element_state(precompile_reactive_tree, :precompile_reactive)
+    ReactiveToolkit.use_reactive!(precompile_reactive_state, :direct, precompile_reactive_signal)
+    precompile_reactive_tree.root = Toolkit.element(Widgets.Label("Disposed"))
+    Toolkit.render_toolkit!(
+        Core.Frame(Core.Buffer(Core.Rect(1, 1, 1, 24))),
+        precompile_reactive_tree,
+    )
     toolkit_root = Toolkit.column(
         Toolkit.Element(Widgets.Label("Status"); id=:status, key=:status),
         Toolkit.Element(
@@ -2135,6 +2650,10 @@ function _precompile_common_workload!()
             focusable=true,
         );
         constraints=[Layout.Length(1), Layout.Length(3), Layout.Length(3)],
+        on_capture=(event, state) -> begin
+            event.phase == Toolkit.CapturePhase || return nothing
+            Toolkit.EventResponse(message=:captured)
+        end,
     )
     toolkit_tree = Toolkit.ToolkitTree(toolkit_root; styles)
     Toolkit.render_toolkit!(Core.Frame(Core.Buffer(Core.Rect(1, 1, 5, 32))), toolkit_tree)

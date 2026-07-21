@@ -14,7 +14,11 @@
 
     @test length(container_types) == 1
     @test root.children isa Vector{Element}
-    @test_throws ArgumentError Element(nothing; children=("not an element",))
+    text_container = Element(nothing; children=("text child",))
+    @test only(text_container.children).widget isa Label
+    text_buffer = Buffer(1, 12)
+    render!(text_buffer, text_container, text_buffer.area)
+    @test plain_snapshot(text_buffer) == "text child"
 
     tree = ToolkitTree(root)
     frame = Frame(Buffer(1, 40))

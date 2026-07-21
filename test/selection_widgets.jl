@@ -196,11 +196,96 @@
         @test occursin("Open", plain_snapshot(default_buffer))
     end
 
+    @testset "list highlight spacing policies" begin
+        items = ["a", "bb", "ccc"]
+
+        # :always (default) reserves the selection gutter on every row, even
+        # when nothing is selected.
+        always = List(items; highlight_symbol=">>")
+        b1 = Buffer(3, 6)
+        render!(b1, always, b1.area, ListState())
+        @test plain_snapshot(b1) == "  a\n  bb\n  ccc"
+
+        # :never never reserves the gutter; selection shows through style only.
+        never = List(items; highlight_symbol=">>", highlight_spacing=:never)
+        b2 = Buffer(3, 6)
+        render!(b2, never, b2.area, ListState(selected=1))
+        @test plain_snapshot(b2) == "a\nbb\nccc"
+
+        # :when_selected reserves the gutter only while an item is selected.
+        ws = List(items; highlight_symbol=">>", highlight_spacing=:when_selected)
+        b3 = Buffer(3, 6)
+        render!(b3, ws, b3.area, ListState())
+        @test plain_snapshot(b3) == "a\nbb\nccc"
+        b4 = Buffer(3, 6)
+        render!(b4, ws, b4.area, ListState(selected=2))
+        @test plain_snapshot(b4) == "  a\n>>bb\n  ccc"
+    end
+
+    @testset "list scroll padding keeps context rows" begin
+        items = string.(1:10)
+        padded = List(items; scroll_padding=1)
+        plain = List(items)
+        area = Rect(1, 1, 5, 4)
+
+        # Viewport of 5 rows, selecting item 5 from the top. Without padding the
+        # item still fits, so the offset stays put.
+        st0 = ListState(selected=5, offset=0)
+        render!(Buffer(5, 4), plain, area, st0)
+        @test st0.offset == 0
+
+        # With padding 1 the selection must retain a trailing context row, so the
+        # viewport scrolls one line.
+        stp = ListState(selected=5, offset=0)
+        render!(Buffer(5, 4), padded, area, stp)
+        @test stp.offset == 1
+
+        # Padding also applies above the selection when scrolling upward.
+        stup = ListState(selected=6, offset=5)
+        render!(Buffer(5, 4), padded, area, stup)
+        @test stup.offset == 4
+
+        # Padding is clamped to what the viewport can hold and never traps the
+        # selection off-screen.
+        wide = List(items; scroll_padding=100)
+        stw = ListState(selected=8, offset=0)
+        render!(Buffer(5, 4), wide, area, stw)
+        @test stw.offset in 0:5
+        @test stw.offset < 8
+        @test stw.offset + 5 >= 8
+    end
+
+    @testset "table scroll padding keeps context rows" begin
+        cols = ["A"]
+        rows = [[string(i)] for i in 1:10]
+        plain = Table(cols, rows; show_header=false)
+        padded = Table(cols, rows; show_header=false, scroll_padding=1)
+        area = Rect(1, 1, 5, 6)
+
+        # Selecting row 5 in a 5-row viewport fits without padding.
+        s0 = TableState(selected_row=5, row_offset=0)
+        render!(Buffer(5, 6), plain, area, s0)
+        @test s0.row_offset == 0
+
+        # Padding 1 forces a trailing context row, scrolling one line.
+        sp = TableState(selected_row=5, row_offset=0)
+        render!(Buffer(5, 6), padded, area, sp)
+        @test sp.row_offset == 1
+
+        # Padding also applies above the selection.
+        sup = TableState(selected_row=6, row_offset=5)
+        render!(Buffer(5, 6), padded, area, sup)
+        @test sup.row_offset == 4
+    end
+
     @testset "invalid states" begin
         @test_throws ArgumentError ListState(selected=0)
         @test_throws ArgumentError TableState(row_offset=-1)
         @test_throws ArgumentError TabsState(0)
         @test_throws ArgumentError Tree(TreeNode[]; indent=-1)
         @test_throws ArgumentError MenuState(offset=-1)
+        @test_throws ArgumentError List(["a"]; scroll_padding=-1)
+        @test_throws ArgumentError List(["a"]; highlight_spacing=:sideways)
+        @test_throws ArgumentError Table(["A"], [["1"]]; scroll_padding=-1)
     end
 end

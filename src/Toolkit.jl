@@ -8,7 +8,7 @@ using ..Runtime
 using ..Styles
 using ..Widgets
 import ..Core: render!
-import ..Runtime: app_view, initialize, subscriptions, update!
+import ..Runtime: app_view, attach_runtime!, initialize, subscriptions, update!
 
 """Return the default externally managed state for an immediate-mode widget."""
 state_for(widget) = nothing
@@ -49,14 +49,1382 @@ state_for(widget::Calendar) = CalendarState(widget)
 state_for(::Spinner) = SpinnerState()
 state_for(::CommandPalette) = CommandPaletteState()
 state_for(::LogView) = LogState()
+
+const _ELEMENT_MODIFIER_KEYS = Set((
+    :key,
+    :id,
+    :state_factory,
+    :on_capture,
+    :on_event,
+    :on_mount,
+    :on_unmount,
+    :focusable,
+    :disabled,
+    :hidden,
+    :tab_index,
+    :classes,
+    :style_role,
+    :style_patch,
+    :semantics,
+))
+
+"""Reusable, immutable overrides for declarative element behavior and styling.
+
+Compose modifiers with then. When multiple modifiers set the same property,
+the rightmost value wins.
+"""
+struct ElementModifier{P<:NamedTuple}
+    properties::P
+
+    function ElementModifier(properties::P) where {P<:NamedTuple}
+        unknown = setdiff(Set(keys(properties)), _ELEMENT_MODIFIER_KEYS)
+        isempty(unknown) || throw(ArgumentError("unsupported element modifier properties: $(join(sort!(string.(collect(unknown))), ", "))"))
+        new{P}(properties)
+    end
+end
+
+ElementModifier(; kwargs...) = ElementModifier((; kwargs...))
+element_modifier(; kwargs...) = ElementModifier(; kwargs...)
+
+"""Compose element modifiers left to right, with later properties overriding earlier ones."""
+then(modifiers::ElementModifier...) = foldl(
+    (left, right) -> ElementModifier(merge(left.properties, right.properties)),
+    modifiers;
+    init=ElementModifier(),
+)
+
+mutable struct ComponentEffect
+    dependencies::Any
+    setup::Any
+    cleanup::Any
+    seen::Bool
+    pending::Bool
+end
+
+"""One independently mutable value remembered by an explicit component key."""
+mutable struct RememberedValue
+    value::Any
+    dependencies::Any
+    seen::Bool
+    invalidator::Any
+    version::UInt64
+    lock::ReentrantLock
+    on_change::Any
+end
+
+"""Retained local value and keyed effects owned by one declarative component."""
+mutable struct ComponentState
+    value::Any
+    effects::Dict{Any,ComponentEffect}
+    effect_order::Vector{Any}
+    invalidator::Any
+    version::UInt64
+    invalidated::Bool
+    lock::ReentrantLock
+    composition::Dict{Any,Any}
+    remembered::Dict{Any,RememberedValue}
+end
+
+ComponentState(value=nothing) =
+    ComponentState(value, Dict{Any,ComponentEffect}(), Any[], nothing, UInt64(0), false, ReentrantLock(), Dict{Any,Any}(), Dict{Any,RememberedValue}())
+
+component_value(state::ComponentState) = lock(state.lock) do
+    state.value
+end
+
+"""Return the number of meaningful local-value changes made to a component."""
+component_version(state::ComponentState) = lock(state.lock) do
+    state.version
+end
+
+"""Return whether a component has changed since its invalidation was cleared."""
+component_invalidated(state::ComponentState) = lock(state.lock) do
+    state.invalidated
+end
+
+function _component_invalidator(state::ComponentState)
+    lock(state.lock) do
+        state.invalidator
+    end
+end
+
+function _set_component_invalidator!(state::ComponentState, invalidator)
+    lock(state.lock) do
+        state.invalidator = invalidator
+    end
+    return state
+end
+
+"""Mark a component dirty and notify its owning retained tree once."""
+function invalidate_component!(state::ComponentState)
+    invalidator = lock(state.lock) do
+        state.invalidated = true
+        state.invalidator
+    end
+    invalidator === nothing || invalidator()
+    return state
+end
+
+"""Acknowledge pending component invalidation without changing its value."""
+function clear_component_invalidation!(state::ComponentState)
+    lock(state.lock) do
+        state.invalidated = false
+    end
+    return state
+end
+
+function set_component_value!(state::ComponentState, value)
+    invalidator = lock(state.lock) do
+        isequal(state.value, value) && return nothing
+        state.value = value
+        state.version += UInt64(1)
+        state.invalidated = true
+        state.invalidator
+    end
+    invalidator === nothing || invalidator()
+    return state
+end
+
+function update_component_value!(operation, state::ComponentState, arguments...; kwargs...)
+    invalidator = lock(state.lock) do
+        applicable(operation, state.value, arguments...) ||
+            throw(ArgumentError("component state update is not applicable to the current value"))
+        value = operation(state.value, arguments...; kwargs...)
+        isequal(state.value, value) && return nothing
+        state.value = value
+        state.version += UInt64(1)
+        state.invalidated = true
+        state.invalidator
+    end
+    invalidator === nothing || invalidator()
+    return state
+end
+
+remembered_value(value::RememberedValue) = lock(value.lock) do
+    value.value
+end
+
+remembered_version(value::RememberedValue) = lock(value.lock) do
+    value.version
+end
+
+function set_remembered_value!(remembered::RememberedValue, value)
+    changed, invalidator, on_change = lock(remembered.lock) do
+        isequal(remembered.value, value) && return (false, nothing, nothing)
+        remembered.value = value
+        remembered.version += UInt64(1)
+        (true, remembered.invalidator, remembered.on_change)
+    end
+    changed || return remembered
+    on_change === nothing || on_change(value)
+    invalidator === nothing || invalidator()
+    return remembered
+end
+
+function update_remembered_value!(operation, remembered::RememberedValue, arguments...; kwargs...)
+    changed, value, invalidator, on_change = lock(remembered.lock) do
+        applicable(operation, remembered.value, arguments...) ||
+            throw(ArgumentError("remembered state update is not applicable to the current value"))
+        value = operation(remembered.value, arguments...; kwargs...)
+        isequal(remembered.value, value) && return (false, value, nothing, nothing)
+        remembered.value = value
+        remembered.version += UInt64(1)
+        (true, value, remembered.invalidator, remembered.on_change)
+    end
+    changed || return remembered
+    on_change === nothing || on_change(value)
+    invalidator === nothing || invalidator()
+    return remembered
+end
+
+function _remembered!(state::ComponentState, key, initial, dependencies)
+    return lock(state.lock) do
+        if haskey(state.remembered, key)
+            remembered = state.remembered[key]
+            remembered.seen && throw(ArgumentError("duplicate remembered state key: $key"))
+            remembered.seen = true
+            if dependencies !== nothing && !isequal(remembered.dependencies, dependencies)
+                lock(remembered.lock) do
+                    remembered.value = initial
+                    remembered.dependencies = dependencies
+                    remembered.version += UInt64(1)
+                end
+            end
+            return remembered
+        end
+        remembered = RememberedValue(
+            initial,
+            dependencies,
+            true,
+            () -> invalidate_component!(state),
+            UInt64(0),
+            ReentrantLock(),
+            nothing,
+        )
+        state.remembered[key] = remembered
+        return remembered
+    end
+end
+
+"""Retain an independently mutable value under an explicit component key."""
+remember!(state::ComponentState, key, initial) = _remembered!(state, key, initial, nothing)
+
+function _invoke_remember_factory(factory, state::ComponentState, dependencies)
+    arguments = dependencies isa Tuple ? dependencies : (dependencies,)
+    applicable(factory, arguments...) && return factory(arguments...)
+    applicable(factory, state) && return factory(state)
+    applicable(factory) && return factory()
+    throw(ArgumentError("remember factory must accept dependency values, ComponentState, or no arguments"))
+end
+
+"""Retain a value and recreate it when its dependency value changes."""
+function remember!(factory, state::ComponentState, key, dependencies=())
+    existing = lock(state.lock) do
+        get(state.remembered, key, nothing)
+    end
+    if existing !== nothing && isequal(existing.dependencies, dependencies)
+        return _remembered!(state, key, nothing, dependencies)
+    end
+    return _remembered!(state, key, _invoke_remember_factory(factory, state, dependencies), dependencies)
+end
+
+remember!(state::ComponentState, key, dependencies, factory::Function) =
+    remember!(factory, state, key, dependencies)
+
+remember!(::ComponentState, ::ComponentState, key) =
+    throw(ArgumentError("remember! cannot use ComponentState as both factory and key; choose an unambiguous key"))
+
+remember!(::ComponentState, ::ComponentState, dependencies, factory::Function) =
+    throw(ArgumentError("remember! cannot use ComponentState as both factory and key; choose an unambiguous key"))
+
+"""Memoize a derived value by explicit key and dependency snapshot."""
+derived_remember!(compute, state::ComponentState, key, dependencies) =
+    remember!(compute, state, key, dependencies)
+
+"""Common protocol for controlled and component-owned state hoisting."""
+abstract type AbstractStateBinding end
+
+struct StateBinding{G,S,E} <: AbstractStateBinding
+    getter::G
+    setter::S
+    equals::E
+end
+
+struct RememberedStateBinding <: AbstractStateBinding
+    remembered::RememberedValue
+end
+
+function state_binding(getter, setter; equals=isequal)
+    applicable(getter) || throw(ArgumentError("state binding getter must accept no arguments"))
+    value = getter()
+    applicable(setter, value) || throw(ArgumentError("state binding setter must accept a value"))
+    applicable(equals, value, value) || throw(ArgumentError("state binding equality must accept two values"))
+    return StateBinding(getter, setter, equals)
+end
+
+state_binding(value; on_change, equals=isequal) =
+    state_binding(() -> value, on_change; equals)
+
+"""Create an uncontrolled binding backed by keyed remembered component state."""
+remember_binding!(state::ComponentState, key, initial) =
+    RememberedStateBinding(remember!(state, key, initial))
+
+binding_value(binding::StateBinding) = binding.getter()
+binding_value(binding::RememberedStateBinding) = remembered_value(binding.remembered)
+
+function set_binding_value!(binding::StateBinding, value)
+    current = binding_value(binding)
+    binding.equals(current, value) && return binding
+    binding.setter(value)
+    return binding
+end
+
+function set_binding_value!(binding::RememberedStateBinding, value)
+    set_remembered_value!(binding.remembered, value)
+    return binding
+end
+
+function update_binding_value!(operation, binding::AbstractStateBinding, arguments...; kwargs...)
+    current = binding_value(binding)
+    applicable(operation, current, arguments...) ||
+        throw(ArgumentError("state binding update is not applicable to the current value"))
+    return set_binding_value!(binding, operation(current, arguments...; kwargs...))
+end
+
+"""Focus a parent binding through getter/setter lens functions."""
+function map_binding(binding::AbstractStateBinding; get, set, equals=isequal)
+    parent = binding_value(binding)
+    applicable(get, parent) || throw(ArgumentError("binding lens getter is not applicable"))
+    child = get(parent)
+    applicable(set, parent, child) ||
+        throw(ArgumentError("binding lens setter must accept parent and child values"))
+    return state_binding(
+        () -> get(binding_value(binding)),
+        value -> set_binding_value!(binding, set(binding_value(binding), value));
+        equals,
+    )
+end
+
+"""Retained widget state synchronized with a controlled or uncontrolled binding."""
+mutable struct BoundWidgetState{S,B,A,E}
+    inner::S
+    binding::B
+    apply_value!::A
+    extract_value::E
+end
+
+bound_widget_state(state::BoundWidgetState) = state.inner
+
+function _apply_bound_value!(state::BoundWidgetState)
+    value = binding_value(state.binding)
+    applicable(state.apply_value!, state.inner, value) ||
+        throw(ArgumentError("bound widget apply callback must accept state and value"))
+    state.apply_value!(state.inner, value)
+    return state
+end
+
+function _publish_bound_value!(state::BoundWidgetState)
+    applicable(state.extract_value, state.inner) ||
+        throw(ArgumentError("bound widget extract callback must accept widget state"))
+    set_binding_value!(state.binding, state.extract_value(state.inner))
+    return state
+end
+
+"""Wrap any stateful interactive widget with two-way binding synchronization."""
+function bound_element(
+    widget,
+    binding::AbstractStateBinding;
+    apply_value!,
+    extract_value,
+    state_factory=() -> state_for(widget),
+    kwargs...,
+)
+    factory = () -> begin
+        state = BoundWidgetState(state_factory(), binding, apply_value!, extract_value)
+        _apply_bound_value!(state)
+    end
+    return Element(widget; state_factory=factory, kwargs...)
+end
+
+"""Bind a mutable property on an ordinary widget state."""
+function bound_property_element(
+    widget,
+    binding::AbstractStateBinding,
+    property::Symbol;
+    state_factory=() -> state_for(widget),
+    kwargs...,
+)
+    return bound_element(
+        widget,
+        binding;
+        state_factory,
+        apply_value! = (state, value) -> setproperty!(state, property, value),
+        extract_value=state -> getproperty(state, property),
+        kwargs...,
+    )
+end
+
+function _begin_component_remembered!(state::ComponentState)
+    for remembered in values(state.remembered)
+        remembered.seen = false
+    end
+    return state
+end
+
+function _finish_component_remembered!(state::ComponentState)
+    for (key, remembered) in collect(state.remembered)
+        remembered.seen && continue
+        lock(remembered.lock) do
+            remembered.invalidator = nothing
+            remembered.on_change = nothing
+        end
+        delete!(state.remembered, key)
+    end
+    return state
+end
+
+"""Address of one component-owned value in a saveable-state registry."""
+struct SaveableStateAddress
+    scope::Any
+    key::Any
+end
+
+Base.:(==)(left::SaveableStateAddress, right::SaveableStateAddress) =
+    left.scope == right.scope && left.key == right.key
+Base.isequal(left::SaveableStateAddress, right::SaveableStateAddress) =
+    isequal(left.scope, right.scope) && isequal(left.key, right.key)
+Base.hash(address::SaveableStateAddress, seed::UInt) =
+    hash(address.key, hash(address.scope, seed))
+
+"""Explicit owner for component state that may outlive a mounted subtree."""
+mutable struct SaveableStateRegistry
+    values::Dict{SaveableStateAddress,Any}
+    lock::ReentrantLock
+end
+
+SaveableStateRegistry() = SaveableStateRegistry(Dict{SaveableStateAddress,Any}(), ReentrantLock())
+
+function SaveableStateRegistry(snapshot::AbstractDict)
+    values = Dict{SaveableStateAddress,Any}()
+    for (address, value) in snapshot
+        address isa SaveableStateAddress ||
+            throw(ArgumentError("saveable state snapshot keys must be SaveableStateAddress values"))
+        values[address] = value
+    end
+    return SaveableStateRegistry(values, ReentrantLock())
+end
+
+saveable_state_snapshot(registry::SaveableStateRegistry) = lock(registry.lock) do
+    copy(registry.values)
+end
+
+has_saveable_state(registry::SaveableStateRegistry, key; scope=nothing) = lock(registry.lock) do
+    haskey(registry.values, SaveableStateAddress(scope, key))
+end
+
+function remove_saveable_state!(registry::SaveableStateRegistry, key; scope=nothing)
+    lock(registry.lock) do
+        pop!(registry.values, SaveableStateAddress(scope, key), nothing)
+    end
+    return registry
+end
+
+function clear_saveable_state!(registry::SaveableStateRegistry; scope=nothing, all::Bool=false)
+    lock(registry.lock) do
+        if all
+            empty!(registry.values)
+        else
+            for address in collect(keys(registry.values))
+                isequal(address.scope, scope) && delete!(registry.values, address)
+            end
+        end
+    end
+    return registry
+end
+
+function restore_saveable_state!(
+    registry::SaveableStateRegistry,
+    snapshot::AbstractDict;
+    replace::Bool=true,
+)
+    restored = SaveableStateRegistry(snapshot)
+    lock(registry.lock) do
+        replace && empty!(registry.values)
+        merge!(registry.values, restored.values)
+    end
+    return registry
+end
+
+@enum AsyncResourceStatus begin
+    ResourceIdle
+    ResourceLoading
+    ResourceSuccess
+    ResourceFailure
+end
+
+mutable struct AsyncResourceToken
+    cancelled::Threads.Atomic{Bool}
+end
+
+AsyncResourceToken() = AsyncResourceToken(Threads.Atomic{Bool}(false))
+resource_cancelled(token::AsyncResourceToken) = token.cancelled[]
+throw_if_resource_cancelled(token::AsyncResourceToken) =
+    (resource_cancelled(token) && throw(InterruptException()); token)
+
+"""Component-owned asynchronous value with stale-result suppression."""
+mutable struct AsyncResource
+    status::AsyncResourceStatus
+    value::Any
+    failure::Union{Nothing,CapturedException}
+    generation::UInt64
+    task::Union{Nothing,Task}
+    token::Union{Nothing,AsyncResourceToken}
+    loader::Any
+    keep_value::Bool
+    invalidator::Any
+    lock::ReentrantLock
+end
+
+AsyncResource(initial=nothing) = AsyncResource(
+    ResourceIdle,
+    initial,
+    nothing,
+    UInt64(0),
+    nothing,
+    nothing,
+    nothing,
+    true,
+    nothing,
+    ReentrantLock(),
+)
+
+resource_status(resource::AsyncResource) = lock(resource.lock) do
+    resource.status
+end
+resource_value(resource::AsyncResource) = lock(resource.lock) do
+    resource.value
+end
+resource_failure(resource::AsyncResource) = lock(resource.lock) do
+    resource.failure
+end
+resource_generation(resource::AsyncResource) = lock(resource.lock) do
+    resource.generation
+end
+resource_loading(resource::AsyncResource) = resource_status(resource) == ResourceLoading
+resource_succeeded(resource::AsyncResource) = resource_status(resource) == ResourceSuccess
+resource_failed(resource::AsyncResource) = resource_status(resource) == ResourceFailure
+
+function _invoke_resource_loader(loader, token, dependencies)
+    arguments = dependencies isa Tuple ? dependencies : (dependencies,)
+    applicable(loader, token, arguments...) && return loader(token, arguments...)
+    applicable(loader, arguments...) && return loader(arguments...)
+    applicable(loader, token) && return loader(token)
+    applicable(loader) && return loader()
+    throw(ArgumentError("async resource loader must accept token/dependencies, dependencies, token, or no arguments"))
+end
+
+function load_async_resource!(
+    resource::AsyncResource,
+    loader=resource.loader;
+    dependencies=(),
+    keep_value::Bool=resource.keep_value,
+)
+    loader === nothing && throw(ArgumentError("async resource has no loader"))
+    token = AsyncResourceToken()
+    generation, invalidator = lock(resource.lock) do
+        resource.token === nothing || Threads.atomic_xchg!(resource.token.cancelled, true)
+        resource.generation += UInt64(1)
+        resource.status = ResourceLoading
+        keep_value || (resource.value = nothing)
+        resource.failure = nothing
+        resource.loader = loader
+        resource.keep_value = keep_value
+        resource.token = token
+        resource.generation, resource.invalidator
+    end
+    invalidator === nothing || invalidator()
+    task = @async begin
+        try
+            value = _invoke_resource_loader(loader, token, dependencies)
+            notify = lock(resource.lock) do
+                (resource.generation == generation && resource.token === token && !resource_cancelled(token)) ||
+                    return nothing
+                resource.value = value
+                resource.failure = nothing
+                resource.status = ResourceSuccess
+                resource.task = nothing
+                resource.invalidator
+            end
+            notify === nothing || notify()
+        catch error
+            resource_cancelled(token) && return
+            failure = CapturedException(error, catch_backtrace())
+            notify = lock(resource.lock) do
+                (resource.generation == generation && resource.token === token) || return nothing
+                resource.failure = failure
+                resource.status = ResourceFailure
+                resource.task = nothing
+                resource.invalidator
+            end
+            notify === nothing || notify()
+        end
+    end
+    lock(resource.lock) do
+        resource.generation == generation && resource.token === token && (resource.task = task)
+    end
+    return resource
+end
+
+function cancel_async_resource!(resource::AsyncResource)
+    invalidator = lock(resource.lock) do
+        resource.token === nothing || Threads.atomic_xchg!(resource.token.cancelled, true)
+        resource.task = nothing
+        resource.token = nothing
+        resource.status = ResourceIdle
+        resource.invalidator
+    end
+    invalidator === nothing || invalidator()
+    return resource
+end
+
+retry_async_resource!(resource::AsyncResource; kwargs...) =
+    load_async_resource!(resource, resource.loader; kwargs...)
+
+struct AsyncResourceMemoryKey
+    key::Any
+end
+struct AsyncResourceEffectKey
+    key::Any
+end
+
+"""Retain and load an async resource under an explicit component key."""
+function use_resource!(
+    state::ComponentState,
+    key,
+    loader;
+    dependencies=(),
+    initial=nothing,
+    keep_value::Bool=true,
+)
+    remembered = remember!(state, AsyncResourceMemoryKey(key), AsyncResource(initial))
+    resource = remembered_value(remembered)
+    use_effect!(state, AsyncResourceEffectKey(key), dependencies) do component_state
+        lock(resource.lock) do
+            resource.invalidator = () -> invalidate_component!(component_state)
+        end
+        load_async_resource!(resource, loader; dependencies, keep_value)
+        return () -> begin
+            lock(resource.lock) do
+                resource.invalidator = nothing
+            end
+            cancel_async_resource!(resource)
+        end
+    end
+    return resource
+end
+
+function _invoke_resource_content(builder, primary, resource)
+    applicable(builder, primary, resource) && return builder(primary, resource)
+    applicable(builder, primary) && return builder(primary)
+    applicable(builder, resource) && return builder(resource)
+    applicable(builder) && return builder()
+    return builder
+end
+
+"""Select declarative content for an async resource's current state."""
+function resource_content(
+    resource::AsyncResource;
+    idle=nothing,
+    loading="Loading…",
+    success=value -> value,
+    failure=error -> "Error: $(error.ex)",
+)
+    status, value, captured = lock(resource.lock) do
+        resource.status, resource.value, resource.failure
+    end
+    status == ResourceIdle && return _invoke_resource_content(idle === nothing ? loading : idle, resource, resource)
+    status == ResourceLoading && return _invoke_resource_content(loading, resource, resource)
+    status == ResourceSuccess && return _invoke_resource_content(success, value, resource)
+    return _invoke_resource_content(failure, captured, resource)
+end
+
+"""Build a retained component around loading/error/success resource content."""
+function async_resource_component(
+    loader;
+    dependencies=(),
+    resource_key=:resource,
+    initial=nothing,
+    keep_value::Bool=true,
+    idle="Loading…",
+    loading=idle,
+    success=value -> value,
+    failure=error -> "Error: $(error.ex)",
+    kwargs...,
+)
+    return component(; kwargs...) do state
+        resource = use_resource!(
+            state,
+            resource_key,
+            loader;
+            dependencies,
+            initial,
+            keep_value,
+        )
+        resource_content(resource; idle, loading, success, failure)
+    end
+end
+
+function _begin_component_effects!(state::ComponentState)
+    for effect in values(state.effects)
+        effect.seen = false
+    end
+    return state
+end
+
+function _invoke_component_cleanup!(cleanup, state::ComponentState)
+    cleanup === nothing && return nothing
+    if applicable(cleanup, state)
+        cleanup(state)
+    elseif applicable(cleanup)
+        cleanup()
+    else
+        throw(ArgumentError("component effect cleanup must accept ComponentState or no arguments"))
+    end
+    return nothing
+end
+
+function _invoke_component_effect_setup(setup, state::ComponentState)
+    result = if applicable(setup, state)
+        setup(state)
+    elseif applicable(setup)
+        setup()
+    else
+        throw(ArgumentError("component effect setup must accept ComponentState or no arguments"))
+    end
+    (result === nothing || applicable(result) || applicable(result, state)) ||
+        throw(ArgumentError("component effect setup must return a cleanup callback or nothing"))
+    return result
+end
+
+"""Register a keyed effect for the current component render.
+
+The setup callback runs after a successful component view build. It runs again
+only when dependencies change by isequal; the previous cleanup runs first.
+"""
+function use_effect!(
+    setup,
+    state::ComponentState,
+    key,
+    dependencies=(),
+)
+    if haskey(state.effects, key)
+        effect = state.effects[key]
+        changed = !isequal(effect.dependencies, dependencies)
+        effect.dependencies = dependencies
+        effect.setup = setup
+        effect.seen = true
+        effect.pending |= changed
+    else
+        state.effects[key] = ComponentEffect(dependencies, setup, nothing, true, true)
+        push!(state.effect_order, key)
+    end
+    return state
+end
+
+use_effect!(state::ComponentState, key, dependencies, setup) =
+    use_effect!(setup, state, key, dependencies)
+
+use_effect!(::ComponentState, ::ComponentState, key, dependencies) =
+    throw(ArgumentError("use_effect! cannot use ComponentState as both callback and key; choose an unambiguous key"))
+
+"""Compose-compatible name for a keyed setup/cleanup effect."""
+disposable_effect!(setup, state::ComponentState, key, dependencies=()) =
+    use_effect!(setup, state, key, dependencies)
+
+disposable_effect!(state::ComponentState, key, dependencies, setup) =
+    use_effect!(setup, state, key, dependencies)
+
+disposable_effect!(::ComponentState, ::ComponentState, key, dependencies) =
+    throw(ArgumentError("disposable_effect! cannot use ComponentState as both callback and key; choose an unambiguous key"))
+
+struct SideEffectKey
+    key::Any
+end
+
+function _invoke_side_effect(callback, state::ComponentState)
+    if applicable(callback, state)
+        callback(state)
+    elseif applicable(callback)
+        callback()
+    else
+        throw(ArgumentError("side effect must accept ComponentState or no arguments"))
+    end
+    return nothing
+end
+
+"""Run a keyed callback after every successful component commit."""
+function side_effect!(callback, state::ComponentState, key)
+    effect_key = SideEffectKey(key)
+    setup = component_state -> _invoke_side_effect(callback, component_state)
+    if haskey(state.effects, effect_key)
+        effect = state.effects[effect_key]
+        effect.seen && throw(ArgumentError("duplicate side effect key: $key"))
+        effect.setup = setup
+        effect.seen = true
+        effect.pending = true
+    else
+        state.effects[effect_key] = ComponentEffect((), setup, nothing, true, true)
+        push!(state.effect_order, effect_key)
+    end
+    return state
+end
+
+side_effect!(state::ComponentState, key, callback) = side_effect!(callback, state, key)
+
+side_effect!(::ComponentState, ::ComponentState, key) =
+    throw(ArgumentError("side_effect! cannot use ComponentState as both callback and key; choose an unambiguous key"))
+
+struct UpdatedRememberedKey
+    key::Any
+end
+
+"""Remember a cell whose value is refreshed during render without invalidating.
+
+Long-lived effects can retain this cell and read the latest callback or model
+value without adding that value to their restart dependencies.
+"""
+function remember_updated!(state::ComponentState, key, value)
+    remembered = remember!(state, UpdatedRememberedKey(key), value)
+    lock(remembered.lock) do
+        if !isequal(remembered.value, value)
+            remembered.value = value
+            remembered.version += UInt64(1)
+        end
+    end
+    return remembered
+end
+
+function _commit_component_effects!(state::ComponentState)
+    for key in reverse(copy(state.effect_order))
+        effect = get(state.effects, key, nothing)
+        effect === nothing && continue
+        if !effect.seen
+            _invoke_component_cleanup!(effect.cleanup, state)
+            delete!(state.effects, key)
+            index = findfirst(item -> isequal(item, key), state.effect_order)
+            index === nothing || deleteat!(state.effect_order, index)
+        end
+    end
+    for key in state.effect_order
+        effect = state.effects[key]
+        effect.pending || continue
+        _invoke_component_cleanup!(effect.cleanup, state)
+        effect.cleanup = nothing
+        effect.cleanup = _invoke_component_effect_setup(effect.setup, state)
+        effect.pending = false
+    end
+    return state
+end
+
+"""Run and remove all effect cleanups owned by a component."""
+function clear_component_effects!(state::ComponentState)
+    first_error = nothing
+    for key in reverse(state.effect_order)
+        effect = get(state.effects, key, nothing)
+        effect === nothing && continue
+        try
+            _invoke_component_cleanup!(effect.cleanup, state)
+        catch error
+            first_error === nothing && (first_error = error)
+        end
+    end
+    empty!(state.effects)
+    empty!(state.effect_order)
+    first_error === nothing || throw(first_error)
+    return state
+end
+
+@enum LaunchedTaskStatus begin
+    LaunchedIdle
+    LaunchedRunning
+    LaunchedSucceeded
+    LaunchedFailed
+    LaunchedCancelled
+end
+
+"""Cooperative cancellation token passed to a component launched task."""
+mutable struct LaunchedTaskToken
+    cancelled::Threads.Atomic{Bool}
+end
+
+LaunchedTaskToken() = LaunchedTaskToken(Threads.Atomic{Bool}(false))
+launched_task_cancelled(token::LaunchedTaskToken) = token.cancelled[]
+throw_if_launched_task_cancelled(token::LaunchedTaskToken) =
+    (launched_task_cancelled(token) && throw(InterruptException()); token)
+
+"""Lifecycle-bound asynchronous work started by `launched_effect!`."""
+mutable struct LaunchedTask
+    status::LaunchedTaskStatus
+    failure::Union{Nothing,CapturedException}
+    generation::UInt64
+    task::Union{Nothing,Task}
+    token::Union{Nothing,LaunchedTaskToken}
+    invalidator::Any
+    lock::ReentrantLock
+end
+
+LaunchedTask() = LaunchedTask(
+    LaunchedIdle,
+    nothing,
+    UInt64(0),
+    nothing,
+    nothing,
+    nothing,
+    ReentrantLock(),
+)
+
+launched_task_status(task::LaunchedTask) = lock(task.lock) do
+    task.status
+end
+launched_task_failure(task::LaunchedTask) = lock(task.lock) do
+    task.failure
+end
+launched_task_generation(task::LaunchedTask) = lock(task.lock) do
+    task.generation
+end
+launched_task_running(task::LaunchedTask) = launched_task_status(task) == LaunchedRunning
+launched_task_succeeded(task::LaunchedTask) = launched_task_status(task) == LaunchedSucceeded
+launched_task_failed(task::LaunchedTask) = launched_task_status(task) == LaunchedFailed
+
+function _invoke_launched_task(operation, token, state, dependencies)
+    arguments = dependencies isa Tuple ? dependencies : (dependencies,)
+    applicable(operation, token, state, arguments...) && return operation(token, state, arguments...)
+    applicable(operation, token, arguments...) && return operation(token, arguments...)
+    applicable(operation, state, arguments...) && return operation(state, arguments...)
+    applicable(operation, arguments...) && return operation(arguments...)
+    applicable(operation, token, state) && return operation(token, state)
+    applicable(operation, token) && return operation(token)
+    applicable(operation, state) && return operation(state)
+    applicable(operation) && return operation()
+    throw(ArgumentError("launched effect must accept token/state/dependencies, dependencies, token/state, or no arguments"))
+end
+
+function cancel_launched_task!(launched::LaunchedTask)
+    invalidator = lock(launched.lock) do
+        launched.token === nothing || Threads.atomic_xchg!(launched.token.cancelled, true)
+        launched.task = nothing
+        launched.token = nothing
+        launched.status == LaunchedRunning && (launched.status = LaunchedCancelled)
+        launched.invalidator
+    end
+    invalidator === nothing || invalidator()
+    return launched
+end
+
+function _start_launched_task!(launched::LaunchedTask, operation, state, dependencies)
+    token = LaunchedTaskToken()
+    generation, invalidator = lock(launched.lock) do
+        launched.token === nothing || Threads.atomic_xchg!(launched.token.cancelled, true)
+        launched.generation += UInt64(1)
+        launched.status = LaunchedRunning
+        launched.failure = nothing
+        launched.token = token
+        launched.generation, launched.invalidator
+    end
+    invalidator === nothing || invalidator()
+    task = @async try
+        _invoke_launched_task(operation, token, state, dependencies)
+        notify = lock(launched.lock) do
+            (launched.generation == generation && launched.token === token && !launched_task_cancelled(token)) ||
+                return nothing
+            launched.status = LaunchedSucceeded
+            launched.task = nothing
+            launched.invalidator
+        end
+        notify === nothing || notify()
+    catch error
+        cancelled = launched_task_cancelled(token) || error isa InterruptException
+        failure = cancelled ? nothing : CapturedException(error, catch_backtrace())
+        notify = lock(launched.lock) do
+            (launched.generation == generation && launched.token === token) || return nothing
+            launched.status = cancelled ? LaunchedCancelled : LaunchedFailed
+            launched.failure = failure
+            launched.task = nothing
+            launched.invalidator
+        end
+        notify === nothing || notify()
+    end
+    lock(launched.lock) do
+        launched.generation == generation && launched.token === token && (launched.task = task)
+    end
+    return launched
+end
+
+struct LaunchedTaskMemoryKey
+    key::Any
+end
+struct LaunchedTaskEffectKey
+    key::Any
+end
+
+"""Launch keyed asynchronous work after a successful component commit.
+
+Changing `dependencies`, omitting the call on a later render, or unmounting the
+component cooperatively cancels the previous token. Late completions cannot
+overwrite the state of a newer generation.
+"""
+function launched_effect!(
+    operation,
+    state::ComponentState,
+    key,
+    dependencies=(),
+)
+    remembered = remember!(state, LaunchedTaskMemoryKey(key), LaunchedTask())
+    launched = remembered_value(remembered)
+    use_effect!(state, LaunchedTaskEffectKey(key), dependencies) do component_state
+        lock(launched.lock) do
+            launched.invalidator = () -> invalidate_component!(component_state)
+        end
+        _start_launched_task!(launched, operation, component_state, dependencies)
+        return () -> begin
+            cancel_launched_task!(launched)
+            lock(launched.lock) do
+                launched.invalidator = nothing
+            end
+        end
+    end
+    return launched
+end
+
+launched_effect!(state::ComponentState, key, dependencies, operation) =
+    launched_effect!(operation, state, key, dependencies)
+
+launched_effect!(::ComponentState, ::ComponentState, key, dependencies) =
+    throw(ArgumentError("launched_effect! cannot use ComponentState as both operation and key; choose an unambiguous key"))
+
+"""A remembered value paired with the lifecycle task producing it."""
+struct ProducedState
+    remembered::RememberedValue
+    task::LaunchedTask
+end
+
+produced_value(state::ProducedState) = remembered_value(state.remembered)
+produced_version(state::ProducedState) = remembered_version(state.remembered)
+produced_status(state::ProducedState) = launched_task_status(state.task)
+produced_failure(state::ProducedState) = launched_task_failure(state.task)
+produced_running(state::ProducedState) = launched_task_running(state.task)
+produced_succeeded(state::ProducedState) = launched_task_succeeded(state.task)
+produced_failed(state::ProducedState) = launched_task_failed(state.task)
+
+struct ProducedStateMemoryKey
+    key::Any
+end
+
+struct ProducedStateTaskKey
+    key::Any
+end
+
+function _invoke_state_producer(producer, publish, token, state, dependencies)
+    arguments = dependencies isa Tuple ? dependencies : (dependencies,)
+    applicable(producer, publish, token, state, arguments...) &&
+        return producer(publish, token, state, arguments...)
+    applicable(producer, publish, token, arguments...) &&
+        return producer(publish, token, arguments...)
+    applicable(producer, publish, state, arguments...) &&
+        return producer(publish, state, arguments...)
+    applicable(producer, publish, arguments...) && return producer(publish, arguments...)
+    applicable(producer, publish, token, state) && return producer(publish, token, state)
+    applicable(producer, publish, token) && return producer(publish, token)
+    applicable(producer, publish, state) && return producer(publish, state)
+    applicable(producer, publish) && return producer(publish)
+    throw(ArgumentError(
+        "state producer must accept publish/token/state/dependencies, publish/dependencies, or publish",
+    ))
+end
+
+"""Produce remembered component state from lifecycle-bound asynchronous work.
+
+The producer receives a `publish(value)` callback followed by the same optional
+token, component state, and dependency arguments as `launched_effect!`.
+Publishing from a cancelled or superseded generation returns `false` and cannot
+overwrite the current generation.
+"""
+function produce_state!(
+    producer,
+    state::ComponentState,
+    key,
+    initial,
+    dependencies=(),
+)
+    remembered = remember!(state, ProducedStateMemoryKey(key), initial)
+    task_ref = Ref{Union{Nothing,LaunchedTask}}(nothing)
+    task = launched_effect!(state, ProducedStateTaskKey(key), dependencies) do token, component_state, arguments...
+        publish = value -> begin
+            launched = task_ref[]
+            launched === nothing && return false
+            return lock(launched.lock) do
+                launched.token === token &&
+                    launched.status == LaunchedRunning &&
+                    !launched_task_cancelled(token) || return false
+                set_remembered_value!(remembered, value)
+                true
+            end
+        end
+        _invoke_state_producer(producer, publish, token, component_state, arguments)
+    end
+    task_ref[] = task
+    return ProducedState(remembered, task)
+end
+
+produce_state!(state::ComponentState, key, initial, dependencies, producer) =
+    produce_state!(producer, state, key, initial, dependencies)
+
+produce_state!(::ComponentState, ::ComponentState, key, initial, producer) =
+    throw(ArgumentError("produce_state! cannot use ComponentState as both producer and key; choose an unambiguous key"))
+
+"""A functional component whose view is derived from retained local state."""
+struct StatefulComponent{F}
+    view::F
+end
+
+"""Typed composition-local value with identity independent of its display name."""
+mutable struct CompositionLocal{T}
+    name::Symbol
+    default::T
+end
+
+"""Create a typed value that can be overridden for one declarative subtree."""
+function composition_local(name, default; value_type::Type=typeof(default))
+    default isa value_type || throw(ArgumentError("composition-local default does not match value_type"))
+    return CompositionLocal{value_type}(Symbol(name), default)
+end
+
+"""Read the nearest provided value, or the composition local's default."""
+function composition_value(state::ComponentState, composition_local_value::CompositionLocal{T}) where {T}
+    return lock(state.lock) do
+        get(
+            state.composition,
+            composition_local_value,
+            composition_local_value.default,
+        )::T
+    end
+end
+
+const ComponentAreaLocal = composition_local(
+    :component_area,
+    Rect(1, 1, 0, 0);
+    value_type=Rect,
+)
+
+"""Return the current allocation of a retained component."""
+component_area(state::ComponentState) = composition_value(state, ComponentAreaLocal)
+
+"""Return the current height and width allocated to a retained component."""
+component_size(state::ComponentState) = begin
+    area = component_area(state)
+    Size(area.height, area.width)
+end
+
+function _invoke_constraints_builder(builder, state::ComponentState, area::Rect)
+    applicable(builder, state, area) && return builder(state, area)
+    applicable(builder, area, state) && return builder(area, state)
+    applicable(builder, area) && return builder(area)
+    applicable(builder, state) && return builder(state)
+    applicable(builder) && return builder()
+    throw(ArgumentError(
+        "constraint builder must accept state/area, area/state, area, state, or no arguments",
+    ))
+end
+
+"""Create a component whose content can branch on its allocated `Rect`."""
+function box_with_constraints(builder; kwargs...)
+    return component(
+        state -> _invoke_constraints_builder(builder, state, component_area(state));
+        kwargs...,
+    )
+end
+
+struct SaveableStateContext
+    registry::SaveableStateRegistry
+    scope::Any
+end
+
+const SaveableStateLocal = composition_local(
+    :saveable_state_registry,
+    nothing;
+    value_type=Union{Nothing,SaveableStateContext},
+)
+
+struct ContextProvider
+    bindings::Vector{Pair{Any,Any}}
+end
+
+"""Retained failure state for one declarative error boundary."""
+mutable struct ComponentErrorBoundaryState
+    failure::Union{Nothing,CapturedException}
+    failure_count::UInt64
+    reset_key::Any
+    invalidator::Any
+end
+
+"""Compatibility name for `ComponentErrorBoundaryState`."""
+const ErrorBoundaryState = ComponentErrorBoundaryState
+
+struct ComponentErrorBoundary{F,H}
+    fallback::F
+    on_error::H
+    reset_key::Any
+end
+
+"""Wrap a subtree and replace it with fallback content after a render failure."""
+function error_boundary(
+    children...;
+    fallback=error -> "Error: $(error.ex)",
+    on_error=(error, state) -> nothing,
+    reset_key=nothing,
+    kwargs...,
+)
+    widget = ComponentErrorBoundary(fallback, on_error, reset_key)
+    return Element(
+        widget;
+        children,
+        state_factory=() -> ComponentErrorBoundaryState(nothing, UInt64(0), reset_key, nothing),
+        kwargs...,
+    )
+end
+
+boundary_failure(state::ComponentErrorBoundaryState) = state.failure
+boundary_failed(state::ComponentErrorBoundaryState) = state.failure !== nothing
+
+"""Clear a captured boundary failure and request another render attempt."""
+function retry_error_boundary!(state::ComponentErrorBoundaryState)
+    state.failure = nothing
+    invalidator = state.invalidator
+    invalidator === nothing || invalidator()
+    return state
+end
+
+function _context_bindings(bindings)
+    resolved = Pair{Any,Any}[]
+    seen = Set{Any}()
+    for binding in bindings
+        local_value = first(binding)
+        local_value isa CompositionLocal || throw(ArgumentError("composition provider key must be CompositionLocal"))
+        value = last(binding)
+        value isa typeof(local_value).parameters[1] ||
+            throw(ArgumentError("provided value does not match composition-local type"))
+        local_value in seen && throw(ArgumentError("duplicate composition-local binding: $(local_value.name)"))
+        push!(seen, local_value)
+        push!(resolved, local_value => value)
+    end
+    return resolved
+end
+
+"""Provide composition-local values to retained components below this node."""
+provide_context(bindings::Pair...; children=(), kwargs...) =
+    Element(ContextProvider(_context_bindings(bindings)); children, kwargs...)
+
+provide_context(build::Function, bindings::Pair...; kwargs...) =
+    provide_context(bindings...; children=(build(),), kwargs...)
+
+"""Provide one saveable-state registry and optional namespace to a subtree."""
+saveable_state_provider(
+    registry::SaveableStateRegistry,
+    children...;
+    scope=nothing,
+    kwargs...,
+) = provide_context(
+    SaveableStateLocal => SaveableStateContext(registry, scope);
+    children,
+    kwargs...,
+)
+
+saveable_state_provider(
+    build::Function,
+    registry::SaveableStateRegistry;
+    scope=nothing,
+    kwargs...,
+) = saveable_state_provider(registry, build(); scope, kwargs...)
+
+struct InheritSaveableStateScope end
+const INHERIT_SAVEABLE_STATE_SCOPE = InheritSaveableStateScope()
+
+struct SaveableRememberedKey
+    registry::SaveableStateRegistry
+    address::SaveableStateAddress
+end
+
+Base.:(==)(left::SaveableRememberedKey, right::SaveableRememberedKey) =
+    left.registry === right.registry && left.address == right.address
+Base.isequal(left::SaveableRememberedKey, right::SaveableRememberedKey) =
+    left.registry === right.registry && isequal(left.address, right.address)
+Base.hash(key::SaveableRememberedKey, seed::UInt) =
+    hash(key.address, hash(objectid(key.registry), seed))
+
+function _saveable_context(
+    state::ComponentState,
+    registry::Union{Nothing,SaveableStateRegistry},
+    scope,
+)
+    if registry !== nothing
+        resolved_scope = scope isa InheritSaveableStateScope ? nothing : scope
+        return SaveableStateContext(registry, resolved_scope)
+    end
+    context = composition_value(state, SaveableStateLocal)
+    context === nothing && throw(ArgumentError(
+        "remember_saveable! requires a registry keyword or saveable_state_provider ancestor",
+    ))
+    resolved_scope = scope isa InheritSaveableStateScope ? context.scope : scope
+    return SaveableStateContext(context.registry, resolved_scope)
+end
+
+function _invoke_saveable_transform(transform, value, state::ComponentState, label::AbstractString)
+    applicable(transform, value, state) && return transform(value, state)
+    applicable(transform, value) && return transform(value)
+    throw(ArgumentError("saveable state $label must accept value/state or value"))
+end
+
+function _invoke_saveable_factory(factory, state::ComponentState)
+    applicable(factory, state) && return factory(state)
+    applicable(factory) && return factory()
+    throw(ArgumentError("saveable state factory must accept ComponentState or no arguments"))
+end
+
+function _write_saveable_state!(
+    registry::SaveableStateRegistry,
+    address::SaveableStateAddress,
+    value,
+    save,
+    state::ComponentState,
+)
+    saved = _invoke_saveable_transform(save, value, state, "saver")
+    lock(registry.lock) do
+        registry.values[address] = saved
+    end
+    return value
+end
+
+function _remember_saveable!(
+    factory,
+    state::ComponentState,
+    key;
+    registry::Union{Nothing,SaveableStateRegistry}=nothing,
+    scope=INHERIT_SAVEABLE_STATE_SCOPE,
+    save=identity,
+    restore=identity,
+)
+    context = _saveable_context(state, registry, scope)
+    address = SaveableStateAddress(context.scope, key)
+    memory_key = SaveableRememberedKey(context.registry, address)
+    existing = lock(state.lock) do
+        get(state.remembered, memory_key, nothing)
+    end
+    initial = if existing === nothing
+        found, saved = lock(context.registry.lock) do
+            haskey(context.registry.values, address) ?
+                (true, context.registry.values[address]) : (false, nothing)
+        end
+        found ? _invoke_saveable_transform(restore, saved, state, "restorer") :
+            _invoke_saveable_factory(factory, state)
+    else
+        nothing
+    end
+    remembered = remember!(state, memory_key, initial)
+    observer = value -> _write_saveable_state!(context.registry, address, value, save, state)
+    lock(remembered.lock) do
+        remembered.on_change = observer
+    end
+    _write_saveable_state!(context.registry, address, remembered_value(remembered), save, state)
+    return remembered
+end
+
+"""Retain state locally while mirroring it into an explicit restoration registry."""
+remember_saveable!(
+    state::ComponentState,
+    key,
+    initial;
+    kwargs...,
+) = _remember_saveable!(() -> initial, state, key; kwargs...)
+
+remember_saveable!(
+    factory::Function,
+    state::ComponentState,
+    key;
+    kwargs...,
+) = _remember_saveable!(factory, state, key; kwargs...)
+
+remember_saveable!(state::ComponentState, key, factory::Function; kwargs...) =
+    _remember_saveable!(factory, state, key; kwargs...)
+
 """A cheap declarative description of one widget or layout container."""
-struct Element{W,S,H,M,U}
+struct Element{W,S,C,H,M,U}
     key::Any
     id::Any
     widget::W
     children::Vector{Element}
     layout::Any
     state_factory::S
+    on_capture::C
     on_event::H
     on_mount::M
     on_unmount::U
@@ -77,6 +1445,7 @@ function Element(
     children=(),
     layout=nothing,
     state_factory=() -> state_for(widget),
+    on_capture=(event, state) -> nothing,
     on_event=(event, state) -> nothing,
     on_mount=state -> nothing,
     on_unmount=state -> nothing,
@@ -88,19 +1457,20 @@ function Element(
     style_role::Union{Nothing,Symbol}=nothing,
     style_patch::StylePatch=StylePatch(),
     semantics=nothing,
+    modifier::ElementModifier=ElementModifier(),
 )
     resolved_children = Element[]
     for child in children
-        child isa Element || throw(ArgumentError("element children must be Element values"))
-        push!(resolved_children, child)
+        _append_elements!(resolved_children, child)
     end
-    Element(
+    value = Element(
         key,
         id,
         widget,
         resolved_children,
         layout,
         state_factory,
+        on_capture,
         on_event,
         on_mount,
         on_unmount,
@@ -113,10 +1483,278 @@ function Element(
         style_patch,
         semantics,
     )
+    return isempty(modifier.properties) ? value : modify(value, modifier)
 end
+
+function _modifier_property(modifier::ElementModifier, name::Symbol, fallback)
+    return haskey(modifier.properties, name) ? getproperty(modifier.properties, name) : fallback
+end
+
+"""Apply a reusable modifier chain to an existing declarative element."""
+function modify(value::Element, modifiers::ElementModifier...)
+    modifier = then(modifiers...)
+    isempty(modifier.properties) && return value
+    focusable = _modifier_property(modifier, :focusable, value.focusable)
+    disabled = _modifier_property(modifier, :disabled, value.disabled)
+    hidden = _modifier_property(modifier, :hidden, value.hidden)
+    tab_index = _modifier_property(modifier, :tab_index, value.tab_index)
+    classes = _modifier_property(modifier, :classes, value.classes)
+    style_role = _modifier_property(modifier, :style_role, value.style_role)
+    style_patch = _modifier_property(modifier, :style_patch, value.style_patch)
+    focusable isa Bool || throw(ArgumentError("element modifier focusable must be Bool"))
+    disabled isa Bool || throw(ArgumentError("element modifier disabled must be Bool"))
+    hidden isa Bool || throw(ArgumentError("element modifier hidden must be Bool"))
+    tab_index isa Integer || throw(ArgumentError("element modifier tab_index must be an integer"))
+    style_role isa Union{Nothing,Symbol} || throw(ArgumentError("element modifier style_role must be Symbol or nothing"))
+    style_patch isa StylePatch || throw(ArgumentError("element modifier style_patch must be StylePatch"))
+    return Element(
+        _modifier_property(modifier, :key, value.key),
+        _modifier_property(modifier, :id, value.id),
+        value.widget,
+        value.children,
+        value.layout,
+        _modifier_property(modifier, :state_factory, value.state_factory),
+        _modifier_property(modifier, :on_capture, value.on_capture),
+        _modifier_property(modifier, :on_event, value.on_event),
+        _modifier_property(modifier, :on_mount, value.on_mount),
+        _modifier_property(modifier, :on_unmount, value.on_unmount),
+        focusable,
+        disabled,
+        hidden,
+        Int(tab_index),
+        Set{Symbol}(Symbol(item) for item in classes),
+        style_role,
+        style_patch,
+        _modifier_property(modifier, :semantics, value.semantics),
+    )
+end
+
+"""Stable handle for requesting focus from declarative component code.
+
+Attach it with `focus_requester(element, requester)`, then call
+`request_focus!(tree, requester)` after the element has been rendered. The
+requester itself becomes the focus identity when the element has no explicit
+`id`, so callers do not need to invent globally unique IDs.
+"""
+mutable struct FocusRequester
+    target::Any
+end
+
+FocusRequester() = FocusRequester(nothing)
+focus_requester_target(requester::FocusRequester) = requester.target
+
+"""Attach a focus requester to an element and make that element focusable."""
+function focus_requester(
+    value::Element,
+    requester::FocusRequester;
+    target=nothing,
+)
+    resolved = target === nothing ?
+        (value.id === nothing ? requester : value.id) : target
+    value.id === nothing || isequal(value.id, resolved) ||
+        throw(ArgumentError("focus requester target must match the element ID"))
+    requester.target = resolved
+    modifier = value.id === nothing ?
+        element_modifier(id=resolved, focusable=true) :
+        element_modifier(focusable=true)
+    return modify(value, modifier)
+end
+
+focus_requester(widget, requester::FocusRequester; kwargs...) =
+    focus_requester(element(widget), requester; kwargs...)
 
 """Wrap an immediate-mode widget in a declarative element."""
 leaf(widget; kwargs...) = Element(widget; kwargs...)
+
+"""Convert a widget or an existing `Element` to a declarative element.
+
+`element` is the primary leaf constructor for Compose-style trees. Existing
+elements pass through unchanged when no properties are supplied, which makes
+conditional and generated child collections easy to compose.
+"""
+function element(
+    value::Element;
+    modifier::ElementModifier=ElementModifier(),
+    kwargs...,
+)
+    isempty(kwargs) ||
+        throw(ArgumentError("cannot apply element properties to an existing Element; use an ElementModifier"))
+    return isempty(modifier.properties) ? value : modify(value, modifier)
+end
+element(widget; kwargs...) = Element(widget; kwargs...)
+
+"""Create a retained functional component boundary.
+
+The view receives a ComponentState and may return an element, widget, string,
+collection, generator, or nothing. Rebuilding the description with the same key
+preserves the local value, descendant state, and keyed effects.
+"""
+function component(
+    view;
+    initial=nothing,
+    state_factory=() -> ComponentState(initial),
+    kwargs...,
+)
+    haskey(kwargs, :children) &&
+        throw(ArgumentError("component view owns its children; return them from the view callback"))
+    return Element(
+        StatefulComponent(view);
+        state_factory,
+        kwargs...,
+    )
+end
+
+function _append_elements!(destination::Vector{Element}, child)
+    isnothing(child) && return destination
+    if child isa Element
+        push!(destination, child)
+    elseif child isa Tuple || child isa AbstractVector || child isa Base.Generator
+        for nested in child
+            _append_elements!(destination, nested)
+        end
+    elseif child isa AbstractString
+        push!(destination, element(Label(child)))
+    else
+        push!(destination, element(child))
+    end
+    return destination
+end
+
+function _normalize_elements(children)
+    resolved = Element[]
+    for child in children
+        _append_elements!(resolved, child)
+    end
+    return resolved
+end
+
+"""Attach an explicit reconciliation key to exactly one normalized child.
+
+An existing equal key is preserved. A conflicting key is rejected so collection
+helpers cannot silently replace identity chosen by the child itself.
+"""
+function keyed(key, content)
+    isnothing(key) && throw(ArgumentError("keyed content requires a non-nothing key"))
+    children = _normalize_elements((content,))
+    length(children) == 1 || throw(ArgumentError(
+        "keyed content must normalize to exactly one element; wrap multiple children in fragment or a layout",
+    ))
+    child = only(children)
+    if isnothing(child.key)
+        return modify(child, element_modifier(key=key))
+    end
+    isequal(child.key, key) || throw(ArgumentError(
+        "keyed content already has conflicting key $(repr(child.key)); requested $(repr(key))",
+    ))
+    return child
+end
+
+keyed(builder::Function, key) = keyed(key, builder())
+
+function _invoke_keyed_collection_key(key_function, item, index::Int)
+    applicable(key_function, item, index) && return key_function(item, index)
+    applicable(key_function, item) && return key_function(item)
+    throw(ArgumentError("keyed_each key function must accept item/index or item"))
+end
+
+function _invoke_keyed_collection_item(builder, item, index::Int, key)
+    applicable(builder, item, index, key) && return builder(item, index, key)
+    applicable(builder, item, index) && return builder(item, index)
+    applicable(builder, item) && return builder(item)
+    applicable(builder) && return builder()
+    throw(ArgumentError(
+        "keyed_each item builder must accept item/index/key, item/index, item, or no arguments",
+    ))
+end
+
+"""Build one explicitly keyed element per value from any finite iterable.
+
+The key callback accepts `(item, index)` or `item`; the item callback accepts
+`(item, index, key)`, `(item, index)`, `item`, or no arguments. Keys are checked
+for `nothing` and duplicates before the result is returned.
+"""
+function keyed_each(items; key, item)
+    elements = Element[]
+    keys = Set{Any}()
+    for (index, value) in enumerate(items)
+        resolved_key = _invoke_keyed_collection_key(key, value, index)
+        isnothing(resolved_key) && throw(ArgumentError(
+            "keyed_each produced nothing for item $index",
+        ))
+        resolved_key in keys && throw(ArgumentError(
+            "keyed_each produced duplicate key $(repr(resolved_key)) at item $index",
+        ))
+        push!(keys, resolved_key)
+        content = _invoke_keyed_collection_item(item, value, index, resolved_key)
+        push!(elements, keyed(resolved_key, content))
+    end
+    return elements
+end
+
+keyed_each(item::Function, items; key) = keyed_each(items; key, item)
+
+"""Normalized default and named child content for reusable components."""
+struct ComponentSlots
+    values::Dict{Symbol,Vector{Element}}
+end
+
+function component_slots(default...; kwargs...)
+    values = Dict{Symbol,Vector{Element}}(:default => _normalize_elements(default))
+    for (name, content) in pairs(kwargs)
+        values[Symbol(name)] = _normalize_elements((content,))
+    end
+    return ComponentSlots(values)
+end
+
+"""Return normalized content for a named component slot."""
+function slot(slots::ComponentSlots, name=:default; fallback=())
+    identifier = Symbol(name)
+    return haskey(slots.values, identifier) ? copy(slots.values[identifier]) : _normalize_elements((fallback,))
+end
+
+has_slot(slots::ComponentSlots, name) = !isempty(get(slots.values, Symbol(name), Element[]))
+slot_names(slots::ComponentSlots) = sort!(collect(keys(slots.values)))
+
+"""Create a layout-only element and flatten tuple, vector, and generator children.
+
+`fragment` is useful for conditional or generated UI. `nothing` children are
+omitted, and immediate-mode widgets are automatically wrapped as elements.
+"""
+fragment(children...; kwargs...) = Element(nothing; children, kwargs...)
+
+function _ui_block_expressions(body)
+    expressions = body isa Expr && body.head == :block ? body.args : Any[body]
+    return Any[expression for expression in expressions if !(expression isa LineNumberNode)]
+end
+
+function _expand_ui_expression(expression)
+    expression isa Expr || return expression
+    if expression.head == :do
+        length(expression.args) == 2 || throw(ArgumentError("invalid @ui do block"))
+        call, closure = expression.args
+        call isa Expr && call.head == :call ||
+            throw(ArgumentError("@ui do blocks must decorate a component call"))
+        closure isa Expr && closure.head == :-> ||
+            throw(ArgumentError("invalid @ui component body"))
+        parameters, body = closure.args
+        parameters isa Expr && parameters.head == :tuple && isempty(parameters.args) ||
+            throw(ArgumentError("@ui component bodies cannot declare arguments"))
+        expanded_call = _expand_ui_expression(call)
+        children = map(_expand_ui_expression, _ui_block_expressions(body))
+        return Expr(:call, expanded_call.args..., children...)
+    end
+    return Expr(expression.head, map(_expand_ui_expression, expression.args)...)
+end
+
+"""Build a nested declarative Toolkit tree using zero-argument `do` blocks.
+
+Every expression in a component body becomes a child of the decorated call.
+Nested blocks are expanded recursively, while ordinary Julia conditionals and
+comprehensions remain ordinary expressions and are normalized by the Toolkit.
+"""
+macro ui(expression)
+    return esc(_expand_ui_expression(expression))
+end
 
 function row(
     children...;
@@ -128,14 +1766,15 @@ function row(
     alignment::FlexAlignment=StartFlex,
     kwargs...,
 )
-    resolved = isnothing(constraints) ? [Fill(1) for _ in children] : Constraint[constraints...]
-    length(resolved) == length(children) ||
+    resolved_children = _normalize_elements(children)
+    resolved = isnothing(constraints) ? [Fill(1) for _ in resolved_children] : Constraint[constraints...]
+    length(resolved) == length(resolved_children) ||
         throw(DimensionMismatch("row constraints must match child count"))
     Element(
         nothing;
         key,
         id,
-        children,
+        children=resolved_children,
         layout=FlexLayout(HorizontalLayout, resolved; margin, gap, alignment),
         kwargs...,
     )
@@ -184,14 +1823,15 @@ function column(
     alignment::FlexAlignment=StartFlex,
     kwargs...,
 )
-    resolved = isnothing(constraints) ? [Fill(1) for _ in children] : Constraint[constraints...]
-    length(resolved) == length(children) ||
+    resolved_children = _normalize_elements(children)
+    resolved = isnothing(constraints) ? [Fill(1) for _ in resolved_children] : Constraint[constraints...]
+    length(resolved) == length(resolved_children) ||
         throw(DimensionMismatch("column constraints must match child count"))
     Element(
         nothing;
         key,
         id,
-        children,
+        children=resolved_children,
         layout=FlexLayout(VerticalLayout, resolved; margin, gap, alignment),
         kwargs...,
     )
@@ -272,12 +1912,65 @@ struct ElementSignature
     widget_type::Any
 end
 
+@enum ReconciliationAction::UInt8 begin
+    ReconciliationMount
+    ReconciliationReuse
+    ReconciliationReplace
+    ReconciliationMove
+    ReconciliationUnmount
+end
+
+"""One retained-tree identity decision captured during reconciliation."""
+struct ReconciliationRecord
+    sequence::UInt64
+    action::ReconciliationAction
+    path::Vector{Tuple{Symbol,Any}}
+    element_id::Any
+    key::Any
+    previous_signature::Union{Nothing,ElementSignature}
+    signature::Union{Nothing,ElementSignature}
+    previous_index::Union{Nothing,Int}
+    index::Union{Nothing,Int}
+    reason::Symbol
+end
+
+"""Bounded reconciliation history owned by a `ToolkitState`."""
+mutable struct ReconciliationTrace
+    capacity::Int
+    sequence::UInt64
+    records::Vector{ReconciliationRecord}
+end
+
+"""Development diagnostic for retained state exposed to positional identity shifts."""
+struct PositionalIdentityWarning
+    sequence::UInt64
+    parent_path::Vector{Tuple{Symbol,Any}}
+    change::Symbol
+    previous_count::Int
+    count::Int
+    affected_indices::Vector{Int}
+    reason::Symbol
+end
+
+struct PositionalChildSnapshot
+    index::Int
+    element_id::Any
+    signature::ElementSignature
+    stateful::Bool
+end
+
+function ReconciliationTrace(capacity::Integer=1024)
+    capacity >= 0 || throw(ArgumentError("reconciliation trace capacity must be nonnegative"))
+    ReconciliationTrace(Int(capacity), UInt64(0), ReconciliationRecord[])
+end
+
 function _signature(element::Element)
     kind = element.layout isa FlexLayout ? :flex :
            element.layout isa GridLayout ? :grid :
            element.layout isa CenteredLayout ? :centered :
            element.layout == :stack ? :stack : :leaf
-    ElementSignature(kind, typeof(element.widget))
+    widget_type = element.widget isa ComponentErrorBoundary ? ComponentErrorBoundary : typeof(element.widget)
+    ElementSignature(kind, widget_type)
 end
 
 """Stable, parent-linked identity for one retained declarative element."""
@@ -322,6 +2015,17 @@ mutable struct ElementInstance
     hidden::Bool
 end
 
+struct FlexAreaCache
+    direction::LayoutDirection
+    constraints::Vector{Constraint}
+    margin::Margin
+    gap::Int
+    alignment::FlexAlignment
+    area::Rect
+    count::Int
+    regions::Vector{Rect}
+end
+
 """Persistent state retained across declarative element descriptions."""
 mutable struct ToolkitState
     instances::Dict{ElementPath,ElementInstance}
@@ -331,10 +2035,31 @@ mutable struct ToolkitState
     seen::Set{ElementPath}
     roots::Dict{Tuple{Symbol,Any},ElementPath}
     focus::FocusRegistry
+    pointer_capture::Any
     styles::StyleEngine
+    pending_component_effects::Vector{ComponentState}
+    invalidator::Any
+    invalidation_pending::Bool
+    dispatch_depth::Int
+    invalidation_lock::ReentrantLock
+    composition::Dict{Any,Any}
+    validation_ids::Set{Any}
+    validation_keys::Vector{Set{Any}}
+    flex_area_cache::Dict{ElementPath,FlexAreaCache}
+    reconciliation::ReconciliationTrace
+    sibling_indices::Dict{ElementPath,Int}
+    positional_identity_warnings::Bool
+    positional_warnings::Vector{PositionalIdentityWarning}
+    positional_warning_sequence::UInt64
+    positional_children::Dict{ElementPath,Vector{PositionalChildSnapshot}}
 end
 
-ToolkitState(; styles::StyleEngine=StyleEngine()) = ToolkitState(
+ToolkitState(
+    ;
+    styles::StyleEngine=StyleEngine(),
+    reconciliation_capacity::Integer=1024,
+    positional_identity_warnings::Bool=true,
+) = ToolkitState(
     Dict{ElementPath,ElementInstance}(),
     Dict{Any,ElementPath}(),
     Dict{Any,ElementPath}(),
@@ -342,8 +2067,155 @@ ToolkitState(; styles::StyleEngine=StyleEngine()) = ToolkitState(
     Set{ElementPath}(),
     Dict{Tuple{Symbol,Any},ElementPath}(),
     FocusRegistry(),
+    nothing,
     styles,
+    ComponentState[],
+    nothing,
+    false,
+    0,
+    ReentrantLock(),
+    Dict{Any,Any}(),
+    Set{Any}(),
+    Set{Any}[],
+    Dict{ElementPath,FlexAreaCache}(),
+    ReconciliationTrace(reconciliation_capacity),
+    Dict{ElementPath,Int}(),
+    positional_identity_warnings,
+    PositionalIdentityWarning[],
+    UInt64(0),
+    Dict{ElementPath,Vector{PositionalChildSnapshot}}(),
 )
+
+"""Return a snapshot of the retained state's bounded reconciliation history."""
+reconciliation_records(state::ToolkitState) = copy(state.reconciliation.records)
+
+"""Discard reconciliation history without changing retained element state."""
+function clear_reconciliation_trace!(state::ToolkitState)
+    empty!(state.reconciliation.records)
+    return state
+end
+
+"""Return positional identity hazards observed while reconciling retained children."""
+positional_identity_warning_records(state::ToolkitState) =
+    copy(state.positional_warnings)
+
+"""Discard positional identity warnings without changing retained state."""
+function clear_positional_identity_warnings!(state::ToolkitState)
+    empty!(state.positional_warnings)
+    return state
+end
+
+function _record_positional_warning!(
+    state::ToolkitState,
+    parent::ElementPath,
+    change::Symbol,
+    previous_count::Int,
+    count::Int,
+    affected_indices::Vector{Int},
+    reason::Symbol,
+)
+    state.positional_identity_warnings || return nothing
+    capacity = state.reconciliation.capacity
+    capacity == 0 && return nothing
+    state.positional_warning_sequence == typemax(UInt64) &&
+        throw(OverflowError("positional identity warning sequence exhausted"))
+    state.positional_warning_sequence += UInt64(1)
+    push!(state.positional_warnings, PositionalIdentityWarning(
+        state.positional_warning_sequence,
+        element_path_components(parent),
+        change,
+        previous_count,
+        count,
+        affected_indices,
+        reason,
+    ))
+    length(state.positional_warnings) > capacity && popfirst!(state.positional_warnings)
+    return nothing
+end
+
+function _record_reconciliation!(
+    state::ToolkitState,
+    action::ReconciliationAction,
+    path::ElementPath,
+    element;
+    previous_signature=nothing,
+    signature=nothing,
+    previous_index=nothing,
+    index=nothing,
+    reason::Symbol,
+)
+    trace = state.reconciliation
+    trace.capacity == 0 && return nothing
+    trace.sequence == typemax(UInt64) && throw(OverflowError("reconciliation sequence exhausted"))
+    trace.sequence += UInt64(1)
+    push!(trace.records, ReconciliationRecord(
+        trace.sequence,
+        action,
+        element_path_components(path),
+        element.id,
+        element.key,
+        previous_signature,
+        signature,
+        previous_index,
+        index,
+        reason,
+    ))
+    length(trace.records) > trace.capacity && popfirst!(trace.records)
+    return nothing
+end
+
+"""Return whether retained component state has requested another render."""
+toolkit_invalidated(state::ToolkitState) = lock(state.invalidation_lock) do
+    state.invalidation_pending
+end
+
+pointer_capture_target(state::ToolkitState) = state.pointer_capture
+has_pointer_capture(state::ToolkitState) = state.pointer_capture !== nothing
+
+function _pointer_capture_path(state::ToolkitState, target=state.pointer_capture)
+    target === nothing && return nothing
+    if target isa ElementPath
+        return haskey(state.instances, target) ? target : nothing
+    end
+    return get(state.ids, target, nothing)
+end
+
+"""Capture subsequent pointer motion and release for a rendered element."""
+function capture_pointer!(state::ToolkitState, target)
+    path = _pointer_capture_path(state, target)
+    path === nothing && return false
+    instance = state.instances[path]
+    (instance.hidden || instance.element.disabled || isempty(instance.area)) && return false
+    state.pointer_capture = target
+    return true
+end
+
+"""Release the current pointer capture, optionally only for one owner."""
+function release_pointer!(state::ToolkitState, target=nothing)
+    state.pointer_capture === nothing && return false
+    target === nothing || isequal(state.pointer_capture, target) || return false
+    state.pointer_capture = nothing
+    return true
+end
+
+"""Coalesce a redraw request and notify the attached runtime when appropriate."""
+function invalidate_toolkit!(state::ToolkitState)
+    invalidator = lock(state.invalidation_lock) do
+        was_pending = state.invalidation_pending
+        state.invalidation_pending = true
+        !was_pending && state.dispatch_depth == 0 ? state.invalidator : nothing
+    end
+    invalidator === nothing || invalidator()
+    return state
+end
+
+"""Acknowledge a retained tree's pending redraw request."""
+function clear_toolkit_invalidation!(state::ToolkitState)
+    lock(state.invalidation_lock) do
+        state.invalidation_pending = false
+    end
+    return state
+end
 
 """A declarative root plus the persistent state required to render and dispatch it."""
 mutable struct ToolkitTree
@@ -351,8 +2223,65 @@ mutable struct ToolkitTree
     state::ToolkitState
 end
 
-ToolkitTree(root::Element; styles::StyleEngine=StyleEngine()) =
-    ToolkitTree(root, ToolkitState(; styles))
+ToolkitTree(
+    root::Element;
+    styles::StyleEngine=StyleEngine(),
+    reconciliation_capacity::Integer=1024,
+    positional_identity_warnings::Bool=true,
+) = ToolkitTree(root, ToolkitState(; styles, reconciliation_capacity, positional_identity_warnings))
+
+reconciliation_records(tree::ToolkitTree) = reconciliation_records(tree.state)
+clear_reconciliation_trace!(tree::ToolkitTree) =
+    (clear_reconciliation_trace!(tree.state); tree)
+positional_identity_warning_records(tree::ToolkitTree) =
+    positional_identity_warning_records(tree.state)
+clear_positional_identity_warnings!(tree::ToolkitTree) =
+    (clear_positional_identity_warnings!(tree.state); tree)
+
+pointer_capture_target(tree::ToolkitTree) = pointer_capture_target(tree.state)
+has_pointer_capture(tree::ToolkitTree) = has_pointer_capture(tree.state)
+capture_pointer!(tree::ToolkitTree, target) = capture_pointer!(tree.state, target)
+release_pointer!(tree::ToolkitTree, target=nothing) = release_pointer!(tree.state, target)
+
+"""Request focus for an attached declarative `FocusRequester`.
+
+Returns `false` when the requester is unattached, has not been rendered in the
+active focus scope, or targets a disabled, hidden, or empty element.
+"""
+function request_focus!(state::ToolkitState, requester::FocusRequester)
+    target = requester.target
+    target === nothing && return false
+    before = focused(state.focus)
+    focus!(state.focus, target) || return false
+    changed = !isequal(before, focused(state.focus))
+    changed && invalidate_toolkit!(state)
+    return true
+end
+
+request_focus!(tree::ToolkitTree, requester::FocusRequester) =
+    request_focus!(tree.state, requester)
+
+"""Return whether an attached requester currently owns focus."""
+focus_requester_focused(state::ToolkitState, requester::FocusRequester) =
+    requester.target !== nothing && isequal(focused(state.focus), requester.target)
+
+focus_requester_focused(tree::ToolkitTree, requester::FocusRequester) =
+    focus_requester_focused(tree.state, requester)
+
+"""Clear focus only when it is currently owned by this requester."""
+function release_focus!(state::ToolkitState, requester::FocusRequester)
+    focus_requester_focused(state, requester) || return false
+    clear_focus!(state.focus)
+    invalidate_toolkit!(state)
+    return true
+end
+
+release_focus!(tree::ToolkitTree, requester::FocusRequester) =
+    release_focus!(tree.state, requester)
+
+toolkit_invalidated(tree::ToolkitTree) = toolkit_invalidated(tree.state)
+invalidate_toolkit!(tree::ToolkitTree) = (invalidate_toolkit!(tree.state); tree)
+clear_toolkit_invalidation!(tree::ToolkitTree) = (clear_toolkit_invalidation!(tree.state); tree)
 
 function _path!(
     state::ToolkitState,
@@ -379,10 +2308,30 @@ end
 
 function _unmount!(instance::ElementInstance)
     instance.mounted || return
+    instance.state isa ComponentState && _set_component_invalidator!(instance.state, nothing)
+    instance.state isa ComponentErrorBoundaryState && (instance.state.invalidator = nothing)
     try
         instance.element.on_unmount(instance.state)
     finally
-        instance.mounted = false
+        try
+            if instance.state isa ComponentState
+                clear_component_effects!(instance.state)
+            end
+        finally
+            if instance.state isa ComponentState
+                lock(instance.state.lock) do
+                    empty!(instance.state.composition)
+                    for remembered in values(instance.state.remembered)
+                        lock(remembered.lock) do
+                            remembered.invalidator = nothing
+                            remembered.on_change = nothing
+                        end
+                    end
+                    empty!(instance.state.remembered)
+                end
+            end
+            instance.mounted = false
+        end
     end
     nothing
 end
@@ -394,24 +2343,60 @@ function _instance!(
     area::Rect,
     parent,
     hidden::Bool,
+    index::Int,
 )
     signature = _signature(element)
     if haskey(state.instances, path)
         instance = state.instances[path]
+        previous_index = get(state.sibling_indices, path, nothing)
+        if path.component[1] === :key && previous_index !== nothing && previous_index != index
+            _record_reconciliation!(
+                state, ReconciliationMove, path, element;
+                previous_signature=instance.signature,
+                signature,
+                previous_index,
+                index,
+                reason=:keyed_sibling_index_changed,
+            )
+        end
         if instance.signature != signature
+            previous_signature = instance.signature
             delete!(state.instances, path)
             _unmount!(instance)
             instance = _mount_instance(element, area, parent, hidden)
             state.instances[path] = instance
+            _record_reconciliation!(
+                state, ReconciliationReplace, path, element;
+                previous_signature,
+                signature,
+                previous_index,
+                index,
+                reason=:signature_changed,
+            )
         else
             instance.element = element
             instance.area = area
             instance.parent = parent
             instance.hidden = hidden
+            _record_reconciliation!(
+                state, ReconciliationReuse, path, element;
+                previous_signature=signature,
+                signature,
+                previous_index,
+                index,
+                reason=:identity_and_signature_matched,
+            )
         end
     else
         state.instances[path] = _mount_instance(element, area, parent, hidden)
+        _record_reconciliation!(
+            state, ReconciliationMount, path, element;
+            signature,
+            index,
+            reason=:new_identity,
+        )
     end
+    state.sibling_indices[path] = index
     push!(state.seen, path)
     push!(state.paint_order, path)
     state.instances[path]
@@ -439,7 +2424,7 @@ function _register_identity!(state::ToolkitState, path::ElementPath, instance::E
 end
 
 function _set_focus_state!(instance::ElementInstance, focused_value::Bool)
-    state = instance.state
+    state = instance.state isa BoundWidgetState ? instance.state.inner : instance.state
     if !isnothing(state) && ismutabletype(typeof(state)) && hasproperty(state, :focused)
         current = getproperty(state, :focused)
         current isa Bool && setproperty!(state, :focused, focused_value)
@@ -450,10 +2435,18 @@ end
 function _render_widget!(frame::Frame, instance::ElementInstance)
     element = instance.element
     isnothing(element.widget) && return
-    if isnothing(instance.state)
+    element.widget isa StatefulComponent && return
+    element.widget isa ContextProvider && return
+    element.widget isa ComponentErrorBoundary && return
+    state = instance.state
+    if state isa BoundWidgetState
+        _apply_bound_value!(state)
+        state = state.inner
+    end
+    if isnothing(state)
         render!(frame, element.widget, instance.area)
     else
-        render!(frame, element.widget, instance.area, instance.state)
+        render!(frame, element.widget, instance.area, state)
     end
 end
 
@@ -464,11 +2457,16 @@ function _pseudo_states(toolkit::ToolkitState, path::ElementPath, instance::Elem
     element.hidden && push!(values, :hidden)
     target = isnothing(element.id) ? path : element.id
     focused(toolkit.focus) == target && push!(values, :focus)
-    state = instance.state
+    state = instance.state isa BoundWidgetState ? instance.state.inner : instance.state
     if !isnothing(state)
         hasproperty(state, :checked) && getproperty(state, :checked) && push!(values, :checked)
-        hasproperty(state, :selected) && !isnothing(getproperty(state, :selected)) && push!(values, :selected)
+        if hasproperty(state, :selected)
+            selected = getproperty(state, :selected)
+            (selected isa Bool ? selected : !isnothing(selected)) && push!(values, :selected)
+        end
         hasproperty(state, :open) && getproperty(state, :open) && push!(values, :open)
+        hasproperty(state, :pressed) && getproperty(state, :pressed) && push!(values, :pressed)
+        hasproperty(state, :hovered) && getproperty(state, :hovered) && push!(values, :hover)
         hasproperty(state, :focused) && getproperty(state, :focused) && push!(values, :focus)
     end
     values
@@ -513,8 +2511,7 @@ function _apply_element_style!(
     )
 end
 
-function _child_areas(element::Element, area::Rect)
-    count = length(element.children)
+function _child_areas(element::Element, area::Rect, count::Integer=length(element.children))
     count == 0 && return Rect[]
     if element.layout isa FlexLayout
         resolve(element.layout, area)
@@ -526,6 +2523,73 @@ function _child_areas(element::Element, area::Rect)
     else
         fill(area, count)
     end
+end
+
+function _child_areas_retained!(
+    state::ToolkitState,
+    path::ElementPath,
+    element::Element,
+    area::Rect,
+    count::Int,
+)
+    layout = element.layout
+    if !(layout isa FlexLayout)
+        delete!(state.flex_area_cache, path)
+        return _child_areas(element, area, count)
+    end
+    cached = get(state.flex_area_cache, path, nothing)
+    if cached !== nothing &&
+       cached.direction == layout.direction &&
+       cached.constraints == layout.constraints &&
+       cached.margin == layout.margin &&
+       cached.gap == layout.gap &&
+       cached.alignment == layout.alignment &&
+       cached.area == area &&
+       cached.count == count
+        return cached.regions
+    end
+    regions = resolve(layout, area)
+    state.flex_area_cache[path] = FlexAreaCache(
+        layout.direction,
+        copy(layout.constraints),
+        layout.margin,
+        layout.gap,
+        layout.alignment,
+        area,
+        count,
+        regions,
+    )
+    return regions
+end
+
+function _component_children!(toolkit::ToolkitState, instance::ElementInstance)
+    widget = instance.element.widget
+    widget isa StatefulComponent || return instance.element.children
+    state = instance.state
+    state isa ComponentState ||
+        throw(ArgumentError("component state_factory must return ComponentState"))
+    lock(state.lock) do
+        empty!(state.composition)
+        merge!(state.composition, toolkit.composition)
+        state.composition[ComponentAreaLocal] = instance.area
+    end
+    _set_component_invalidator!(state, () -> invalidate_toolkit!(toolkit))
+    clear_component_invalidation!(state)
+    _begin_component_effects!(state)
+    _begin_component_remembered!(state)
+    applicable(widget.view, state) ||
+        throw(ArgumentError("component view must accept ComponentState"))
+    output = widget.view(state)
+    children = _normalize_elements((output,))
+    _validate_sibling_keys(children)
+    dynamic_ids = Set{Any}()
+    for child in children
+        _validate_tree!(child, dynamic_ids)
+    end
+    _finish_component_remembered!(state)
+    any(candidate -> candidate === state, toolkit.pending_component_effects) ||
+        push!(toolkit.pending_component_effects, state)
+    return children
 end
 
 function _validate_sibling_keys(children)
@@ -553,6 +2617,43 @@ end
 
 _validate_tree!(element::Element) = _validate_tree!(element, Set{Any}())
 
+function _validation_keys!(key_sets::Vector{Set{Any}}, depth::Int)
+    while length(key_sets) < depth
+        push!(key_sets, Set{Any}())
+    end
+    keys = key_sets[depth]
+    empty!(keys)
+    return keys
+end
+
+function _validate_tree_retained!(
+    element::Element,
+    ids::Set{Any},
+    key_sets::Vector{Set{Any}},
+    depth::Int=1,
+)
+    if !isnothing(element.id)
+        element.id in ids && throw(ArgumentError("duplicate element ID: $(element.id)"))
+        push!(ids, element.id)
+    end
+    keys = _validation_keys!(key_sets, depth)
+    for child in element.children
+        isnothing(child.key) && continue
+        child.key in keys && throw(ArgumentError("duplicate sibling element key: $(child.key)"))
+        push!(keys, child.key)
+    end
+    for child in element.children
+        child isa Element || throw(ArgumentError("element children must be Element values"))
+        _validate_tree_retained!(child, ids, key_sets, depth + 1)
+    end
+    return element
+end
+
+function _validate_tree_retained!(state::ToolkitState, element::Element)
+    empty!(state.validation_ids)
+    return _validate_tree_retained!(element, state.validation_ids, state.validation_keys)
+end
+
 function _render_element!(
     frame::Frame,
     state::ToolkitState,
@@ -564,7 +2665,7 @@ function _render_element!(
 )
     hidden = ancestor_hidden || element.hidden
     path = _path!(state, parent, element, index)
-    instance = _instance!(state, path, element, area, parent, hidden)
+    instance = _instance!(state, path, element, area, parent, hidden, index)
     _register_identity!(state, path, instance)
     target = isnothing(element.id) ? path : element.id
     _set_focus_state!(instance, !hidden && element.focusable && focused(state.focus) == target)
@@ -572,11 +2673,251 @@ function _render_element!(
         _render_widget!(frame, instance)
         _apply_element_style!(frame, state, path, instance)
     end
-    for (child_index, child_area, child) in
-        zip(eachindex(element.children), _child_areas(element, area), element.children)
-        _render_element!(frame, state, child, child_area, path, child_index, hidden)
+    children = _component_children!(state, instance)
+    provider = element.widget isa ContextProvider ? element.widget : nothing
+    previous = Pair{Any,Any}[]
+    missing = Set{Any}()
+    if provider !== nothing
+        for binding in provider.bindings
+            local_value = first(binding)
+            if haskey(state.composition, local_value)
+                push!(previous, local_value => state.composition[local_value])
+            else
+                push!(missing, local_value)
+            end
+            state.composition[local_value] = last(binding)
+        end
+    end
+    try
+        if element.widget isa ComponentErrorBoundary
+            _render_error_boundary_children!(
+                frame,
+                state,
+                instance,
+                children,
+                area,
+                path,
+                hidden,
+            )
+        else
+            _render_children!(frame, state, element, children, area, path, hidden)
+        end
+    finally
+        if provider !== nothing
+            for local_value in missing
+                delete!(state.composition, local_value)
+            end
+            for binding in previous
+                state.composition[first(binding)] = last(binding)
+            end
+        end
     end
     nothing
+end
+
+function _render_children!(frame, state, element, children, area, path, hidden)
+    _diagnose_positional_children!(state, path, children)
+    for (child_index, child_area, child) in
+        zip(
+            eachindex(children),
+            _child_areas_retained!(state, path, element, area, length(children)),
+            children,
+        )
+        _render_element!(frame, state, child, child_area, path, child_index, hidden)
+    end
+    _snapshot_positional_children!(state, path, children)
+    return nothing
+end
+
+function _positional_child_descriptions(children)
+    return [
+        (index=index, element=child)
+        for (index, child) in pairs(children)
+        if child.key === nothing
+    ]
+end
+
+function _diagnose_positional_children!(state::ToolkitState, parent::ElementPath, children)
+    state.positional_identity_warnings || return nothing
+    previous = get(state.positional_children, parent, nothing)
+    previous === nothing && return nothing
+    current = _positional_child_descriptions(children)
+    previous_indices = [child.index for child in previous]
+    current_indices = [child.index for child in current]
+    previous_ids = [child.element_id for child in previous]
+    current_ids = [child.element.id for child in current]
+
+    change = if length(current) > length(previous)
+        :insertion
+    elseif length(current) < length(previous)
+        :removal
+    elseif previous_indices != current_indices
+        :insertion_or_removal
+    elseif !isempty(previous) &&
+           all(value -> !isnothing(value), previous_ids) &&
+           all(value -> !isnothing(value), current_ids) &&
+           Set(previous_ids) == Set(current_ids) &&
+           previous_ids != current_ids
+        :reorder
+    else
+        nothing
+    end
+    change === nothing && return nothing
+    affected = [child.index for child in previous if child.stateful]
+    isempty(affected) && return nothing
+    reason = change === :reorder ? :stateful_positional_children_reordered_without_keys :
+             change === :insertion ? :stateful_positional_children_shifted_by_insertion :
+             change === :removal ? :stateful_positional_children_shifted_by_removal :
+             :stateful_positional_children_shifted_by_keyed_change
+    _record_positional_warning!(
+        state,
+        parent,
+        change,
+        length(previous),
+        length(current),
+        affected,
+        reason,
+    )
+    return nothing
+end
+
+function _snapshot_positional_children!(state::ToolkitState, parent::ElementPath, children)
+    snapshots = PositionalChildSnapshot[]
+    for (index, child) in pairs(children)
+        child.key === nothing || continue
+        child_path = get(parent.children, (:position, index), nothing)
+        instance = child_path === nothing ? nothing : get(state.instances, child_path, nothing)
+        push!(snapshots, PositionalChildSnapshot(
+            index,
+            child.id,
+            _signature(child),
+            instance !== nothing && instance.state !== nothing,
+        ))
+    end
+    state.positional_children[parent] = snapshots
+    return nothing
+end
+
+function _is_descendant_path(candidate::ElementPath, ancestor::ElementPath)
+    current = candidate.parent
+    while current !== nothing
+        current === ancestor && return true
+        current = current.parent
+    end
+    return false
+end
+
+function _remove_boundary_descendants!(toolkit::ToolkitState, path::ElementPath)
+    removed = ElementPath[
+        candidate for candidate in keys(toolkit.instances)
+        if _is_descendant_path(candidate, path)
+    ]
+    sort!(removed; by=candidate -> candidate.depth, rev=true)
+    for candidate in removed
+        instance = pop!(toolkit.instances, candidate)
+        try
+            _record_reconciliation!(
+                toolkit, ReconciliationUnmount, candidate, instance.element;
+                previous_signature=instance.signature,
+                previous_index=get(toolkit.sibling_indices, candidate, nothing),
+                reason=:error_boundary_rollback,
+            )
+            _unmount!(instance)
+        finally
+            siblings = candidate.parent.children
+            get(siblings, candidate.component, nothing) === candidate &&
+                delete!(siblings, candidate.component)
+            empty!(candidate.children)
+            delete!(toolkit.seen, candidate)
+            delete!(toolkit.flex_area_cache, candidate)
+            delete!(toolkit.sibling_indices, candidate)
+            delete!(toolkit.positional_children, candidate)
+        end
+    end
+    return nothing
+end
+
+function _invoke_boundary_fallback(boundary::ComponentErrorBoundary, failure, state)
+    fallback = boundary.fallback
+    applicable(fallback, failure, state) && return fallback(failure, state)
+    applicable(fallback, failure) && return fallback(failure)
+    applicable(fallback, failure.ex) && return fallback(failure.ex)
+    applicable(fallback) && return fallback()
+    return fallback
+end
+
+function _notify_boundary_error(boundary::ComponentErrorBoundary, failure, state)
+    callback = boundary.on_error
+    if applicable(callback, failure, state)
+        callback(failure, state)
+    elseif applicable(callback, failure)
+        callback(failure)
+    elseif applicable(callback, failure.ex)
+        callback(failure.ex)
+    elseif applicable(callback)
+        callback()
+    else
+        throw(ArgumentError("error boundary callback must accept failure/state, failure, exception, or no arguments"))
+    end
+    return nothing
+end
+
+function _boundary_fallback_children(boundary, boundary_state)
+    output = _invoke_boundary_fallback(boundary, boundary_state.failure, boundary_state)
+    children = _normalize_elements((output,))
+    _validate_sibling_keys(children)
+    ids = Set{Any}()
+    for child in children
+        _validate_tree!(child, ids)
+    end
+    return children
+end
+
+function _render_error_boundary_children!(frame, toolkit, instance, children, area, path, hidden)
+    boundary = instance.element.widget
+    boundary_state = instance.state
+    boundary_state isa ComponentErrorBoundaryState ||
+        throw(ArgumentError("error boundary state_factory must return ComponentErrorBoundaryState"))
+    boundary_state.invalidator = () -> invalidate_toolkit!(toolkit)
+    if !isequal(boundary_state.reset_key, boundary.reset_key)
+        boundary_state.reset_key = boundary.reset_key
+        boundary_state.failure = nothing
+    end
+    if boundary_state.failure !== nothing
+        fallback = _boundary_fallback_children(boundary, boundary_state)
+        return _render_children!(frame, toolkit, instance.element, fallback, area, path, hidden)
+    end
+
+    buffer_cells = copy(frame.buffer.cells)
+    cursor = frame.cursor
+    seen = copy(toolkit.seen)
+    paint_length = length(toolkit.paint_order)
+    ids = copy(toolkit.ids)
+    focus_targets = copy(toolkit.focus_targets)
+    focus_length = length(toolkit.focus.entries)
+    pending_length = length(toolkit.pending_component_effects)
+    try
+        return _render_children!(frame, toolkit, instance.element, children, area, path, hidden)
+    catch error
+        failure = CapturedException(error, catch_backtrace())
+        frame.buffer.cells = buffer_cells
+        frame.cursor = cursor
+        empty!(toolkit.seen)
+        union!(toolkit.seen, seen)
+        resize!(toolkit.paint_order, paint_length)
+        empty!(toolkit.ids)
+        merge!(toolkit.ids, ids)
+        empty!(toolkit.focus_targets)
+        merge!(toolkit.focus_targets, focus_targets)
+        resize!(toolkit.focus.entries, focus_length)
+        resize!(toolkit.pending_component_effects, pending_length)
+        _remove_boundary_descendants!(toolkit, path)
+        boundary_state.failure = failure
+        boundary_state.failure_count += UInt64(1)
+        _notify_boundary_error(boundary, failure, boundary_state)
+        fallback = _boundary_fallback_children(boundary, boundary_state)
+        return _render_children!(frame, toolkit, instance.element, fallback, area, path, hidden)
+    end
 end
 
 function _prune!(state::ToolkitState)
@@ -585,27 +2926,44 @@ function _prune!(state::ToolkitState)
     for path in removed
         instance = pop!(state.instances, path)
         try
+            _record_reconciliation!(
+                state, ReconciliationUnmount, path, instance.element;
+                previous_signature=instance.signature,
+                previous_index=get(state.sibling_indices, path, nothing),
+                reason=:not_seen,
+            )
             _unmount!(instance)
         finally
             siblings = path.parent === nothing ? state.roots : path.parent.children
             get(siblings, path.component, nothing) === path && delete!(siblings, path.component)
             empty!(path.children)
+            delete!(state.flex_area_cache, path)
+            delete!(state.sibling_indices, path)
+            delete!(state.positional_children, path)
         end
     end
+    has_pointer_capture(state) && _pointer_capture_path(state) === nothing &&
+        release_pointer!(state)
     nothing
 end
 
 """Reconcile and render a complete declarative element tree."""
 function render_toolkit!(frame::Frame, tree::ToolkitTree, area::Rect=frame.area)
     state = tree.state
-    _validate_tree!(tree.root)
+    clear_toolkit_invalidation!(state)
+    _validate_tree_retained!(state, tree.root)
     empty!(state.ids)
     empty!(state.focus_targets)
     empty!(state.paint_order)
     empty!(state.seen)
+    empty!(state.pending_component_effects)
+    empty!(state.composition)
     begin_focus_frame!(state.focus)
     _render_element!(frame, state, tree.root, area, nothing, 1)
     _prune!(state)
+    for component_state in state.pending_component_effects
+        _commit_component_effects!(component_state)
+    end
     focused_target = focused(state.focus)
     focused_path = isnothing(focused_target) ? nothing : get(state.focus_targets, focused_target, nothing)
     focused_invalid = !isnothing(focused_path) && begin
@@ -620,20 +2978,40 @@ function render_toolkit!(frame::Frame, tree::ToolkitTree, area::Rect=frame.area)
     frame.buffer
 end
 
+"""Render an element description once with ephemeral retained state.
+
+Wrap the element in `ToolkitTree` when state, focus, or lifecycle identity must
+survive across frames. This bridge lets declarative layout values participate in
+the same immediate rendering paths as ordinary widgets.
+"""
+function render_toolkit!(frame::Frame, element::Element, area::Rect=frame.area)
+    tree = ToolkitTree(element)
+    try
+        return render_toolkit!(frame, tree, area)
+    finally
+        empty!(tree.state.seen)
+        _prune!(tree.state)
+    end
+end
+
 render!(frame::Frame, tree::ToolkitTree, area::Rect) = render_toolkit!(frame, tree, area)
 render!(buffer::Buffer, tree::ToolkitTree, area::Rect) =
     render_toolkit!(Frame(buffer), tree, area)
+render!(frame::Frame, element::Element, area::Rect) = render_toolkit!(frame, element, area)
+render!(buffer::Buffer, element::Element, area::Rect) =
+    render_toolkit!(Frame(buffer), element, area)
 
 @enum EventPhase::UInt8 begin
     TargetPhase
     BubblePhase
+    CapturePhase
 end
 
 """Migration alias for frameworks that use `target_phase` naming."""
 const target_phase::EventPhase = TargetPhase
 
-"""Migration alias for frameworks that use `capture` as the first routing phase."""
-const capture_phase::EventPhase = TargetPhase
+"""Root-to-target capture phase for declarative routed events."""
+const capture_phase::EventPhase = CapturePhase
 
 """Migration alias for frameworks that use `bubble_phase` naming."""
 const bubble_phase::EventPhase = BubblePhase
@@ -651,7 +3029,18 @@ struct EventResponse
     redraw::Bool
     message::Any
     focus::Any
+    pointer_capture::Any
 end
+
+"""Explicit batch of application messages emitted by one routed callback."""
+struct EventMessages
+    values::Vector{Any}
+
+    EventMessages(values::Vector{Any}) = new(values)
+end
+
+EventMessages(values) = EventMessages(Any[value for value in values if value !== nothing])
+event_messages(values...) = EventMessages(values)
 
 EventResponse(;
     consumed::Bool=false,
@@ -659,7 +3048,8 @@ EventResponse(;
     redraw::Bool=consumed,
     message=nothing,
     focus=nothing,
-) = EventResponse(consumed, stop_propagation, redraw, message, focus)
+    pointer_capture=nothing,
+) = EventResponse(consumed, stop_propagation, redraw, message, focus, pointer_capture)
 
 struct DispatchResult
     consumed::Bool
@@ -676,6 +3066,13 @@ end
 
 function _target_path(state::ToolkitState, event::AbstractEvent)
     if event isa MouseEvent
+        if event.action != MousePress && has_pointer_capture(state)
+            captured = _pointer_capture_path(state)
+            if captured !== nothing
+                return captured
+            end
+            release_pointer!(state)
+        end
         for path in Iterators.reverse(state.paint_order)
             instance = state.instances[path]
             element = instance.element
@@ -692,19 +3089,75 @@ function _target_path(state::ToolkitState, event::AbstractEvent)
     isempty(state.paint_order) ? nothing : first(state.paint_order)
 end
 
+_hover_transition_message(widget, state, hovered::Bool) = nothing
+
+function _hover_ancestry(state::ToolkitState, path, event::MouseEvent)
+    path === nothing && return Set{ElementPath}()
+    instance = state.instances[path]
+    contains(instance.area, event.position) || return Set{ElementPath}()
+    ancestry = Set{ElementPath}()
+    current = path
+    while current !== nothing
+        push!(ancestry, current)
+        current = state.instances[current].parent
+    end
+    return ancestry
+end
+
+"""Synchronize Boolean `hovered` state across the routed pointer ancestry."""
+function _update_hover_states!(state::ToolkitState, path, event::MouseEvent)
+    ancestry = _hover_ancestry(state, path, event)
+    changed = false
+    messages = Any[]
+    for (candidate, instance) in state.instances
+        instance_state = instance.state isa BoundWidgetState ? instance.state.inner : instance.state
+        instance_state === nothing && continue
+        ismutabletype(typeof(instance_state)) || continue
+        hasproperty(instance_state, :hovered) || continue
+        current = getproperty(instance_state, :hovered)
+        current isa Bool || continue
+        hovered = candidate in ancestry && !instance.hidden && !instance.element.disabled
+        current == hovered && continue
+        setproperty!(instance_state, :hovered, hovered)
+        changed = true
+        message = _hover_transition_message(instance.element.widget, instance_state, hovered)
+        message === nothing || push!(messages, message)
+    end
+    if event.action in (MousePress, MouseRelease)
+        for (candidate, instance) in state.instances
+            candidate in ancestry && continue
+            instance_state = instance.state isa BoundWidgetState ? instance.state.inner : instance.state
+            instance_state === nothing && continue
+            ismutabletype(typeof(instance_state)) || continue
+            hasproperty(instance_state, :pressed) || continue
+            pressed = getproperty(instance_state, :pressed)
+            pressed isa Bool && pressed || continue
+            setproperty!(instance_state, :pressed, false)
+            if hasproperty(instance_state, :pressed_at_ns)
+                setproperty!(instance_state, :pressed_at_ns, nothing)
+            end
+            changed = true
+        end
+    end
+    return changed, messages
+end
+
+_automatic_mouse_activation(widget) = true
+
 function _activation_message(instance::ElementInstance, event::AbstractEvent)
     widget = instance.element.widget
-    state = instance.state
+    state = instance.state isa BoundWidgetState ? instance.state.inner : instance.state
     isnothing(widget) && return nothing
     activated = (event isa KeyEvent &&
-        (event.key.code == :enter || (event.key.code == :character && event.text == " "))) ||
-        (event isa MouseEvent && event.action == MouseRelease)
+        (event.key.code in (:enter, :space) || (event.key.code == :character && event.text == " "))) ||
+        (event isa MouseEvent && event.action == MouseRelease && _automatic_mouse_activation(widget))
     activated && applicable(activate, widget, state) ? activate(widget, state) : nothing
 end
 
 function _builtin!(instance::ElementInstance, event::AbstractEvent)
     widget = instance.element.widget
-    state = instance.state
+    retained_state = instance.state
+    state = retained_state isa BoundWidgetState ? retained_state.inner : retained_state
     isnothing(widget) && return EventResponse()
     handled = if !isnothing(state) && applicable(handle!, state, widget, event, instance.area)
         handle!(state, widget, event, instance.area)
@@ -713,6 +3166,7 @@ function _builtin!(instance::ElementInstance, event::AbstractEvent)
     else
         false
     end
+    handled && retained_state isa BoundWidgetState && _publish_bound_value!(retained_state)
     message = _activation_message(instance, event)
     EventResponse(
         consumed=handled || !isnothing(message),
@@ -1825,6 +4279,15 @@ end
 subscriptions(app::ToolkitApp, model::ToolkitModel) =
     toolkit_subscriptions(app, model.model)
 
+struct _ToolkitRedrawRequested end
+
+function attach_runtime!(::ToolkitApp, model::ToolkitModel, runtime)
+    lock(model.tree.state.invalidation_lock) do
+        model.tree.state.invalidator = () -> post!(runtime, _ToolkitRedrawRequested())
+    end
+    return model
+end
+
 function _toolkit_command(result, model::ToolkitModel)
     if result isa UpdateResult
         model.model = result.model
@@ -1845,7 +4308,9 @@ function _dispatch_commands(result::DispatchResult)
 end
 
 function update!(app::ToolkitApp, model::ToolkitModel, message)
-    if message isa PushScreen
+    if message isa _ToolkitRedrawRequested
+        return FrameCommand()
+    elseif message isa PushScreen
         push_screen!(model.screens, message.screen)
         return FrameCommand()
     elseif message isa PushRegisteredScreen
@@ -1913,7 +4378,16 @@ function _apply_response!(
     response::EventResponse,
     messages::Vector{Any},
 )
-    !isnothing(response.message) && push!(messages, response.message)
+    if response.message isa EventMessages
+        append!(messages, response.message.values)
+    elseif !isnothing(response.message)
+        push!(messages, response.message)
+    end
+    if response.pointer_capture === :release || response.pointer_capture === :none
+        release_pointer!(toolkit)
+    elseif response.pointer_capture !== nothing
+        capture_pointer!(toolkit, response.pointer_capture)
+    end
     focus_changed = !isnothing(response.focus) && _apply_focus_response!(toolkit, response.focus)
     return focus_changed
 end
@@ -1938,8 +4412,7 @@ function _apply_focus_response!(toolkit::ToolkitState, focus)
     return accepted && !isequal(before, focused(toolkit.focus))
 end
 
-"""Route an event to its target and then through ancestor elements."""
-function dispatch!(tree::ToolkitTree, event::AbstractEvent)
+function _dispatch!(tree::ToolkitTree, event::AbstractEvent)
     state = tree.state
     path = _target_path(state, event)
     isnothing(path) && return DispatchResult(false, false, Any[])
@@ -1947,26 +4420,57 @@ function dispatch!(tree::ToolkitTree, event::AbstractEvent)
     focus_target = isnothing(instance.element.id) ? path : instance.element.id
     event isa MouseEvent && event.action == MousePress && instance.element.focusable &&
         focus!(state.focus, focus_target)
-    messages = Any[]
-    builtin = _builtin!(instance, event)
-    builtin_focus_changed = _apply_response!(state, builtin, messages)
-    focus_changed = builtin_focus_changed
-    consumed = builtin.consumed
-    redraw = builtin.redraw || builtin_focus_changed
-    current_path = path
-    phase = TargetPhase
-    while !isnothing(current_path)
+    hover_changed, messages = event isa MouseEvent ?
+        _update_hover_states!(state, path, event) : (false, Any[])
+    focus_changed = false
+    consumed = false
+    redraw = hover_changed
+
+    ancestors = ElementPath[]
+    ancestor = instance.parent
+    while ancestor !== nothing
+        push!(ancestors, ancestor)
+        ancestor = state.instances[ancestor].parent
+    end
+    for current_path in Iterators.reverse(ancestors)
         current = state.instances[current_path]
         current_target = isnothing(current.element.id) ? current_path : current.element.id
-        routed = RoutedEvent(event, focus_target, current_target, phase)
+        routed = RoutedEvent(event, focus_target, current_target, CapturePhase)
+        response = _normalize_response(current.element.on_capture(routed, current.state))
+        response_focus_changed = _apply_response!(state, response, messages)
+        focus_changed |= response_focus_changed
+        consumed |= response.consumed
+        redraw |= response.redraw || response_focus_changed
+        response.stop_propagation && return DispatchResult(consumed, redraw, messages)
+    end
+
+    builtin = _builtin!(instance, event)
+    builtin_focus_changed = _apply_response!(state, builtin, messages)
+    focus_changed |= builtin_focus_changed
+    consumed |= builtin.consumed
+    redraw |= builtin.redraw || builtin_focus_changed
+
+    current = instance
+    current_target = isnothing(current.element.id) ? path : current.element.id
+    routed = RoutedEvent(event, focus_target, current_target, TargetPhase)
+    response = _normalize_response(current.element.on_event(routed, current.state))
+    response_focus_changed = _apply_response!(state, response, messages)
+    focus_changed |= response_focus_changed
+    consumed |= response.consumed
+    redraw |= response.redraw || response_focus_changed
+    propagation_stopped = response.stop_propagation
+
+    for current_path in ancestors
+        propagation_stopped && break
+        current = state.instances[current_path]
+        current_target = isnothing(current.element.id) ? current_path : current.element.id
+        routed = RoutedEvent(event, focus_target, current_target, BubblePhase)
         response = _normalize_response(current.element.on_event(routed, current.state))
         response_focus_changed = _apply_response!(state, response, messages)
         focus_changed |= response_focus_changed
         consumed |= response.consumed
         redraw |= response.redraw || response_focus_changed
-        response.stop_propagation && break
-        current_path = current.parent
-        phase = BubblePhase
+        propagation_stopped = response.stop_propagation
     end
     if !consumed && !focus_changed && event isa KeyEvent
         if event.key.code == :tab
@@ -1976,6 +4480,23 @@ function dispatch!(tree::ToolkitTree, event::AbstractEvent)
         end
     end
     DispatchResult(consumed, redraw, messages)
+end
+
+"""Route an event to its target and then through ancestor elements."""
+function dispatch!(tree::ToolkitTree, event::AbstractEvent)
+    state = tree.state
+    lock(state.invalidation_lock) do
+        state.dispatch_depth += 1
+    end
+    result = try
+        _dispatch!(tree, event)
+    finally
+        event isa MouseEvent && event.action == MouseRelease && release_pointer!(state)
+        lock(state.invalidation_lock) do
+            state.dispatch_depth -= 1
+        end
+    end
+    return DispatchResult(result.consumed, result.redraw || toolkit_invalidated(state), result.messages)
 end
 
 """Return a retained element instance by application ID."""
@@ -1990,22 +4511,139 @@ function element_state(tree::ToolkitTree, id)
     isnothing(instance) ? nothing : instance.state
 end
 
-export BubblePhase,
+export @ui,
+       BubblePhase,
+       CapturePhase,
        bubble_phase,
        capture_phase,
+       capture_pointer!,
        DispatchResult,
+       ComponentState,
+       ComponentSlots,
+       CompositionLocal,
+       FocusRequester,
+       ContextProvider,
+       ComponentErrorBoundary,
+       ComponentErrorBoundaryState,
+       ErrorBoundaryState,
+       RememberedValue,
+       ProducedState,
+       produce_state!,
+       produced_value,
+       produced_version,
+       produced_status,
+       produced_failure,
+       produced_running,
+       produced_succeeded,
+       produced_failed,
+       AbstractStateBinding,
+       StateBinding,
+       RememberedStateBinding,
+       BoundWidgetState,
+       binding_value,
+       bound_element,
+       bound_property_element,
+       bound_widget_state,
+       map_binding,
+       remember_binding!,
+       set_binding_value!,
+       state_binding,
+       update_binding_value!,
+       AsyncResource,
+       AsyncResourceStatus,
+       AsyncResourceToken,
+       ResourceIdle,
+       ResourceLoading,
+       ResourceSuccess,
+       ResourceFailure,
+       async_resource_component,
+       cancel_async_resource!,
+       load_async_resource!,
+       resource_cancelled,
+       resource_content,
+       resource_failed,
+       resource_failure,
+       resource_generation,
+       resource_loading,
+       resource_status,
+       resource_succeeded,
+       resource_value,
+       retry_async_resource!,
+       throw_if_resource_cancelled,
+       use_resource!,
+       clear_component_invalidation!,
+       clear_toolkit_invalidation!,
+       component_invalidated,
+       component_slots,
+       component_version,
+       composition_local,
+       composition_value,
+       boundary_failed,
+       boundary_failure,
+       derived_remember!,
        Element,
+       ElementModifier,
+       ElementSignature,
        ElementPath,
        ElementInstance,
+       ReconciliationAction,
+       ReconciliationMount,
+       ReconciliationReuse,
+       ReconciliationReplace,
+       ReconciliationMove,
+       ReconciliationUnmount,
+       ReconciliationRecord,
+       ReconciliationTrace,
+       PositionalIdentityWarning,
+       reconciliation_records,
+       clear_reconciliation_trace!,
+       positional_identity_warning_records,
+       clear_positional_identity_warnings!,
        EventPhase,
+       EventMessages,
+       event_messages,
        target_phase,
        EventResponse,
        RoutedEvent,
        TargetPhase,
        ToolkitState,
        ToolkitTree,
+       invalidate_component!,
+       invalidate_toolkit!,
+       toolkit_invalidated,
        ToolkitApp,
        ToolkitModel,
+       StatefulComponent,
+       clear_component_effects!,
+       component,
+       component_value,
+       keyed,
+       keyed_each,
+       focus_requester,
+       focus_requester_focused,
+       focus_requester_target,
+       has_slot,
+       has_pointer_capture,
+       element_modifier,
+       error_boundary,
+       modify,
+       provide_context,
+       pointer_capture_target,
+       remember!,
+       release_pointer!,
+       release_focus!,
+       request_focus!,
+       remembered_value,
+       remembered_version,
+       retry_error_boundary!,
+       set_component_value!,
+       set_remembered_value!,
+       then,
+       update_component_value!,
+       update_remembered_value!,
+       use_effect!,
+       slot,
+       slot_names,
        Screen,
        ScreenMode,
        ScreenRegistry,
@@ -2077,6 +4715,8 @@ export BubblePhase,
        vstack,
        zstack,
        grid,
+       element,
+       fragment,
        leaf,
        render_toolkit!,
        current_screen,

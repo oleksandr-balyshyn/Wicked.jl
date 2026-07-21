@@ -132,7 +132,7 @@ function instrument_event!(operation::F, hub::DiagnosticsHub, event) where {F}
         hub.traces,
         :runtime,
         :dispatch;
-        metadata=(event=repr(event),),
+        metadata=(; event),
     )
 end
 
@@ -144,7 +144,7 @@ function instrument_command!(operation::F, hub::DiagnosticsHub, command) where {
         hub.traces,
         :runtime,
         :command_execution;
-        metadata=(command=repr(command),),
+        metadata=(; command),
     )
 end
 

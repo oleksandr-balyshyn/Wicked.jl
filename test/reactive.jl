@@ -8,10 +8,28 @@ using Wicked.Reactive: ReactiveRuntime,
                        set_signal!,
                        signal_value,
                        signal_version,
+                       signal_subscription,
                        subscribe!,
                        transaction!
 
 @testset "Reactive transactions and lifecycle" begin
+    @testset "runtime subscription adapter mapping contract" begin
+        value = Signal(2)
+        one = signal_subscription(:one, value; mapper=new -> (:one, new))
+        two = signal_subscription(:two, value; mapper=(new, old) -> (:two, new, old))
+        three = signal_subscription(
+            :three,
+            value;
+            mapper=(new, old, source) -> (:three, new, old, source === value),
+            immediate=true,
+        )
+        @test one isa EventSubscription
+        @test two isa EventSubscription
+        @test three isa EventSubscription
+        @test three.revision[3]
+        @test_throws ArgumentError signal_subscription(:invalid, value; mapper=() -> :invalid)
+    end
+
     @testset "commit coalesces changes" begin
         runtime = ReactiveRuntime()
         value = Signal(1; runtime=runtime)

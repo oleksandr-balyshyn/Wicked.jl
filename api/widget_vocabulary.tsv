@@ -1,0 +1,144 @@
+# Wicked widget vocabulary — cross-library concept map
+# concept<TAB>widgets<TAB>state_contracts<TAB>stateless
+Bordered surface	Border,Block		true
+Panel/card	Panel,Card		true
+Text label	Label		true
+Wrapped paragraph	Paragraph		true
+Heading text	Heading		true
+Markup text	MarkupText		true
+Static display	Static,TextView		true
+Rule separator	Rule,Separator,Divider		true
+Clear region	Clear		true
+Application shell	AppShell		true
+Header/title bar	TitleBar,Header		true
+Footer/status bar	StatusBar,Footer		true
+Status message	Status		true
+Breadcrumb navigation	Breadcrumb	BreadcrumbState	false
+Drawer	Drawer	DrawerState	false
+Popover	Popover	PopoverState	false
+Tooltip	Tooltip	TooltipState	false
+Collapsible section	Collapsible	CollapsibleState	false
+Accordion	Accordion	AccordionState	false
+Carousel	Carousel	CarouselState	false
+Timeline	Timeline	TimelineWidgetState	false
+Context menu	ContextMenu	ContextMenuState	false
+Menu	Menu	MenuState	false
+Menu bar	MenuBar		true
+Menu button	MenuButton	MenuButtonState	false
+Navigation rail	NavigationRail	NavigationRailState	false
+Status badge	Badge		true
+Alert message	Alert		true
+Toast message	Toast		true
+Notification list	NotificationView		true
+Managed notification list	ManagedNotificationView		true
+Validation message	ValidationMessage		true
+Validation summary	ValidationSummary		true
+Loading skeleton	Skeleton	SkeletonState	false
+Empty state	EmptyState		true
+Button	Button,PushButton	ButtonState,PushButtonState	false
+Split button	SplitButton	SplitButtonState	false
+Command palette	CommandPalette	CommandPaletteState	false
+Checkbox	Checkbox,CheckBox	CheckboxState,CheckBoxState	false
+Toggle switch	Toggle,Switch	ToggleState,SwitchState	false
+Flow/wrap layout	Wrap,Flow		true
+Group composition	Group		true
+Layer composition	Layer		true
+Horizontal layout	Row		true
+Vertical layout	Column		true
+Grid layout	Grid		true
+Centered layout	Center		true
+Box container	Box		true
+Padding container	Padding		true
+Spacer	Spacer		true
+Scroll view	ScrollView	ScrollState	false
+Scrollbar	Scrollbar	ScrollState	false
+Viewport	Viewport	ScrollState	false
+Virtualized list	VirtualList	VirtualListState	false
+Virtualized table	VirtualTable	VirtualTableState	false
+Virtualized tree	VirtualTree	VirtualTreeState	false
+Split pane	SplitPane		true
+Resizable pane	ResizablePane	ResizablePaneState	false
+Docked application shell	Dock,DockLayout		true
+Sidebar shell	Sidebar		true
+Toolbar	Toolbar		true
+Shortcut bar	ShortcutBar		true
+Layered overlay composition	Overlay,Stack		true
+Single-line text field	Input,TextBox,TextField,TextInput	InputState,TextBoxState,TextFieldState,TextInputState	false
+Search field	SearchInput	SearchInputState	false
+Password field	PasswordInput,PasswordField	TextInputState,PasswordFieldState	false
+Multiline text field	TextArea,Textarea	TextAreaState	false
+Numeric field	NumberInput	NumberInputState	false
+Masked field	MaskedInput	MaskedInputState	false
+Dropdown/select	Select,Combobox	SelectState	false
+Editable combo box	ComboBox	ComboBoxState	false
+Completion list	Autocomplete	AutocompleteState	false
+Slider	Slider	SliderState	false
+Range slider	RangeSlider	RangeSliderState	false
+List box/view	List,ListBox,ListView,OptionList	ListState,ListViewState,OptionListState	false
+Radio button/group	RadioButton,RadioBoxList,RadioGroup,RadioSet	RadioBoxListState,RadioGroupState,RadioSetState	false
+Transfer/multi-select list	CheckBoxList,SelectionList,TransferList,MultiSelect	CheckBoxListState,SelectionListState,MultiSelectState	false
+Modal dialog	Window,Modal,Dialog	WindowState,DialogState	false
+Date picker	DatePicker,DateInput	DatePickerState	false
+Time picker	TimePicker,TimeInput	TimePickerState	false
+Date-time picker	DateTimePicker,DateTimeInput	DateTimeInputState	false
+Color picker	ColorPicker	ColorPickerState	false
+Tag input	TagInput	TagInputState	false
+File picker	FilePicker	FileBrowserState	false
+Directory picker	DirectoryPicker	FileBrowserState	false
+Directory tree	DirectoryTree	DirectoryTreeState	false
+Multiple-file picker	MultiFilePicker	FileBrowserState	false
+Pagination	Pagination	PaginationState	false
+Progress gauge	Gauge,LineGauge		true
+Progress bar	Progress,ProgressBar	ProgressState,ProgressBarState	false
+Progress group	ProgressGroup	ProgressGroupState	false
+Meter	Meter		true
+Large digits	Digits		true
+Stepper	Stepper	StepperState	false
+Loading indicator	LoadingIndicator,Spinner	LoadingIndicatorState,SpinnerState	false
+Inline trend	Sparkline		true
+Categorical chart	BarChart		true
+Cartesian chart	Chart		true
+Plot	Plot		true
+Histogram	Histogram		true
+Heatmap	Heatmap		true
+Calendar view	Calendar		true
+Drawing canvas	Canvas		true
+Table	Table	TableState	false
+Data grid	DataGrid	DataGridState	false
+Data state wrapper	DataStateView		true
+Data table	DataTable	DataTableState	false
+Property list	PropertyList	PropertyListState	false
+Key-value list	KeyValueList	KeyValueListState	false
+Metadata list	MetadataList	MetadataListState	false
+Description list	DescriptionList	DescriptionListState	false
+Definition list	DefinitionList	DefinitionListState	false
+Tree	Tree,TreeView	TreeState,TreeViewState	false
+Tree table	TreeTable	TreeTableState	false
+Tabs	Tabs	TabsState	false
+Tab view	TabView	TabViewState	false
+Tabbed content	TabbedContentView	TabbedContent	false
+Markdown document	MarkdownView		true
+Code view	CodeView		true
+Syntax view	SyntaxView	SyntaxViewState	false
+Code editor	CodeEditor	CodeEditorState	false
+Diff view	DiffView		true
+Error view	ErrorView		true
+Log view	LogView		true
+Rich log	RichLog	RichLogState	false
+Log tail	LogTail	LogTailState	false
+Process view	ProcessView	ProcessViewState	false
+REPL view	ReplView	ReplViewState	false
+Live display	LiveDisplay	LiveDisplayState	false
+Terminal output	TerminalView	TerminalViewState	false
+Task monitor	TaskMonitor	TaskMonitorState	false
+Help view	HelpView		true
+Inspector panel	Inspector	InspectorState	false
+Developer console	DevConsole	DevConsoleState	false
+Terminal image	ImageView,BrailleImage		true
+ANSI capture view	AnsiView	AnsiViewState	false
+Hyperlink	Hyperlink	HyperlinkState	false
+Activating link	Link	LinkState	false
+Theme preview	ThemePreview	ThemePreviewState	false
+Julia value display	Pretty		true
+Placeholder panel	Placeholder		true
+Rich styled text	RichText		true

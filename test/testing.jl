@@ -21,6 +21,12 @@ function update!(::TestingPilotApp, model::TestingPilotModel, message)
         model.count = last(payload)
     elseif payload === :batch
         return BatchCommand(MessageCommand(:increment), MessageCommand(:increment))
+    elseif payload === :sequence
+        return SequenceCommand(
+            MessageCommand(:increment),
+            DelayCommand(0.5, :increment),
+            MessageCommand(:increment),
+        )
     elseif payload === :exit
         return ExitCommand(model.count)
     end
@@ -28,6 +34,19 @@ function update!(::TestingPilotApp, model::TestingPilotModel, message)
 end
 
 @testset "Headless testing API" begin
+    @testset "ordered command virtual time" begin
+        pilot = RuntimePilot(TestingPilotApp(); height=1, width=12)
+        result = send!(pilot, :sequence)
+        @test result.processed_messages == 2
+        @test pilot.model.count == 1
+        @test pending_scheduled(pilot.clock) == 1
+
+        advanced = advance_time!(pilot, 0.5)
+        @test advanced.processed_messages == 2
+        @test pilot.model.count == 3
+        @test pending_scheduled(pilot.clock) == 0
+    end
+
     @testset "capability-configurable backend" begin
         capabilities = TerminalCapabilities(
             color_level=:truecolor,
@@ -490,7 +509,7 @@ end
         records = snapshot_bundle_manifest_records(bundle)
         @test all(record -> record isa SnapshotArtifactRecord, records)
         @test SnapshotArtifactRecord(String(first(records).name), first(records).bytes, String(first(records).sha256)) == first(records)
-        @test sort(record.name for record in records) == sort(collect(keys(snapshot_bundle_payloads(bundle))))
+        @test sort([record.name for record in records]) == sort(collect(keys(snapshot_bundle_payloads(bundle))))
         @test all(record -> record.bytes > 0, records)
         @test all(record -> length(record.sha256) == 64, records)
         summary = snapshot_bundle_summary(bundle)
@@ -580,12 +599,13 @@ end
         @test !pilot.state.pressed
         @test double_click!(pilot, 2, 4).handled
         @test !right_click!(pilot, 2, 4).handled
-        @test !drag!(pilot, 2, 2, 2, 5).handled
+        @test drag!(pilot, 2, 2, 2, 5).handled
         @test !scroll_up!(pilot, 2, 4).handled
         @test !scroll_down!(pilot, 2, 4).handled
+        previous_time = virtual_time_ns(pilot.clock)
         ticked = advance_time!(pilot, 0.25)
         @test !ticked.handled
-        @test virtual_time_ns(pilot.clock) == 250_000_000
+        @test virtual_time_ns(pilot.clock) == previous_time + 250_000_000
         @test wait_until!(pilot, candidate -> occursin("Go", plain_snapshot(candidate))) === pilot
         @test wait_for_text!(pilot, "Go") === pilot
         @test wait_for_plain_snapshot!(pilot, plain_snapshot(pilot)) === pilot

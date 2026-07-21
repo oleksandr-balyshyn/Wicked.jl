@@ -48,6 +48,19 @@
 
         @test [buffer[1, column].grapheme for column in 1:5] ==
               ["t", "w", "o", " ", " "]
+
+        wrapped = render_markdown("alpha **βeta** verylong界word"; width=6)
+        @test length(wrapped.lines) > 1
+        @test all(line -> textwidth(plain_text(line)) <= 6, wrapped.lines)
+        @test any(
+            span -> span.role == :strong && occursin("β", span.text),
+            Iterators.flatten(line.spans for line in wrapped.lines),
+        )
+
+        unicode_whitespace = render_markdown("alpha\u00a0beta"; width=20)
+        @test plain_text(unicode_whitespace) == "alpha\u00a0beta"
+        narrow_whitespace = render_markdown("alpha\u00a0beta"; width=5)
+        @test plain_text(narrow_whitespace) == "alpha\nbeta"
     end
 
     @testset "semantic markdown roles" begin

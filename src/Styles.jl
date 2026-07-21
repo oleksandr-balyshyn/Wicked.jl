@@ -217,8 +217,12 @@ function parse_color(value::AbstractString)
         isnothing(parsed) && throw(ArgumentError("invalid hexadecimal color: $value"))
         return RGBColor((parsed >> 16) & 0xff, (parsed >> 8) & 0xff, parsed & 0xff)
     end
-    indexed = match(r"^indexed\((\d+)\)$", text)
-    !isnothing(indexed) && return IndexedColor(parse(Int, indexed.captures[1]))
+    if startswith(text, "indexed(") && endswith(text, ')')
+        start = nextind(text, firstindex(text), 8)
+        digits = SubString(text, start, prevind(text, lastindex(text)))
+        !isempty(digits) && all(character -> '0' <= character <= '9', digits) &&
+            return IndexedColor(parse(Int, digits))
+    end
     rgb = match(r"^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$", text)
     !isnothing(rgb) && return RGBColor(parse.(Int, rgb.captures)...)
     throw(ArgumentError("unsupported color value: $value"))
@@ -255,16 +259,49 @@ function _line_column(text::String, offset::Int)
     line, column
 end
 
+function _advance_style_position(
+    text::String,
+    position::Int,
+    stop::Int,
+    line::Int,
+    column::Int,
+)
+    while position < stop
+        if text[position] == '\n'
+            line += 1
+            column = 1
+        else
+            column += 1
+        end
+        position = nextind(text, position)
+    end
+    return position, line, column
+end
+
+function _style_gap_has_content(text::String, position::Int, stop::Int)
+    while position < stop
+        isspace(text[position]) || return true
+        position = nextind(text, position)
+    end
+    return false
+end
+
 function _selector_token(token::AbstractString; ancestor::Bool=false)
     widget_type = nothing
     id = nothing
     classes = Symbol[]
     states = Symbol[]
     index = firstindex(token)
-    type_match = match(r"^[A-Za-z_][A-Za-z0-9_]*", token)
-    if !isnothing(type_match)
-        widget_type = Symbol(type_match.match)
-        index = nextind(token, lastindex(type_match.match))
+    if index <= lastindex(token) &&
+       (isascii(token[index]) && (isletter(token[index]) || token[index] == '_'))
+        finish = nextind(token, index)
+        while finish <= lastindex(token)
+            character = token[finish]
+            isascii(character) && (isletter(character) || isnumeric(character) || character == '_') || break
+            finish = nextind(token, finish)
+        end
+        widget_type = Symbol(SubString(token, index, prevind(token, finish)))
+        index = finish
     end
     while index <= lastindex(token)
         marker = token[index]
@@ -295,15 +332,53 @@ function _selector_token(token::AbstractString; ancestor::Bool=false)
 end
 
 function _parse_selector(value::AbstractString)
-    tokens = split(strip(value))
-    isempty(tokens) && throw(ArgumentError("selector cannot be empty"))
-    length(tokens) > 2 && throw(ArgumentError("only one ancestor selector is supported"))
+    text = strip(value)
+    isempty(text) && throw(ArgumentError("selector cannot be empty"))
+    tokens = SubString[]
+    index = firstindex(text)
+    while index <= lastindex(text)
+        while index <= lastindex(text) && isspace(text[index])
+            index = nextind(text, index)
+        end
+        index > lastindex(text) && break
+        start = index
+        while index <= lastindex(text) && !isspace(text[index])
+            index = nextind(text, index)
+        end
+        push!(tokens, SubString(text, start, prevind(text, index)))
+        length(tokens) > 2 && throw(ArgumentError("only one ancestor selector is supported"))
+    end
     ancestor_classes = Symbol[]
     if length(tokens) == 2
         _, _, ancestor_classes, _ = _selector_token(tokens[1]; ancestor=true)
     end
     widget_type, id, classes, states = _selector_token(last(tokens))
-    Selector(; widget_type, id, classes, states, ancestor_classes)
+    Selector(
+        widget_type,
+        id,
+        Set{Symbol}(classes),
+        Set{Symbol}(states),
+        Set{Symbol}(ancestor_classes),
+    )
+end
+
+function _parse_selector_group(value::AbstractString)
+    selectors = Selector[]
+    start = firstindex(value)
+    index = start
+    stop = ncodeunits(value) + 1
+    while index <= stop
+        if index == stop || value[index] == ','
+            finish = index == start ? start - 1 : prevind(value, index)
+            selector = finish < start ? SubString(value, start, start - 1) :
+                       SubString(value, start, finish)
+            push!(selectors, _parse_selector(selector))
+            index == stop && break
+            start = nextind(value, index)
+        end
+        index = nextind(value, index)
+    end
+    return selectors
 end
 
 function _parse_declarations(body::AbstractString)
@@ -313,13 +388,30 @@ function _parse_declarations(body::AbstractString)
     add_modifiers = Modifiers()
     remove_modifiers = Modifiers()
     hyperlink = missing
-    for declaration in split(body, ';')
+    start = firstindex(body)
+    index = start
+    stop = ncodeunits(body) + 1
+    while index <= stop
+        if index != stop && body[index] != ';'
+            index = nextind(body, index)
+            continue
+        end
+        finish = index == start ? start - 1 : prevind(body, index)
+        declaration = finish < start ? SubString(body, start, start - 1) :
+                      SubString(body, start, finish)
         text = strip(declaration)
+        if index != stop
+            start = nextind(body, index)
+            index = start
+        else
+            index = stop + 1
+        end
         isempty(text) && continue
-        pair = split(text, ':'; limit=2)
-        length(pair) == 2 || throw(ArgumentError("declaration must contain ':'"))
-        property = lowercase(strip(pair[1]))
-        value = strip(pair[2])
+        separator = findfirst(==(':'), text)
+        separator === nothing && throw(ArgumentError("declaration must contain ':'"))
+        property = lowercase(strip(SubString(text, firstindex(text), prevind(text, separator))))
+        value_start = nextind(text, separator)
+        value = strip(SubString(text, value_start))
         if property == "foreground" || property == "color"
             foreground = parse_color(value)
         elseif property == "background"
@@ -347,6 +439,7 @@ function _parse_declarations(body::AbstractString)
 end
 
 function _strip_comments(text::String)
+    occursin("/*", text) || return text
     replace(text, r"/\*.*?\*/"s => matched -> replace(matched, r"[^\n]" => " "))
 end
 
@@ -359,20 +452,51 @@ function try_parse_stylesheet(
     text = _strip_comments(original)
     stylesheet = Stylesheet()
     diagnostics = StyleDiagnostic[]
-    consumed = falses(ncodeunits(text))
-    for matched in eachmatch(r"([^{}]+)\{([^{}]*)\}"s, text)
-        selector_text = strip(matched.captures[1])
-        body = matched.captures[2]
-        offset = matched.offset
-        line, column = _line_column(text, offset)
-        for index in offset:(offset + ncodeunits(matched.match) - 1)
-            index <= length(consumed) && (consumed[index] = true)
+    position = firstindex(text)
+    line = 1
+    column = 1
+    unparsed = false
+    cursor = firstindex(text)
+    stop = ncodeunits(text) + 1
+    while cursor < stop
+        while cursor < stop && isspace(text[cursor])
+            cursor = nextind(text, cursor)
         end
+        cursor == stop && break
+        diagnostic_offset = cursor
+        opening = findnext(==('{'), text, cursor)
+        stray_closing = findnext(==('}'), text, cursor)
+        if stray_closing !== nothing && (opening === nothing || stray_closing < opening)
+            unparsed = true
+            cursor = nextind(text, stray_closing)
+            continue
+        end
+        if opening === nothing || opening == cursor
+            unparsed = true
+            opening === nothing && break
+            closing = findnext(==('}'), text, nextind(text, opening))
+            closing === nothing && break
+            cursor = nextind(text, closing)
+            continue
+        end
+        body_start = nextind(text, opening)
+        closing = findnext(==('}'), text, body_start)
+        nested_opening = findnext(==('{'), text, body_start)
+        if closing === nothing || (nested_opening !== nothing && nested_opening < closing)
+            unparsed = true
+            closing === nothing && break
+            cursor = nextind(text, closing)
+            continue
+        end
+        selector_capture = SubString(text, cursor, prevind(text, opening))
+        selector_text = strip(selector_capture)
+        body = closing == body_start ? SubString(text, body_start, body_start - 1) :
+               SubString(text, body_start, prevind(text, closing))
+        position, line, column =
+            _advance_style_position(text, position, diagnostic_offset, line, column)
         try
             patch = _parse_declarations(body)
-            selectors = Selector[
-                _parse_selector(selector_value) for selector_value in split(selector_text, ',')
-            ]
+            selectors = _parse_selector_group(selector_text)
             for selector in selectors
                 add_rule!(stylesheet, selector, patch)
             end
@@ -382,12 +506,9 @@ function try_parse_stylesheet(
                 StyleDiagnostic(:error, sprint(showerror, error), String(source), line, column),
             )
         end
+        cursor = nextind(text, closing)
     end
-    remainder = String(UInt8[
-        codeunits(text)[index] for index in eachindex(consumed)
-        if !consumed[index] && !isspace(Char(codeunits(text)[index]))
-    ])
-    !isempty(remainder) && push!(
+    unparsed && push!(
         diagnostics,
         StyleDiagnostic(:error, "unparsed stylesheet content", String(source), 1, 1),
     )
@@ -525,6 +646,21 @@ function _matching_rule_entries(engine::StyleEngine, context::StyleContext)
     return ranked
 end
 
+function _matching_rule_indices(engine::StyleEngine, context::StyleContext)
+    ranked = Tuple{Int,Int}[]
+    for (stylesheet_index, stylesheet) in enumerate(engine.stylesheets)
+        for (rule_index, rule) in enumerate(stylesheet.rules)
+            matches(rule.selector, context) && push!(ranked, (stylesheet_index, rule_index))
+        end
+    end
+    sort!(ranked; by=indices -> begin
+        stylesheet_index, rule_index = indices
+        rule = engine.stylesheets[stylesheet_index].rules[rule_index]
+        (specificity(rule.selector), stylesheet_index, rule.order)
+    end)
+    return ranked
+end
+
 _matching_rules(engine::StyleEngine, context::StyleContext) =
     StyleRule[item[1] for item in _matching_rule_entries(engine, context)]
 
@@ -577,7 +713,7 @@ function _style_rule_match_search_text(record)
     return lowercase(join((
         record.index,
         record.selector_text,
-        record.matched,
+        "matched=$(record.matched)",
         record.mismatch_reason_text,
         record.specificity,
         record.stylesheet_index,
@@ -644,8 +780,35 @@ function computed_style(
 )
     result = base
     !isnothing(role) && (result = apply(result, _style_patch(theme_style(engine.theme, role))))
-    for rule in _matching_rules(engine, context)
-        result = apply(result, rule.patch)
+    foreground::Union{Nothing,Color} = nothing
+    background::Union{Nothing,Color} = nothing
+    underline_color::Union{Nothing,Color} = nothing
+    add_bits = UInt16(0)
+    remove_bits = UInt16(0)
+    hyperlink::Union{Missing,Nothing,String} = missing
+    matched = false
+    for (stylesheet_index, rule_index) in _matching_rule_indices(engine, context)
+        patch = engine.stylesheets[stylesheet_index].rules[rule_index].patch
+        matched = true
+        patch.foreground === nothing || (foreground = patch.foreground)
+        patch.background === nothing || (background = patch.background)
+        patch.underline_color === nothing || (underline_color = patch.underline_color)
+        add_bits = (add_bits & ~patch.remove_modifiers.bits) | patch.add_modifiers.bits
+        remove_bits = (remove_bits & ~patch.add_modifiers.bits) | patch.remove_modifiers.bits
+        ismissing(patch.hyperlink) || (hyperlink = patch.hyperlink)
+    end
+    if matched
+        result = apply(
+            result,
+            StylePatch(
+                foreground,
+                background,
+                underline_color,
+                Modifiers(add_bits),
+                Modifiers(remove_bits),
+                hyperlink,
+            ),
+        )
     end
     apply(result, inline)
 end
@@ -1136,7 +1299,7 @@ function _style_diagnostics_search_text(record)
         record.index,
         record.source,
         record.label,
-        record.matched,
+        "matched=$(record.matched)",
         record.detail,
     ), " "))
 end

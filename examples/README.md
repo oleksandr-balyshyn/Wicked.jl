@@ -31,7 +31,7 @@ public APIs and avoid terminal takeover.
 | Browse files and directory trees | [`file_browser_quickstart.jl`](file_browser_quickstart.jl) |
 | Drive animations, spinners, skeletons, and loading indicators | [`animations_loading_quickstart.jl`](animations_loading_quickstart.jl) |
 | Learn managed runtime command/update loops | [`runtime_quickstart.jl`](runtime_quickstart.jl) |
-| Build Textual-style component trees with Toolkit semantics | [`toolkit_quickstart.jl`](toolkit_quickstart.jl) |
+| Build Compose-style component trees with Toolkit semantics | [`toolkit_quickstart.jl`](toolkit_quickstart.jl) |
 | Use CSS-like styling and pseudo-state behavior | [`styling_quickstart.jl`](styling_quickstart.jl) |
 | Render large virtual lists, tables, and trees | [`virtualization_quickstart.jl`](virtualization_quickstart.jl) |
 | Add visualization and charting examples | [`visualization_quickstart.jl`](visualization_quickstart.jl) |

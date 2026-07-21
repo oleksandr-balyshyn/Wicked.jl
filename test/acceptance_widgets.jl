@@ -1,4 +1,10 @@
 @testset "Required acceptance widgets" begin
+    function rendered_semantic_tree(element; height=4, width=40)
+        tree = ToolkitTree(element)
+        render_toolkit!(Frame(Buffer(height, width)), tree)
+        return toolkit_semantic_tree(tree)
+    end
+
     @test Border(title="Box") isa Border
     @test Rule().direction == HorizontalRule
     rich = RichText("Ready")
@@ -67,7 +73,7 @@
         @test Wicked.Toolkit.state_for(widget) === nothing
         dispatcher = SemanticDispatcher()
         register_error_view_semantic_handlers!(dispatcher, :error, widget)
-        pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(widget; id=:error, key=:error))); dispatcher)
+        pilot = SemanticPilot(rendered_semantic_tree(Element(widget; id=:error, key=:error)); dispatcher)
         error_result = perform_semantic_action!(pilot, "error", SelectSemanticAction)
         @test error_result.handled
         @test error_result.value[:message] == "database unavailable"
@@ -92,7 +98,12 @@
         message_dispatcher = SemanticDispatcher()
         register_validation_message_semantic_handlers!(message_dispatcher, :validation_message, message)
         message_pilot = SemanticPilot(
-            SemanticTree(SemanticNode("validation_message", message_descriptor.role; label=message_descriptor.label)),
+            SemanticTree(SemanticNode(
+                "validation_message",
+                message_descriptor.role;
+                label=message_descriptor.label,
+                actions=message_descriptor.actions,
+            )),
             dispatcher=message_dispatcher,
         )
         message_result = perform_semantic_action!(message_pilot, "validation_message", SelectSemanticAction)
@@ -113,7 +124,12 @@
         summary_dispatcher = SemanticDispatcher()
         register_validation_summary_semantic_handlers!(summary_dispatcher, :validation_summary, summary)
         summary_pilot = SemanticPilot(
-            SemanticTree(SemanticNode("validation_summary", summary_descriptor.role; label=summary_descriptor.label)),
+            SemanticTree(SemanticNode(
+                "validation_summary",
+                summary_descriptor.role;
+                label=summary_descriptor.label,
+                actions=summary_descriptor.actions,
+            )),
             dispatcher=summary_dispatcher,
         )
         summary_result = perform_semantic_action!(summary_pilot, "validation_summary", SelectSemanticAction)
@@ -139,10 +155,10 @@
             "feedback",
             GroupRole;
             children=[
-                SemanticNode("badge", StatusRole; label="READY"),
-                SemanticNode("status", StatusRole; label="Status"),
-                SemanticNode("alert", AlertRole; label="Warning"),
-                SemanticNode("toast", StatusRole; label="Deploy"),
+                SemanticNode("badge", StatusRole; label="READY", actions=[SelectSemanticAction]),
+                SemanticNode("status", StatusRole; label="Status", actions=[SelectSemanticAction]),
+                SemanticNode("alert", AlertRole; label="Warning", actions=[DismissSemanticAction]),
+                SemanticNode("toast", StatusRole; label="Deploy", actions=[DismissSemanticAction]),
             ],
         ))
         pilot = SemanticPilot(tree; dispatcher)
@@ -209,7 +225,7 @@
         @test Wicked.Toolkit.state_for(widget) === nothing
         dispatcher = SemanticDispatcher()
         register_help_view_semantic_handlers!(dispatcher, :help, widget)
-        pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(widget; id=:help, key=:help))); dispatcher)
+        pilot = SemanticPilot(rendered_semantic_tree(Element(widget; id=:help, key=:help)); dispatcher)
         root_result = perform_semantic_action!(pilot, "help", FocusSemanticAction)
         @test root_result.handled
         @test root_result.value[:hint_count] == 2
@@ -272,7 +288,7 @@
         @test digits_descriptor.metadata[:spacing] == 2
         digits_dispatcher = SemanticDispatcher()
         register_digits_semantic_handlers!(digits_dispatcher, :digits, digits)
-        digits_pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(digits; id=:digits, key=:digits))); dispatcher=digits_dispatcher)
+        digits_pilot = SemanticPilot(rendered_semantic_tree(Element(digits; id=:digits, key=:digits)); dispatcher=digits_dispatcher)
         digits_result = perform_semantic_action!(digits_pilot, "digits", FocusSemanticAction)
         @test digits_result.handled
         @test digits_result.value[:value] == "42"
@@ -285,7 +301,7 @@
         @test pretty_descriptor.metadata[:compact]
         pretty_dispatcher = SemanticDispatcher()
         register_pretty_semantic_handlers!(pretty_dispatcher, :pretty, pretty)
-        pretty_pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(pretty; id=:pretty, key=:pretty))); dispatcher=pretty_dispatcher)
+        pretty_pilot = SemanticPilot(rendered_semantic_tree(Element(pretty; id=:pretty, key=:pretty)); dispatcher=pretty_dispatcher)
         pretty_result = perform_semantic_action!(pretty_pilot, "pretty", SelectSemanticAction)
         @test pretty_result.handled
         @test occursin("ready", pretty_result.value[:value])

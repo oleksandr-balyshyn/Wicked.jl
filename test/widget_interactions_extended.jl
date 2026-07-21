@@ -941,7 +941,8 @@ end
     @test combobox_node.role == ListRole
     @test combobox_node.label == "Choose mode"
     @test combobox_node.metadata[:option_count] == 2
-    @test combobox_node.state.value == :gamma
+    @test combobox_node.state.value == "Gamma"
+    @test combobox_node.metadata[:selected_value] == :gamma
 end
 
 @testset "Multi-select toolkit semantic integration" begin
@@ -1760,6 +1761,7 @@ end
     @test select_menu_item!(state, widget, 2) === state
     @test isnothing(selected_menu_item(widget, state))
     @test select_menu_item!(state, widget, 1) === state
+    @test select_menu_item!(state, widget, 3) === state
     tree = ToolkitTree(
         Element(widget; id=:actions, key=:actions, state_factory=() -> state, focusable=true),
     )
@@ -1957,6 +1959,7 @@ end
     push = PushButton("Launch", :launch)
     push_state = PushButtonState()
     push_tree = ToolkitTree(Element(push; id=:launch, key=:launch, state_factory=() -> push_state, focusable=true))
+    render_toolkit!(Frame(Buffer(2, 16)), push_tree)
     push_semantics = toolkit_semantic_tree(push_tree)
     push_node = semantic_node(push_semantics, "launch")
     @test isempty(filter(diagnostic -> diagnostic.severity == :error, validate_semantics(push_semantics)))
@@ -1968,4 +1971,35 @@ end
     push_result = perform_semantic_action!(push_pilot, "launch", ActivateSemanticAction)
     @test push_result.handled
     @test push_result.value == :launch
+end
+
+@testset "keybinding help" begin
+    bindings = [
+        Wicked.KeyBinding("q", "quit"),
+        Wicked.KeyBinding("s", "save"; enabled=false),
+        Wicked.KeyBinding("?", "help"),
+    ]
+
+    # disabled bindings are excluded from derived help
+    hints = Wicked.help_hints(bindings)
+    @test length(hints) == 2
+    @test hints[1] isa KeyHint
+    @test (hints[1].key, hints[1].description) == ("q", "quit")
+    @test hints[2].key == "?"
+
+    # the derived hints feed the existing widgets
+    @test Footer(Wicked.help_hints(bindings)) isa Footer
+    @test HelpView(Wicked.help_hints(bindings)) isa HelpView
+
+    # short help renders enabled bindings on one line
+    @test Wicked.short_help(bindings) == "q quit • ? help"
+    @test Wicked.short_help(bindings; max_width=15) == "q quit • ? help"
+    # narrow widths truncate with an overflow marker
+    @test Wicked.short_help(bindings; max_width=10) == "q quit • …"
+    @test Wicked.short_help(bindings; max_width=0) == ""
+    # everything disabled yields an empty line
+    @test Wicked.short_help([Wicked.KeyBinding("x", "y"; enabled=false)]) == ""
+    # custom separator is honored
+    @test Wicked.short_help([Wicked.KeyBinding("a", "b"), Wicked.KeyBinding("c", "d")]; separator="  ") ==
+          "a b  c d"
 end

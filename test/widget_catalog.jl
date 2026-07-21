@@ -171,14 +171,14 @@
     button_vocabulary = widget_vocabulary_entry("Button")
     @test button_vocabulary isa WidgetVocabularyEntry
     @test :Button in button_vocabulary.widgets
-    divider_vocabulary = widget_vocabulary_entry("Divider or separator")
+    divider_vocabulary = widget_vocabulary_entry("Rule separator")
     @test divider_vocabulary isa WidgetVocabularyEntry
     @test :Divider in divider_vocabulary.widgets
     @test :Separator in divider_vocabulary.widgets
     @test widget_vocabulary_entry(:Button) == button_vocabulary
     @test widget_vocabulary_entry("Definitely missing concept") === nothing
     @test :Button in widget_vocabulary_widget_names("Button")
-    @test :Divider in widget_vocabulary_widget_names("Divider or separator")
+    @test :Divider in widget_vocabulary_widget_names("Rule separator")
     @test :TextInput in widget_vocabulary_widget_names("Single-line text field")
     @test any(entry -> entry.concept == "Button", search_widget_vocabulary("push button"))
     @test any(entry -> entry.concept == "Single-line text field", search_widget_vocabulary(:TextInput))
@@ -341,7 +341,7 @@
     @test experimental_widget_count() == 0
     @test experimental_widget_records() == []
     @test startswith(experimental_widget_records_markdown(), "| `name` | `cataloged` | `family` |")
-    @test startswith(experimental_widget_records_tsv(), "name\tcataloged\tfamily\tfamily_slug\tsource\tsurface\tstatus\trequired_decision")
+    @test startswith(experimental_widget_records_tsv(), "name\tcataloged\tfamily\tfamily_slug\tsource\tsurface\tstatus\tdecision\ttarget\treview_status\tplan_notes\trequired_decision")
     @test !startswith(experimental_widget_records_tsv(header=false), "name\tcataloged\tfamily")
     @test occursin("\"experimental_widget_count\": 0", experimental_widget_records_json())
     @test candidate_widget_names() == Symbol[]

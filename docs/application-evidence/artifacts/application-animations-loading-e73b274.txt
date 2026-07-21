@@ -1,2 +1,0 @@
-animations and loading quickstart example completed
-application_exit:0

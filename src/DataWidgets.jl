@@ -1732,6 +1732,9 @@ struct KeyValueList
     properties::PropertyList
 end
 
+KeyValueList(items::AbstractVector; kwargs...) = _key_value_list(items; kwargs...)
+KeyValueList(items::Tuple; kwargs...) = _key_value_list(items; kwargs...)
+
 function KeyValueList(body::Vararg{Any}; kwargs...)
     length(body) == 0 && throw(ArgumentError("KeyValueList requires an items argument"))
     length(body) > 1 && throw(ArgumentError("KeyValueList accepts exactly one positional argument"))
@@ -1829,6 +1832,9 @@ same state and interaction behavior as `KeyValueList`.
 struct MetadataList
     key_values::KeyValueList
 end
+
+MetadataList(items::AbstractVector; kwargs...) = _metadata_list(items; kwargs...)
+MetadataList(items::Tuple; kwargs...) = _metadata_list(items; kwargs...)
 
 function MetadataList(body::Vararg{Any}; kwargs...)
     length(body) == 0 && throw(ArgumentError("MetadataList requires an items argument"))
@@ -2203,6 +2209,9 @@ semantic behavior as `DescriptionList`.
 struct DefinitionList
     descriptions::DescriptionList
 end
+
+DefinitionList(items::AbstractVector; kwargs...) = _definition_list(items; kwargs...)
+DefinitionList(items::Tuple; kwargs...) = _definition_list(items; kwargs...)
 
 function DefinitionList(body::Vararg{Any}; kwargs...)
     length(body) == 0 && throw(ArgumentError("DefinitionList requires an items argument"))

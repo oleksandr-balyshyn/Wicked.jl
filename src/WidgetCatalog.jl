@@ -1,8 +1,7 @@
 const _WIDGET_CATALOG_PATH = normpath(joinpath(@__DIR__, "..", "api", "stable_widget_candidates.tsv"))
-const _COMPONENT_CATALOG_PATH = normpath(joinpath(@__DIR__, "..", "docs", "COMPONENT_CATALOG.md"))
+const _WIDGET_VOCABULARY_PATH = normpath(joinpath(@__DIR__, "..", "api", "widget_vocabulary.tsv"))
 const _WIDGET_CATALOG_ROOT = normpath(joinpath(@__DIR__, ".."))
 const _WIDGET_CATALOG_COLUMNS = ("widget", "source", "surface", "status", "reason")
-const _WIDGET_VOCABULARY_HEADER = "| Cross-library concept | Wicked API name | State contract |"
 const _WIDGET_CATALOG_FALLBACK_FAMILY = "Unclassified"
 const _WIDGET_COVERAGE_PATH = normpath(joinpath(@__DIR__, "..", "api", "widget_coverage.tsv"))
 const _WIDGET_FAMILY_EVIDENCE_PATH = normpath(joinpath(@__DIR__, "..", "api", "widget_family_evidence.tsv"))
@@ -310,6 +309,28 @@ struct WidgetVocabularyEntry
     stateless::Bool
 end
 
+Base.:(==)(left::WidgetFamilyEntry, right::WidgetFamilyEntry) =
+    left.name == right.name && left.slug == right.slug && left.count == right.count && left.widgets == right.widgets
+Base.isequal(left::WidgetFamilyEntry, right::WidgetFamilyEntry) =
+    isequal(left.name, right.name) && isequal(left.slug, right.slug) && isequal(left.count, right.count) && isequal(left.widgets, right.widgets)
+Base.hash(entry::WidgetFamilyEntry, seed::UInt) = hash((entry.name, entry.slug, entry.count, entry.widgets), seed)
+
+Base.:(==)(left::WidgetFamilyCloseoutReport, right::WidgetFamilyCloseoutReport) =
+    all(field -> getfield(left, field) == getfield(right, field), fieldnames(WidgetFamilyCloseoutReport))
+Base.isequal(left::WidgetFamilyCloseoutReport, right::WidgetFamilyCloseoutReport) =
+    all(field -> isequal(getfield(left, field), getfield(right, field)), fieldnames(WidgetFamilyCloseoutReport))
+Base.hash(report::WidgetFamilyCloseoutReport, seed::UInt) =
+    hash(ntuple(index -> getfield(report, index), fieldcount(WidgetFamilyCloseoutReport)), seed)
+
+Base.:(==)(left::WidgetVocabularyEntry, right::WidgetVocabularyEntry) =
+    left.concept == right.concept && left.widgets == right.widgets &&
+    left.state_contracts == right.state_contracts && left.stateless == right.stateless
+Base.isequal(left::WidgetVocabularyEntry, right::WidgetVocabularyEntry) =
+    isequal(left.concept, right.concept) && isequal(left.widgets, right.widgets) &&
+    isequal(left.state_contracts, right.state_contracts) && isequal(left.stateless, right.stateless)
+Base.hash(entry::WidgetVocabularyEntry, seed::UInt) =
+    hash((entry.concept, entry.widgets, entry.state_contracts, entry.stateless), seed)
+
 function Base.show(io::IO, entry::WidgetCatalogEntry)
     print(
         io,
@@ -407,11 +428,11 @@ _widget_catalog_family_matches(entry::WidgetCatalogEntry, family_filter) =
 function _widget_catalog_name(value)
     value isa Symbol && return value
     value isa AbstractString && return Symbol(value)
-    text = value isa Type ? string(value) : string(typeof(value))
-    startswith(text, "Wicked.") ||
+    widget_type = value isa Type ? value : typeof(value)
+    unwrapped = Base.unwrap_unionall(widget_type)
+    Base.moduleroot(parentmodule(unwrapped)) === (@__MODULE__) ||
         throw(ArgumentError("widget catalog name must be a Symbol, String, Wicked widget type, or Wicked widget instance"))
-    unparameterized = first(split(text, '{'; limit=2))
-    return Symbol(last(split(unparameterized, '.')))
+    return nameof(unwrapped)
 end
 
 function _widget_catalog_search_query(value)
@@ -439,10 +460,11 @@ function _widget_catalog_query_matches(entry::WidgetCatalogEntry, query)
 end
 
 function _widget_vocabulary_search_text(entry::WidgetVocabularyEntry)
+    searchable_name(name) = replace(String(name), r"(?<=[a-z0-9])(?=[A-Z])" => " ")
     return lowercase(join((
         entry.concept,
-        join((String(name) for name in entry.widgets), " "),
-        join((String(name) for name in entry.state_contracts), " "),
+        join(("$(String(name)) $(searchable_name(name))" for name in entry.widgets), " "),
+        join(("$(String(name)) $(searchable_name(name))" for name in entry.state_contracts), " "),
         entry.stateless ? "stateless" : "stateful",
     ), " "))
 end
@@ -730,35 +752,33 @@ function _read_widget_catalog(path::AbstractString=_WIDGET_CATALOG_PATH)
     return sort!(entries; by=entry -> String(entry.name))
 end
 
-function _read_widget_vocabulary(path::AbstractString=_COMPONENT_CATALOG_PATH)
-    isfile(path) || throw(ArgumentError("missing component catalog: $path"))
-    lines = readlines(path)
-    start = findfirst(==("## Public widget-name map"), lines)
-    start === nothing && throw(ArgumentError("component catalog missing Public widget-name map"))
-    any(offset -> occursin(_WIDGET_VOCABULARY_HEADER, lines[offset]), start:length(lines)) ||
-        throw(ArgumentError("component catalog Public widget-name map missing expected table header"))
+# Split a comma-separated list of code names into trimmed, non-empty entries.
+_split_widget_vocabulary_names(cell::AbstractString) =
+    String[strip(name) for name in split(cell, ',') if !isempty(strip(name))]
+
+function _read_widget_vocabulary(path::AbstractString=_WIDGET_VOCABULARY_PATH)
+    isfile(path) || throw(ArgumentError("missing widget vocabulary ledger: $path"))
     entries = WidgetVocabularyEntry[]
-    for offset in start:length(lines)
-        line = lines[offset]
-        offset != start && startswith(line, "## ") && break
-        startswith(strip(line), "|") || continue
-        occursin("|---", line) && continue
-        occursin("Wicked API name", line) && continue
-        values = String[]
-        for value in split(line, "|")
-            stripped = strip(value)
-            isempty(stripped) || push!(values, stripped)
-        end
-        length(values) >= 3 || throw(ArgumentError("component catalog Public widget-name map row is malformed at line $offset"))
-        widget_names = Symbol.(_widget_catalog_code_names(values[2]))
-        isempty(widget_names) && throw(ArgumentError("component catalog Public widget-name map row has no Wicked API widget name at line $offset"))
-        stateless = values[3] == "Stateless"
-        state_contracts = stateless ? Symbol[] : Symbol.(_widget_catalog_code_names(values[3]))
+    for (offset, raw) in enumerate(readlines(path))
+        stripped = strip(raw)
+        (isempty(stripped) || startswith(stripped, "#")) && continue
+        fields = split(raw, '\t'; keepempty=true)
+        length(fields) == 4 ||
+            throw(ArgumentError("widget vocabulary row is malformed at $path:$offset"))
+        concept = strip(fields[1])
+        isempty(concept) &&
+            throw(ArgumentError("widget vocabulary row has no concept at $path:$offset"))
+        widget_names = Symbol.(_split_widget_vocabulary_names(fields[2]))
+        isempty(widget_names) &&
+            throw(ArgumentError("widget vocabulary row has no Wicked API widget name at $path:$offset"))
+        stateless = strip(fields[4]) == "true"
+        state_contracts = stateless ? Symbol[] :
+                          Symbol.(_split_widget_vocabulary_names(fields[3]))
         !stateless && isempty(state_contracts) &&
-            throw(ArgumentError("component catalog Public widget-name map row has no state contract at line $offset"))
-        push!(entries, WidgetVocabularyEntry(values[1], widget_names, state_contracts, stateless))
+            throw(ArgumentError("widget vocabulary row has no state contract at $path:$offset"))
+        push!(entries, WidgetVocabularyEntry(String(concept), widget_names, state_contracts, stateless))
     end
-    isempty(entries) && throw(ArgumentError("component catalog Public widget-name map has no rows"))
+    isempty(entries) && throw(ArgumentError("widget vocabulary ledger has no rows: $path"))
     return entries
 end
 
@@ -3966,7 +3986,7 @@ function _widget_stability_tsv(reports, selected; header::Bool=true)
     for report in reports
         push!(output, join((_escape_widget_catalog_tsv(_widget_stability_field(report, column)) for column in selected), "\t"))
     end
-    return join(output, "\n")
+    return isempty(output) ? "" : join(output, "\n") * "\n"
 end
 
 """
@@ -4563,7 +4583,7 @@ function _widget_coverage_tsv(rows, selected; header::Bool=true)
     for row in rows
         push!(output, join((_escape_widget_catalog_tsv(_widget_coverage_field(row, column)) for column in selected), "\t"))
     end
-    return join(output, "\n")
+    return isempty(output) ? "" : join(output, "\n") * "\n"
 end
 
 """

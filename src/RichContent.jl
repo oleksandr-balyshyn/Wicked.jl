@@ -205,24 +205,63 @@ end
 _column(value::AbstractString, index::Int) =
     index <= firstindex(value) ? 1 : length(SubString(value, firstindex(value), prevind(value, index))) + 1
 
-function _coalesce_text(nodes::Vector{MarkdownInline})
-    result = MarkdownInline[]
-    for node in nodes
-        if node isa PlainText && !isempty(result) && last(result) isa PlainText
-            previous = pop!(result)::PlainText
-            push!(result, PlainText(previous.value * node.value, SourceRange(previous.source.start, node.source.stop)))
-        else
-            push!(result, node)
-        end
+function _append_plain_inline!(
+    nodes::Vector{MarkdownInline},
+    value::AbstractString,
+    source::SourceRange,
+)
+    isempty(value) && return nodes
+    text = String(value)
+    if !isempty(nodes) && last(nodes) isa PlainText
+        previous = pop!(nodes)::PlainText
+        push!(nodes, PlainText(previous.value * text, SourceRange(previous.source.start, source.stop)))
+    else
+        push!(nodes, PlainText(text, source))
     end
-    return result
+    return nodes
 end
 
 function _parse_destination(value::AbstractString)
-    match_result = match(r"^([^\s\)]+)(?:\s+[\"']([^\"']*)[\"'])?$", strip(value))
-    match_result === nothing && return nothing
-    title = match_result.captures[2]
-    return (String(match_result.captures[1]), title === nothing ? nothing : String(title))
+    text = strip(value)
+    isempty(text) && return nothing
+    index = firstindex(text)
+    while index <= lastindex(text) && !isspace(text[index]) && text[index] != ')'
+        index = nextind(text, index)
+    end
+    uri_stop = prevind(text, index)
+    uri_stop < firstindex(text) && return nothing
+    uri = String(SubString(text, firstindex(text), uri_stop))
+    index > lastindex(text) && return uri, nothing
+    while index <= lastindex(text) && isspace(text[index])
+        index = nextind(text, index)
+    end
+    index > lastindex(text) && return nothing
+    delimiter = text[index]
+    delimiter in ('\'', '"') || return nothing
+    title_start = nextind(text, index)
+    closing = lastindex(text)
+    text[closing] == delimiter || return nothing
+    title_stop = prevind(text, closing)
+    if title_start <= title_stop
+        for character in SubString(text, title_start, title_stop)
+            character in ('\'', '"') && return nothing
+        end
+    end
+    title = title_start > title_stop ? "" : String(SubString(text, title_start, title_stop))
+    return uri, title
+end
+
+function _bracketed_inline(value::AbstractString, index::Int, image::Bool)
+    label_start = image ? _advance(value, index, 2) : nextind(value, index)
+    label_end = findnext(']', value, label_start)
+    label_end === nothing && return nothing
+    !image && label_end == label_start && return nothing
+    opening = nextind(value, label_end)
+    opening <= lastindex(value) && value[opening] == '(' || return nothing
+    destination_start = nextind(value, opening)
+    closing = findnext(')', value, destination_start)
+    closing === nothing && return nothing
+    return label_start, label_end, destination_start, closing, nextind(value, closing)
 end
 
 function _parse_inlines(value::AbstractString, line::Int; base_column::Int=1)
@@ -235,38 +274,46 @@ function _parse_inlines(value::AbstractString, line::Int; base_column::Int=1)
         if value[index] == '\\' && nextind(value, index) <= lastindex(value)
             next_index = nextind(value, index)
             escaped = string(value[next_index])
-            push!(nodes, PlainText(escaped, _inline_range(line, column, escaped)))
+            _append_plain_inline!(nodes, escaped, _inline_range(line, column, escaped))
             index = nextind(value, next_index)
             continue
         end
 
         if _at(value, index, "![")
-            remainder = SubString(value, index)
-            image_match = match(r"^!\[([^\]]*)\]\(([^\)]*)\)", remainder)
-            if image_match !== nothing
-                destination = _parse_destination(image_match.captures[2])
+            bracketed = _bracketed_inline(value, index, true)
+            if bracketed !== nothing
+                label_start, label_end, destination_start, closing, stop_index = bracketed
+                label = label_end == label_start ? SubString(value, label_start, label_start - 1) :
+                        SubString(value, label_start, prevind(value, label_end))
+                destination_text = closing == destination_start ?
+                                   SubString(value, destination_start, destination_start - 1) :
+                                   SubString(value, destination_start, prevind(value, closing))
+                destination = _parse_destination(destination_text)
                 if destination !== nothing
                     uri, title = destination
-                    matched = String(image_match.match)
-                    push!(nodes, MarkdownImage(String(image_match.captures[1]), uri, title, _inline_range(line, column, matched)))
-                    index = _advance(value, index, length(matched))
+                    matched = SubString(value, index, prevind(value, stop_index))
+                    push!(nodes, MarkdownImage(String(label), uri, title, _inline_range(line, column, matched)))
+                    index = stop_index
                     continue
                 end
             end
         end
 
         if value[index] == '['
-            remainder = SubString(value, index)
-            link_match = match(r"^\[([^\]]+)\]\(([^\)]*)\)", remainder)
-            if link_match !== nothing
-                destination = _parse_destination(link_match.captures[2])
+            bracketed = _bracketed_inline(value, index, false)
+            if bracketed !== nothing
+                label_start, label_end, destination_start, closing, stop_index = bracketed
+                label = SubString(value, label_start, prevind(value, label_end))
+                destination_text = closing == destination_start ?
+                                   SubString(value, destination_start, destination_start - 1) :
+                                   SubString(value, destination_start, prevind(value, closing))
+                destination = _parse_destination(destination_text)
                 if destination !== nothing
                     uri, title = destination
-                    matched = String(link_match.match)
-                    label = String(link_match.captures[1])
                     children = _parse_inlines(label, line; base_column=column + 1)
+                    matched = SubString(value, index, prevind(value, stop_index))
                     push!(nodes, MarkdownLink(children, uri, title, _inline_range(line, column, matched)))
-                    index = _advance(value, index, length(matched))
+                    index = stop_index
                     continue
                 end
             end
@@ -293,9 +340,9 @@ function _parse_inlines(value::AbstractString, line::Int; base_column::Int=1)
             closing === nothing && continue
             closing_start = first(closing)
             closing_start == content_start && continue
-            content = String(SubString(value, content_start, prevind(value, closing_start)))
+            content = SubString(value, content_start, prevind(value, closing_start))
             stop_index = nextind(value, last(closing))
-            matched = String(SubString(value, index, prevind(value, stop_index)))
+            matched = SubString(value, index, prevind(value, stop_index))
             children = _parse_inlines(content, line; base_column=column + length(marker))
             push!(nodes, constructor(children, _inline_range(line, column, matched)))
             index = stop_index
@@ -309,7 +356,7 @@ function _parse_inlines(value::AbstractString, line::Int; base_column::Int=1)
             if closing !== nothing
                 code_start = nextind(value, index)
                 code = code_start == closing ? "" : String(SubString(value, code_start, prevind(value, closing)))
-                matched = String(SubString(value, index, closing))
+                matched = SubString(value, index, closing)
                 push!(nodes, InlineCode(code, _inline_range(line, column, matched)))
                 index = nextind(value, closing)
                 continue
@@ -324,19 +371,79 @@ function _parse_inlines(value::AbstractString, line::Int; base_column::Int=1)
             continue
         end
 
-        character = string(value[index])
-        push!(nodes, PlainText(character, _inline_range(line, column, character)))
+        text_start = index
         index = nextind(value, index)
+        while index <= lastindex(value) &&
+                !(value[index] in ('\\', '!', '[', '<', '*', '_', '~', '`', '\n'))
+            index = nextind(value, index)
+        end
+        text = String(SubString(value, text_start, prevind(value, index)))
+        _append_plain_inline!(nodes, text, _inline_range(line, column, text))
     end
-    return _coalesce_text(nodes)
+    return nodes
 end
 
-_is_fence(line::AbstractString) = match(r"^\s*(`{3,}|~{3,})(.*)$", line)
-_is_heading(line::AbstractString) = match(r"^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$", line)
-_is_quote(line::AbstractString) = match(r"^\s{0,3}>\s?(.*)$", line)
-_is_unordered(line::AbstractString) = match(r"^(\s*)[-+*]\s+(?:\[([ xX])\]\s+)?(.*)$", line)
-_is_ordered(line::AbstractString) = match(r"^(\s*)(\d+)[\.)]\s+(.*)$", line)
-_is_thematic(line::AbstractString) = match(r"^\s{0,3}(?:\*\s*){3,}$|^\s{0,3}(?:-\s*){3,}$|^\s{0,3}(?:_\s*){3,}$", line) !== nothing
+function _possible_block_marker(line::AbstractString, markers)
+    for character in line
+        isspace(character) && continue
+        return character in markers
+    end
+    return false
+end
+
+_is_fence(line::AbstractString) = _possible_block_marker(line, ('`', '~')) ?
+    match(r"^\s*(`{3,}|~{3,})(.*)$", line) : nothing
+function _is_heading(line::AbstractString)
+    isempty(line) && return nothing
+    index = firstindex(line)
+    column = 1
+    indentation = 0
+    while index <= lastindex(line) && isspace(line[index]) && indentation < 3
+        index = nextind(line, index)
+        column += 1
+        indentation += 1
+    end
+    index <= lastindex(line) && line[index] == '#' || return nothing
+    level = 0
+    while index <= lastindex(line) && line[index] == '#' && level < 6
+        index = nextind(line, index)
+        column += 1
+        level += 1
+    end
+    index <= lastindex(line) && isspace(line[index]) || return nothing
+
+    # Match the regex's greedy required whitespace while retaining at least one
+    # character for the nonempty content capture.
+    while isspace(line[index]) && nextind(line, index) <= lastindex(line)
+        index = nextind(line, index)
+        column += 1
+    end
+    content_start = index
+    content_column = column
+    content_stop = lastindex(line)
+    while content_stop > content_start && isspace(line[content_stop])
+        content_stop = prevind(line, content_stop)
+    end
+    while content_stop > content_start && line[content_stop] == '#'
+        content_stop = prevind(line, content_stop)
+    end
+    while content_stop > content_start && isspace(line[content_stop])
+        content_stop = prevind(line, content_stop)
+    end
+    return (
+        level=level,
+        content=SubString(line, content_start, content_stop),
+        column=content_column,
+    )
+end
+_is_quote(line::AbstractString) = _possible_block_marker(line, ('>',)) ?
+    match(r"^\s{0,3}>\s?(.*)$", line) : nothing
+_is_unordered(line::AbstractString) = _possible_block_marker(line, ('-', '+', '*')) ?
+    match(r"^(\s*)[-+*]\s+(?:\[([ xX])\]\s+)?(.*)$", line) : nothing
+_is_ordered(line::AbstractString) = _possible_block_marker(line, ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')) ?
+    match(r"^(\s*)(\d+)[\.)]\s+(.*)$", line) : nothing
+_is_thematic(line::AbstractString) = _possible_block_marker(line, ('*', '-', '_')) &&
+    match(r"^\s{0,3}(?:\*\s*){3,}$|^\s{0,3}(?:-\s*){3,}$|^\s{0,3}(?:_\s*){3,}$", line) !== nothing
 
 function _table_cells(line::AbstractString)
     value = strip(line)
@@ -356,7 +463,7 @@ function _table_alignments(line::AbstractString)
     return alignments
 end
 
-function _starts_block(lines::Vector{String}, index::Int, stop::Int)
+function _starts_block(lines::AbstractVector{<:AbstractString}, index::Int, stop::Int)
     line = lines[index]
     isempty(strip(line)) && return true
     (_is_fence(line) !== nothing || _is_heading(line) !== nothing || _is_quote(line) !== nothing) && return true
@@ -364,7 +471,12 @@ function _starts_block(lines::Vector{String}, index::Int, stop::Int)
     return index < stop && occursin('|', line) && _table_alignments(lines[index + 1]) !== nothing
 end
 
-function _parse_blocks(lines::Vector{String}, first_line::Int, last_line::Int, diagnostics::Vector{MarkdownDiagnostic})
+function _parse_blocks(
+    lines::AbstractVector{<:AbstractString},
+    first_line::Int,
+    last_line::Int,
+    diagnostics::Vector{MarkdownDiagnostic},
+)
     blocks = MarkdownBlock[]
     index = first_line
     while index <= last_line
@@ -404,10 +516,8 @@ function _parse_blocks(lines::Vector{String}, first_line::Int, last_line::Int, d
 
         heading = _is_heading(line)
         if heading !== nothing
-            marker = String(heading.captures[1])
-            content = String(heading.captures[2])
-            column = findfirst(==(first(content)), line)
-            push!(blocks, HeadingBlock(length(marker), _parse_inlines(content, index; base_column=something(column, 1)), _line_range(index, line)))
+            content = String(heading.content)
+            push!(blocks, HeadingBlock(heading.level, _parse_inlines(content, index; base_column=heading.column), _line_range(index, line)))
             index += 1
             continue
         end
@@ -555,7 +665,7 @@ end
 """Parse CommonMark-style blocks plus task lists, tables, and strikethrough."""
 function parse_markdown(source::AbstractString)
     value = replace(String(source), "\r\n" => "\n", '\r' => '\n')
-    lines = String[String(line) for line in split(value, '\n'; keepempty=true)]
+    lines = split(value, '\n'; keepempty=true)
     diagnostics = MarkdownDiagnostic[]
     blocks = _parse_blocks(lines, 1, length(lines), diagnostics)
     return MarkdownDocument(value, blocks, diagnostics)
@@ -866,22 +976,67 @@ function _link_input_error(uri::AbstractString, policy::MarkdownLinkPolicy)
     return nothing
 end
 
+_ascii_scheme_character(byte::UInt8, first::Bool=false) =
+    0x41 <= byte <= 0x5a || 0x61 <= byte <= 0x7a ||
+    (!first && (0x30 <= byte <= 0x39 || byte in (0x2b, 0x2d, 0x2e)))
+
+function _scheme_allowed(value::AbstractString, last::Int, allowed_schemes::Set{String})
+    length = last - firstindex(value) + 1
+    for allowed in allowed_schemes
+        ncodeunits(allowed) == length || continue
+        matches = true
+        for offset in 0:(length - 1)
+            byte = codeunit(value, firstindex(value) + offset)
+            lowered = 0x41 <= byte <= 0x5a ? byte + 0x20 : byte
+            if lowered != codeunit(allowed, offset + 1)
+                matches = false
+                break
+            end
+        end
+        matches && return true
+    end
+    return false
+end
+
+function _markdown_link_safe_normalized(value::AbstractString, policy::MarkdownLinkPolicy)
+    startswith(value, "#") && return policy.allow_fragments
+    (startswith(value, "//") || startswith(value, '\\') || startswith(value, '/')) && return false
+    isempty(value) && return policy.allow_relative
+    index = firstindex(value)
+    first = true
+    while index <= lastindex(value)
+        byte = codeunit(value, index)
+        if byte == 0x3a
+            return first ? policy.allow_relative :
+                   _scheme_allowed(value, prevind(value, index), policy.allowed_schemes)
+        end
+        _ascii_scheme_character(byte, first) || return policy.allow_relative
+        first = false
+        index = nextind(value, index)
+    end
+    return policy.allow_relative
+end
+
 function markdown_link_safe(
     uri::AbstractString;
     policy::MarkdownLinkPolicy=MarkdownLinkPolicy(),
 )
     _link_input_error(uri, policy) === nothing || return false
     value = _normalized_link(uri)
-    startswith(value, "#") && return policy.allow_fragments
-    (startswith(value, "//") || startswith(value, '\\') || startswith(value, '/')) && return false
-    scheme = match(r"^([A-Za-z][A-Za-z0-9+.-]*):", value)
-    scheme === nothing && return policy.allow_relative
-    return lowercase(String(scheme.captures[1])) in policy.allowed_schemes
+    return _markdown_link_safe_normalized(value, policy)
 end
 
 function _terminal_safe_text(value::AbstractString)
     text = String(value)
     isvalid(text) || return "�"
+    safe = true
+    for character in text
+        if character != '\n' && character != '\t' && iscntrl(character)
+            safe = false
+            break
+        end
+    end
+    safe && return text
     output = IOBuffer()
     for character in text
         if character in ('\n', '\t') || !iscntrl(character)
@@ -930,7 +1085,7 @@ function _register_link!(
         return nothing, false
     end
     uri = _normalized_link(destination)
-    safe = markdown_link_safe(uri; policy=context.link_policy)
+    safe = _markdown_link_safe_normalized(uri, context.link_policy)
     resolved_title = title === nothing ? nothing : _terminal_safe_text(title)
     id = length(context.links) + 1
     push!(context.links, RenderedLink(id, LinkTarget(uri, resolved_title, safe), label))
@@ -969,14 +1124,6 @@ function _inline_spans!(spans::Vector{RichSpan}, nodes::Vector{MarkdownInline}, 
     return spans
 end
 
-function _split_span(span::RichSpan)
-    parts = RichSpan[]
-    for part in eachmatch(r"\n|[^\s\n]+|[ \t]+", span.text)
-        push!(parts, RichSpan(String(part.match), span.role, span.link_id))
-    end
-    return parts
-end
-
 function _hard_split(span::RichSpan, width::Int)
     parts = RichSpan[]
     current = IOBuffer()
@@ -994,27 +1141,93 @@ function _hard_split(span::RichSpan, width::Int)
     return parts
 end
 
+function _place_wrapped_piece!(
+    lines::Vector{Vector{RichSpan}},
+    text::AbstractString,
+    role::Symbol,
+    link_id,
+    piece_width::Int,
+    width::Int,
+    line_width::Int,
+    whitespace::Bool=false,
+)
+    if line_width > 0 && line_width + piece_width > width
+        push!(lines, RichSpan[])
+        line_width = 0
+        whitespace && return line_width
+    end
+    _append_span!(last(lines), text, role, link_id)
+    return line_width + piece_width
+end
+
+function _place_wrapped_token!(
+    lines::Vector{Vector{RichSpan}},
+    text::AbstractString,
+    span::RichSpan,
+    width::Int,
+    line_width::Int,
+    whitespace::Bool,
+)
+    part_width = textwidth(text)
+    if part_width <= width
+        return _place_wrapped_piece!(
+            lines,
+            text,
+            span.role,
+            span.link_id,
+            part_width,
+            width,
+            line_width,
+            whitespace,
+        )
+    end
+    for piece in _hard_split(RichSpan(String(text), span.role, span.link_id), width)
+        line_width = _place_wrapped_piece!(
+            lines,
+            piece.text,
+            piece.role,
+            piece.link_id,
+            textwidth(piece.text),
+            width,
+            line_width,
+        )
+    end
+    return line_width
+end
+
+function _wrap_span!(lines::Vector{Vector{RichSpan}}, span::RichSpan, width::Int, line_width::Int)
+    text = span.text
+    isempty(text) && return line_width
+    index = firstindex(text)
+    final = lastindex(text)
+    while index <= final
+        character = text[index]
+        if character == '\n'
+            push!(lines, RichSpan[])
+            line_width = 0
+            index = nextind(text, index)
+            continue
+        end
+        whitespace = isspace(character)
+        start = index
+        index = nextind(text, index)
+        while index <= final
+            character = text[index]
+            (character == '\n' || isspace(character) != whitespace) && break
+            index = nextind(text, index)
+        end
+        token = SubString(text, start, prevind(text, index))
+        line_width = _place_wrapped_token!(lines, token, span, width, line_width, whitespace)
+    end
+    return line_width
+end
+
 function _wrap_spans(spans::Vector{RichSpan}, width::Int)
     width > 0 || return [RichSpan[]]
     lines = Vector{RichSpan}[RichSpan[]]
     line_width = 0
-    for span in Iterators.flatten(_split_span(item) for item in spans)
-        if span.text == "\n"
-            push!(lines, RichSpan[])
-            line_width = 0
-            continue
-        end
-        pieces = textwidth(span.text) > width ? _hard_split(span, width) : RichSpan[span]
-        for piece in pieces
-            piece_width = textwidth(piece.text)
-            if line_width > 0 && line_width + piece_width > width
-                push!(lines, RichSpan[])
-                line_width = 0
-                all(isspace, piece.text) && continue
-            end
-            _append_span!(last(lines), piece.text, piece.role, piece.link_id)
-            line_width += piece_width
-        end
+    for span in spans
+        line_width = _wrap_span!(lines, span, width, line_width)
     end
     return lines
 end

@@ -2,6 +2,23 @@ using Wicked
 using Wicked.API
 using Test
 
+# Julia 1.12 no longer accepts IOBuffer as a process-level stdio redirect
+# target. Keep the audit fixtures' in-memory capture API by routing through a
+# supported temporary IOStream and copying the result back into the buffer.
+function (redirect::Base.RedirectStdStream)(thunk::Function, target::IOBuffer)
+    mktemp() do _, stream
+        result = redirect(thunk, stream)
+        flush(stream)
+        seekstart(stream)
+        write(target, read(stream))
+        return result
+    end
+end
+
+# Preserve the historical predicate form used by audit fixtures. Julia 1.12's
+# generic one-argument partial application reverses the string operands.
+Base.occursin(needle::String) = candidate -> occursin(needle, candidate)
+
 @testset "Wicked" begin
     @testset "geometry" begin
         area = Rect(2, 3, 4, 5)
@@ -56,6 +73,8 @@ include("backends.jl")
 include("remote_transport.jl")
 include("remote_protocol_fixture_audit.jl")
 include("runtime.jl")
+include("runtime_command_mapping.jl")
+include("runtime_retry_commands.jl")
 include("styles_themes.jl")
 include("testing.jl")
 include("capabilities.jl")
@@ -75,45 +94,15 @@ include("clipboard_command.jl")
 include("suspend_runtime.jl")
 include("runtime_subscriptions.jl")
 include("reactive.jl")
-include("component_catalog_public_map.jl")
-include("compatibility_widget_alias_audit.jl")
-include("experimental_promotion_audit.jl")
-include("widget_promotion_requirements_audit.jl")
-include("widget_promotion_requirements_render.jl")
-include("widget_promotion_requirements_schema_audit.jl")
-include("stable_widget_candidates.jl")
-include("public_widget_candidate_audit.jl")
+# Widget catalog and Unicode-width corpus tests exercise real code and read only
+# structured data (api/*.tsv), not markdown docs. The remaining markdown/evidence
+# governance audits were removed together with the docs/ tree.
 include("widget_catalog.jl")
-include("widget_catalog_render.jl")
-include("widget_family_evidence_audit.jl")
-include("widget_family_closeout_render.jl")
-include("widget_family_closeout_schema_audit.jl")
-include("stable_widget_coverage_schema_audit.jl")
-include("stable_widget_stability_schema_audit.jl")
-include("stable_widget_stabilization_schema_audit.jl")
-include("stable_widget_surface_release_schema_audit.jl")
 include("unicode_width_corpus_audit.jl")
-include("widget_stabilization_gate.jl")
-include("real_terminal_matrix_audit.jl")
-include("terminal_evidence_audit.jl")
-include("application_evidence_audit.jl")
-include("benchmark_evidence_audit.jl")
-include("loading_evidence_audit.jl")
-include("documentation_evidence_audit.jl")
-include("semantic_accessibility_evidence_audit.jl")
-include("pilot_evidence_package_audit.jl")
-include("new_parity_evidence.jl")
-include("new_stable_promotion_packet.jl")
-include("stable_promotion_packet_audit.jl")
-include("parity_policy_audit.jl")
-include("parity_closeout_audit.jl")
-include("reference_parity_matrix_render.jl")
-include("reference_parity_matrix_schema_audit.jl")
-include("examples_readme_policy.jl")
-include("public_examples_audit.jl")
-include("example_family_audit.jl")
 include("api_contract.jl")
 include("toolkit_reconciliation.jl")
+include("toolkit_reconciliation_trace.jl")
+include("toolkit_keyed_collections.jl")
 include("virtual_data.jl")
 include("toolkit_semantics.jl")
 include("ansi_fuzz.jl")

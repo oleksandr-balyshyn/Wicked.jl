@@ -1,59 +1,65 @@
 [benchmarks.buffer_diff_sparse]
-maximum_bytes = 1048576
+maximum_bytes = 4096
 
 [benchmarks.buffer_diff_full]
-maximum_bytes = 67108864
+maximum_bytes = 393216
 
 [benchmarks.unicode_width_large]
-maximum_bytes = 8388608
+maximum_bytes = 4096
+
+[benchmarks.paragraph_wrap_500_lines]
+maximum_bytes = 5242880
 
 [benchmarks.terminal_draw_idle]
-maximum_bytes = 1048576
+maximum_bytes = 4096
 
 [benchmarks.input_button_enter]
 maximum_bytes = 65536
 
 [benchmarks.diagnostics_disabled_input_1000]
-maximum_bytes = 1048576
+maximum_bytes = 4096
 
 [benchmarks.diagnostics_enabled_input_1000]
-maximum_bytes = 8388608
+maximum_bytes = 655360
 
 [benchmarks.application_services_idle_pulse]
 maximum_bytes = 1048576
 
 [benchmarks.action_resolution_256_bindings]
-maximum_bytes = 16777216
+maximum_bytes = 49152
 
 [benchmarks.animation_tick_256_tracks]
-maximum_bytes = 16777216
+maximum_bytes = 196608
 
 [benchmarks.toolkit_route_tab_128_elements]
-maximum_bytes = 67108864
+maximum_bytes = 327680
+
+[benchmarks.focus_traversal_128_mixed_indices]
+maximum_bytes = 4096
 
 [benchmarks.layout_grid_4096_cells]
-maximum_bytes = 16777216
+maximum_bytes = 163840
 
 [benchmarks.layout_deep_flex_128]
-maximum_bytes = 67108864
+maximum_bytes = 131072
 
 [benchmarks.style_cascade_512_rules]
-maximum_bytes = 33554432
+maximum_bytes = 32768
 
 [benchmarks.stylesheet_parse_512_rules]
-maximum_bytes = 134217728
+maximum_bytes = 1310720
 
 [benchmarks.toolkit_reconcile_stable_256]
-maximum_bytes = 67108864
+maximum_bytes = 196608
 
 [benchmarks.toolkit_reconcile_move_256]
-maximum_bytes = 67108864
+maximum_bytes = 196608
 
 [benchmarks.markdown_parse_500_sections]
-maximum_bytes = 134217728
+maximum_bytes = 1310720
 
 [benchmarks.markdown_render_500_sections]
-maximum_bytes = 268435456
+maximum_bytes = 2097152
 
 [benchmarks.virtual_list_million_rows]
 maximum_bytes = 16777216
@@ -62,13 +68,13 @@ maximum_bytes = 16777216
 maximum_bytes = 33554432
 
 [benchmarks.semantic_diff_1000_nodes]
-maximum_bytes = 67108864
+maximum_bytes = 524288
 
 [benchmarks.data_grid_million_rows]
-maximum_bytes = 67108864
+maximum_bytes = 65536
 
 [benchmarks.progress_group_256_tasks]
-maximum_bytes = 67108864
+maximum_bytes = 65536
 
 [benchmarks.live_display_frame]
-maximum_bytes = 1048576
+maximum_bytes = 4096

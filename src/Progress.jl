@@ -71,11 +71,20 @@ mutable struct ProgressTracker{K}
     generation::UInt64
     clock::Any
     mutex::ReentrantLock
+    ordered_ids::Vector{K}
+    order_dirty::Bool
 end
 
 function ProgressTracker{K}(; clock=time_ns) where {K}
     applicable(clock) || throw(ArgumentError("progress clock must be callable without arguments"))
-    return ProgressTracker{K}(Dict{K,ProgressTask{K}}(), UInt64(0), clock, ReentrantLock())
+    return ProgressTracker{K}(
+        Dict{K,ProgressTask{K}}(),
+        UInt64(0),
+        clock,
+        ReentrantLock(),
+        K[],
+        false,
+    )
 end
 
 ProgressTracker(; clock=time_ns) = ProgressTracker{Any}(; clock)
@@ -194,10 +203,12 @@ function add_progress_task!(
         metadata,
     )
     lock(tracker.mutex) do
-        haskey(tracker.tasks, id) && !replace &&
+        exists = haskey(tracker.tasks, id)
+        exists && !replace &&
             throw(ArgumentError("progress task already exists: $id"))
         generation = _next_progress_generation(tracker)
         _commit_progress_task!(tracker, task, generation)
+        exists || (tracker.order_dirty = true)
     end
     return task
 end
@@ -210,6 +221,7 @@ function remove_progress_task!(tracker::ProgressTracker, id)
         delete!(tasks, id)
         tracker.tasks = tasks
         tracker.generation = generation
+        tracker.order_dirty = true
         return true
     end
 end
@@ -398,11 +410,55 @@ function progress_snapshot(tracker::ProgressTracker, id; now_ns=nothing)
     return task === nothing ? nothing : _progress_snapshot(task, now)
 end
 
+function _ordered_progress_ids!(tracker::ProgressTracker)
+    if tracker.order_dirty
+        ids = collect(keys(tracker.tasks))
+        # Compute allocating textual keys once and retain the resulting order
+        # until an id is added or removed. Value-only task updates do not reorder.
+        sort_keys = map(string, ids)
+        tracker.ordered_ids = ids[sortperm(sort_keys)]
+        tracker.order_dirty = false
+    end
+    return tracker.ordered_ids
+end
+
+function _sorted_progress_tasks(tracker::ProgressTracker{K}) where {K}
+    return lock(tracker.mutex) do
+        ids = _ordered_progress_ids!(tracker)
+        ProgressTask{K}[tracker.tasks[id] for id in ids]
+    end
+end
+
+_progress_task_count(tracker::ProgressTracker) = lock(tracker.mutex) do
+    length(tracker.tasks)
+end
+
+function _visible_progress_snapshots(
+    tracker::ProgressTracker{K},
+    requested_offset::Int,
+    limit::Int;
+    now_ns=nothing,
+) where {K}
+    now = now_ns === nothing ? _progress_now(tracker) : UInt64(now_ns)
+    tasks, total, offset = lock(tracker.mutex) do
+        ids = _ordered_progress_ids!(tracker)
+        total = length(ids)
+        offset = clamp(requested_offset, 0, max(0, total - limit))
+        last = min(total, offset + limit)
+        visible = ProgressTask{K}[tracker.tasks[ids[index]] for index in (offset + 1):last]
+        visible, total, offset
+    end
+    snapshots = ProgressSnapshot{K}[]
+    sizehint!(snapshots, length(tasks))
+    for task in tasks
+        push!(snapshots, _progress_snapshot(task, now))
+    end
+    return snapshots, total, offset
+end
+
 function progress_snapshots(tracker::ProgressTracker; now_ns=nothing)
     now = now_ns === nothing ? _progress_now(tracker) : UInt64(now_ns)
-    tasks = lock(tracker.mutex) do
-        sort!(collect(values(tracker.tasks)); by=task -> string(task.id))
-    end
+    tasks = _sorted_progress_tasks(tracker)
     return [_progress_snapshot(task, now) for task in tasks]
 end
 

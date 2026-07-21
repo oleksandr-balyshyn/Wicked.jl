@@ -25,12 +25,30 @@ mutable struct ListState
     end
 end
 
-"""A scrollable list with explicit external selection state."""
+"""Accepted `highlight_spacing` policies for `List` selection gutters."""
+const _LIST_HIGHLIGHT_SPACING = (:always, :when_selected, :never)
+
+"""A scrollable list with explicit external selection state.
+
+`scroll_padding` keeps at least that many items visible before and after the
+selected item while scrolling (Ratatui `scroll_padding` parity). It is clamped
+so it never exceeds what the viewport can hold.
+
+`highlight_spacing` controls the selection-symbol gutter (Ratatui
+`HighlightSpacing` parity):
+
+- `:always` reserves the gutter on every row (default; preserves prior behavior).
+- `:when_selected` reserves the gutter only while an item is selected.
+- `:never` never reserves the gutter; selection is shown through
+  `highlight_style` alone.
+"""
 struct List
     items::Vector{ListItem}
     block::Union{Nothing,Block}
     highlight_style::Style
     highlight_symbol::String
+    scroll_padding::Int
+    highlight_spacing::Symbol
 end
 
 state_for(::List) = ListState()
@@ -40,13 +58,27 @@ function List(
     block::Union{Nothing,Block}=nothing,
     highlight_style::Style=Style(modifiers=REVERSED),
     highlight_symbol::AbstractString="› ",
+    scroll_padding::Integer=0,
+    highlight_spacing::Symbol=:always,
 )
+    scroll_padding >= 0 ||
+        throw(ArgumentError("list scroll_padding must be non-negative"))
+    highlight_spacing in _LIST_HIGHLIGHT_SPACING || throw(ArgumentError(
+        "list highlight_spacing must be one of :always, :when_selected, or :never",
+    ))
     resolved = ListItem[
         item isa ListItem ? item :
         item isa Line ? ListItem(item) : ListItem(string(item))
         for item in items
     ]
-    List(resolved, block, highlight_style, String(highlight_symbol))
+    List(
+        resolved,
+        block,
+        highlight_style,
+        String(highlight_symbol),
+        Int(scroll_padding),
+        highlight_spacing,
+    )
 end
 
 function _list_area(buffer::Buffer, widget::List, area::Rect)
@@ -58,7 +90,7 @@ function _list_area(buffer::Buffer, widget::List, area::Rect)
     end
 end
 
-function _normalize!(state::ListState, count::Int, visible::Int)
+function _normalize!(state::ListState, count::Int, visible::Int; scroll_padding::Int=0)
     if count == 0
         state.selected = nothing
         state.offset = 0
@@ -68,8 +100,12 @@ function _normalize!(state::ListState, count::Int, visible::Int)
     maximum_offset = max(0, count - visible)
     state.offset = clamp(state.offset, 0, maximum_offset)
     if !isnothing(state.selected) && visible > 0
-        state.selected <= state.offset && (state.offset = state.selected - 1)
-        state.selected > state.offset + visible && (state.offset = state.selected - visible)
+        pad = clamp(scroll_padding, 0, max(0, (visible - 1) ÷ 2))
+        state.selected - pad <= state.offset &&
+            (state.offset = max(0, state.selected - 1 - pad))
+        state.selected + pad > state.offset + visible &&
+            (state.offset = state.selected + pad - visible)
+        state.offset = clamp(state.offset, 0, maximum_offset)
     end
 end
 
@@ -82,8 +118,16 @@ end
 function render!(buffer::Buffer, widget::List, area::Rect, state::ListState)
     active = _list_area(buffer, widget, area)
     isempty(active) && return buffer
-    _normalize!(state, length(widget.items), active.height)
-    symbol_width = text_width(widget.highlight_symbol)
+    _normalize!(
+        state,
+        length(widget.items),
+        active.height;
+        scroll_padding=widget.scroll_padding,
+    )
+    reserve_gutter =
+        widget.highlight_spacing === :always ||
+        (widget.highlight_spacing === :when_selected && !isnothing(state.selected))
+    symbol_width = reserve_gutter ? text_width(widget.highlight_symbol) : 0
     for visible_index in 1:active.height
         item_index = state.offset + visible_index
         item_index > length(widget.items) && break
@@ -91,7 +135,7 @@ function render!(buffer::Buffer, widget::List, area::Rect, state::ListState)
         selected = state.selected == item_index
         selected && _fill_row!(buffer, row, active, widget.highlight_style)
         column = active.column
-        if selected && symbol_width <= active.width
+        if reserve_gutter && selected && symbol_width <= active.width
             position = draw_text!(
                 buffer,
                 row,
@@ -101,7 +145,7 @@ function render!(buffer::Buffer, widget::List, area::Rect, state::ListState)
                 clip=active,
             )
             column = position.column
-        elseif symbol_width <= active.width
+        elseif reserve_gutter && symbol_width <= active.width
             column += symbol_width
         end
         text_area = Rect(row, column, 1, max(0, active.column + active.width - column))
@@ -135,7 +179,12 @@ function handle!(state::ListState, widget::List, event::KeyEvent; viewport_heigh
     else
         return false
     end
-    _normalize!(state, count, max(1, Int(viewport_height)))
+    _normalize!(
+        state,
+        count,
+        max(1, Int(viewport_height));
+        scroll_padding=widget.scroll_padding,
+    )
     true
 end
 
@@ -258,7 +307,12 @@ mutable struct TableState
     end
 end
 
-"""A selectable table with constraint-sized columns and virtual viewport state."""
+"""A selectable table with constraint-sized columns and virtual viewport state.
+
+`scroll_padding` keeps at least that many rows visible before and after the
+selected row while scrolling (Ratatui `scroll_padding` parity), clamped so it
+never exceeds what the row viewport can hold.
+"""
 struct Table
     columns::Vector{TableColumn}
     rows::Vector{TableRow}
@@ -267,6 +321,7 @@ struct Table
     highlight_style::Style
     column_gap::Int
     show_header::Bool
+    scroll_padding::Int
 end
 
 state_for(::Table) = TableState()
@@ -279,8 +334,11 @@ function Table(
     highlight_style::Style=Style(modifiers=REVERSED),
     column_gap::Integer=1,
     show_header::Bool=true,
+    scroll_padding::Integer=0,
 )
     column_gap >= 0 || throw(ArgumentError("table column gap must be non-negative"))
+    scroll_padding >= 0 ||
+        throw(ArgumentError("table scroll_padding must be non-negative"))
     resolved_columns = TableColumn[
         column isa TableColumn ? column : TableColumn(string(column))
         for column in columns
@@ -294,6 +352,7 @@ function Table(
         highlight_style,
         Int(column_gap),
         show_header,
+        Int(scroll_padding),
     )
 end
 
@@ -306,7 +365,13 @@ function _table_area(buffer::Buffer, widget::Table, area::Rect)
     end
 end
 
-function _normalize!(state::TableState, row_count::Int, column_count::Int, visible_rows::Int)
+function _normalize!(
+    state::TableState,
+    row_count::Int,
+    column_count::Int,
+    visible_rows::Int;
+    scroll_padding::Int=0,
+)
     if row_count == 0
         state.selected_row = nothing
         state.row_offset = 0
@@ -316,11 +381,15 @@ function _normalize!(state::TableState, row_count::Int, column_count::Int, visib
     column_count == 0 ? (state.selected_column = nothing) :
         !isnothing(state.selected_column) &&
             (state.selected_column = clamp(state.selected_column, 1, column_count))
-    state.row_offset = clamp(state.row_offset, 0, max(0, row_count - visible_rows))
+    maximum_offset = max(0, row_count - visible_rows)
+    state.row_offset = clamp(state.row_offset, 0, maximum_offset)
     if !isnothing(state.selected_row) && visible_rows > 0
-        state.selected_row <= state.row_offset && (state.row_offset = state.selected_row - 1)
-        state.selected_row > state.row_offset + visible_rows &&
-            (state.row_offset = state.selected_row - visible_rows)
+        pad = clamp(scroll_padding, 0, max(0, (visible_rows - 1) ÷ 2))
+        state.selected_row - pad <= state.row_offset &&
+            (state.row_offset = max(0, state.selected_row - 1 - pad))
+        state.selected_row + pad > state.row_offset + visible_rows &&
+            (state.row_offset = state.selected_row + pad - visible_rows)
+        state.row_offset = clamp(state.row_offset, 0, maximum_offset)
     end
 end
 
@@ -337,7 +406,13 @@ function render!(buffer::Buffer, widget::Table, area::Rect, state::TableState)
     isempty(active) && return buffer
     header_height = widget.show_header && !isempty(widget.columns) ? 1 : 0
     visible_rows = max(0, active.height - header_height)
-    _normalize!(state, length(widget.rows), length(widget.columns), visible_rows)
+    _normalize!(
+        state,
+        length(widget.rows),
+        length(widget.columns),
+        visible_rows;
+        scroll_padding=widget.scroll_padding,
+    )
     column_areas = resolve(
         FlexLayout(
             HorizontalLayout,
@@ -401,7 +476,13 @@ function handle!(state::TableState, widget::Table, event::KeyEvent; viewport_hei
     else
         return false
     end
-    _normalize!(state, rows, columns, max(1, Int(viewport_height)))
+    _normalize!(
+        state,
+        rows,
+        columns,
+        max(1, Int(viewport_height));
+        scroll_padding=widget.scroll_padding,
+    )
     true
 end
 

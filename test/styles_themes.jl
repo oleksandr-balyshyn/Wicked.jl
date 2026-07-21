@@ -190,4 +190,97 @@
         @test validate_theme_roles(derived, [:text]) == (true, Symbol[])
         @test validate_theme_roles(derived, [:text, :error]) == (false, [:error])
     end
+
+    @testset "scoped styling DSL" begin
+        text = Wicked.styled_text() do b
+            Wicked.styled(b; fg=:cyan, bold=true) do
+                Wicked.emit!(b, "Deploy ")
+                Wicked.styled(b; fg=:green) do
+                    Wicked.emit!(b, "ready")
+                end
+            end
+            Wicked.newline!(b)
+            Wicked.styled(b; dim=true) do
+                Wicked.emit!(b, "press q")
+            end
+        end
+
+        @test text isa Wicked.Text
+        @test length(text.lines) == 2
+        line1 = text.lines[1]
+        @test length(line1.spans) == 2
+        @test line1.spans[1].content == "Deploy "
+        @test line1.spans[2].content == "ready"
+        # outer scope: cyan + bold
+        @test line1.spans[1].style.foreground == AnsiColor(6)
+        @test BOLD in line1.spans[1].style.modifiers
+        # nested scope inherits bold from parent and overrides fg to green
+        @test line1.spans[2].style.foreground == AnsiColor(2)
+        @test BOLD in line1.spans[2].style.modifiers
+        # second line is a fresh line with the dim fragment
+        @test text.lines[2].spans[1].content == "press q"
+        @test DIM in text.lines[2].spans[1].style.modifiers
+        # scope was restored: the dim line is not bold or cyan
+        @test !(BOLD in text.lines[2].spans[1].style.modifiers)
+
+        # renders through the existing rich-text pipeline
+        buffer = Buffer(2, 20)
+        render!(buffer, Paragraph(text), buffer.area)
+        @test plain_snapshot(buffer) == "Deploy ready\npress q"
+
+        # one-shot styled fragment via emit! keywords
+        inline = Wicked.styled_text() do b
+            Wicked.emit!(b, "x")
+            Wicked.emit!(b, "Y"; fg=:red, bold=true)
+        end
+        @test inline.lines[1].spans[2].style.foreground == AnsiColor(1)
+        @test BOLD in inline.lines[1].spans[2].style.modifiers
+        # the unstyled fragment kept the default foreground
+        @test inline.lines[1].spans[1].style.foreground == DefaultColor()
+
+        # invalid colors are rejected
+        @test_throws ArgumentError Wicked.styled_text() do b
+            Wicked.styled(b; fg=42) do
+                Wicked.emit!(b, "bad")
+            end
+        end
+    end
+
+    @testset "spring physics" begin
+        function settle(; zeta, omega=6.0, dt=1 / 60, steps=4000)
+            spring = Wicked.Spring(dt; angular_frequency=omega, damping_ratio=zeta)
+            position, velocity, peak = 0.0, 0.0, 0.0
+            for _ in 1:steps
+                position, velocity =
+                    Wicked.spring_update(spring, position, velocity, 1.0)
+                peak = max(peak, position)
+            end
+            (position, velocity, peak)
+        end
+
+        # critically and over damped springs both converge on the target
+        p1, v1, _ = settle(zeta=1.0)
+        @test isapprox(p1, 1.0; atol=1e-3)
+        @test isapprox(v1, 0.0; atol=1e-3)
+        p2, v2, _ = settle(zeta=2.0)
+        @test isapprox(p2, 1.0; atol=1e-3)
+        @test isapprox(v2, 0.0; atol=1e-3)
+
+        # under-damped overshoots the target; over-damped does not
+        _, _, peak_under = settle(zeta=0.2)
+        _, _, peak_over = settle(zeta=2.0)
+        @test peak_under > 1.0
+        @test peak_over <= 1.0 + 1e-6
+        @test peak_under > peak_over
+
+        # zero frequency produces no motion
+        position, velocity =
+            Wicked.spring_update(Wicked.Spring(1 / 60; angular_frequency=0.0), 0.5, 0.0, 1.0)
+        @test position == 0.5
+        @test velocity == 0.0
+
+        @test_throws ArgumentError Wicked.Spring(0.0)
+        @test_throws ArgumentError Wicked.Spring(1 / 60; damping_ratio=-1)
+        @test_throws ArgumentError Wicked.Spring(1 / 60; angular_frequency=-1)
+    end
 end

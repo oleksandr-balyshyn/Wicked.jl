@@ -250,6 +250,61 @@ function _spacing(
     0, gaps
 end
 
+function _resolve_fill_layout(layout::FlexLayout, active::Rect)
+    count = length(layout.constraints)
+    axis_length = layout.direction == HorizontalLayout ? active.width : active.height
+    total_gap = _total_gap(axis_length, layout.gap, count)
+    available = axis_length - total_gap
+    sizes = zeros(Int, count)
+    remaining = available
+    while remaining > 0
+        active_weight = Int128(0)
+        first_active = 0
+        for index in eachindex(layout.constraints)
+            sizes[index] < available || continue
+            first_active == 0 && (first_active = index)
+            active_weight += Int128((layout.constraints[index]::Fill).weight)
+        end
+        active_weight == 0 && break
+        round_available = remaining
+        round_total = 0
+        for index in eachindex(layout.constraints)
+            sizes[index] < available || continue
+            constraint = layout.constraints[index]::Fill
+            share = div(Int128(round_available) * Int128(constraint.weight), active_weight)
+            round_total += Int(min(share, Int128(available - sizes[index])))
+        end
+        if round_total == 0
+            sizes[first_active] += 1
+            remaining -= 1
+            continue
+        end
+        for index in eachindex(layout.constraints)
+            sizes[index] < available || continue
+            constraint = layout.constraints[index]::Fill
+            share = div(Int128(round_available) * Int128(constraint.weight), active_weight)
+            amount = min(Int(min(share, Int128(available - sizes[index]))), remaining)
+            sizes[index] += amount
+            remaining -= amount
+            remaining == 0 && break
+        end
+    end
+    gap_slots = max(0, count - 1)
+    gap_base = gap_slots == 0 ? 0 : div(total_gap, gap_slots)
+    gap_remainder = total_gap - gap_base * gap_slots
+    cursor = layout.direction == HorizontalLayout ? active.column : active.row
+    regions = Vector{Rect}(undef, count)
+    for index in eachindex(layout.constraints)
+        extent = sizes[index]
+        regions[index] = layout.direction == HorizontalLayout ?
+                         Rect(active.row, cursor, active.height, extent) :
+                         Rect(cursor, active.column, extent, active.width)
+        cursor += extent
+        index <= gap_slots && (cursor += gap_base + (index <= gap_remainder ? 1 : 0))
+    end
+    return regions
+end
+
 """Resolve a flex layout into ordered non-overlapping regions."""
 function resolve(
     layout::FlexLayout,
@@ -261,6 +316,8 @@ function resolve(
     count == 0 && return Rect[]
     !isempty(content_sizes) && length(content_sizes) != count &&
         throw(DimensionMismatch("content size count must match constraint count"))
+    isempty(content_sizes) && all(constraint -> constraint isa Fill, layout.constraints) &&
+        return _resolve_fill_layout(layout, active)
     axis_length = layout.direction == HorizontalLayout ? active.width : active.height
     total_gap = _total_gap(axis_length, layout.gap, count)
     available = axis_length - total_gap

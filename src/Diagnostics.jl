@@ -68,8 +68,23 @@ mutable struct RingTraceSink <: AbstractTraceSink
     end
 end
 
-_metadata(values::AbstractDict) = Dict{Symbol,Any}(Symbol(key) => value for (key, value) in values)
-_metadata(values::NamedTuple) = Dict{Symbol,Any}(Symbol(key) => value for (key, value) in pairs(values))
+function _metadata(values::AbstractDict)
+    result = TraceMetadata()
+    sizehint!(result, length(values))
+    for (key, value) in values
+        result[Symbol(key)] = value
+    end
+    return result
+end
+
+function _metadata(values::NamedTuple)
+    result = TraceMetadata()
+    sizehint!(result, length(values))
+    for (key, value) in pairs(values)
+        result[key] = value
+    end
+    return result
+end
 _metadata(::Nothing) = TraceMetadata()
 
 trace!(::NullTraceSink, ::Symbol, ::Symbol; phase::Symbol=:instant, metadata=nothing) = nothing
@@ -226,20 +241,45 @@ function record_frame!(
     return metrics
 end
 
-function _record_counter!(metrics::FrameMetrics, field::Symbol, count::Integer)
+function _record_input_counter!(metrics::FrameMetrics, count::Integer)
     count >= 0 || throw(ArgumentError("counter increment cannot be negative"))
-    lock(metrics.mutex) do
-        setfield!(metrics, field, getfield(metrics, field) + UInt64(count))
+    lock(metrics.mutex)
+    try
+        metrics.input_events_total += UInt64(count)
+    finally
+        unlock(metrics.mutex)
+    end
+    return metrics
+end
+
+function _record_command_counter!(metrics::FrameMetrics, count::Integer)
+    count >= 0 || throw(ArgumentError("counter increment cannot be negative"))
+    lock(metrics.mutex)
+    try
+        metrics.commands_total += UInt64(count)
+    finally
+        unlock(metrics.mutex)
+    end
+    return metrics
+end
+
+function _record_dropped_counter!(metrics::FrameMetrics, count::Integer)
+    count >= 0 || throw(ArgumentError("counter increment cannot be negative"))
+    lock(metrics.mutex)
+    try
+        metrics.dropped_events_total += UInt64(count)
+    finally
+        unlock(metrics.mutex)
     end
     return metrics
 end
 
 record_input!(metrics::FrameMetrics, count::Integer=1) =
-    _record_counter!(metrics, :input_events_total, count)
+    _record_input_counter!(metrics, count)
 record_command!(metrics::FrameMetrics, count::Integer=1) =
-    _record_counter!(metrics, :commands_total, count)
+    _record_command_counter!(metrics, count)
 record_dropped_event!(metrics::FrameMetrics, count::Integer=1) =
-    _record_counter!(metrics, :dropped_events_total, count)
+    _record_dropped_counter!(metrics, count)
 
 function metrics_snapshot(metrics::FrameMetrics)
     lock(metrics.mutex) do
@@ -316,13 +356,13 @@ end
 
 function record_input!(hub::DiagnosticsHub, event=nothing)
     record_input!(hub.metrics)
-    hub.enabled && trace!(hub.traces, :input, :event; metadata=(event=repr(event),))
+    hub.enabled && trace!(hub.traces, :input, :event; metadata=(; event))
     return hub
 end
 
 function record_command!(hub::DiagnosticsHub, command=nothing)
     record_command!(hub.metrics)
-    hub.enabled && trace!(hub.traces, :runtime, :command; metadata=(command=repr(command),))
+    hub.enabled && trace!(hub.traces, :runtime, :command; metadata=(; command))
     return hub
 end
 

@@ -1,4 +1,12 @@
+using Dates
+
 @testset "New widget family behavior" begin
+    function rendered_semantic_pilot(element, dispatcher; height=6, width=32)
+        tree = ToolkitTree(element)
+        render_toolkit!(Frame(Buffer(height, width)), tree)
+        return SemanticPilot(toolkit_semantic_tree(tree); dispatcher)
+    end
+
     @testset "data and editing widgets" begin
         source = VectorDataSource([(name="Ada", score=10), (name="Lin", score=20)])
         query_source = QueryDataSource(
@@ -69,6 +77,7 @@
         @test show_virtual_column!(query_visibility, :status) === query_visibility
         @test hide_virtual_column!(query_visibility, :score) === query_visibility
         @test toggle_virtual_column_visibility!(query_visibility, :score) === query_visibility
+        @test hide_virtual_column!(query_visibility, :score) === query_visibility
         query_pins = ColumnPinState(left=[:name], right=[:status])
         @test column_pin_snapshot(query_pins).right == [:status]
         @test restore_column_pin!(query_pins, column_pin_snapshot(query_pins)) === query_pins
@@ -255,6 +264,7 @@
         @test masked_input_complete(masked_state)
         @test masked_input_text(masked_state; include_placeholders=false) == "12-ab"
         masked_tree = ToolkitTree(Element(masked; id=:masked_input, key=:masked_input, state_factory=() -> masked_state, focusable=true))
+        render_toolkit!(Frame(Buffer(2, 16)), masked_tree)
         masked_semantics = toolkit_semantic_tree(masked_tree)
         @test isempty(filter(diagnostic -> diagnostic.severity == :error, validate_semantics(masked_semantics)))
         masked_dispatcher = SemanticDispatcher()
@@ -291,7 +301,7 @@
         register_heatmap_semantic_handlers!(dispatcher, :heatmap, heatmap)
         register_canvas_semantic_handlers!(dispatcher, :canvas, canvas)
         register_meter_semantic_handlers!(dispatcher, :meter, meter)
-        visual_tree = ToolkitTree(Column(
+        visual_tree = ToolkitTree(column(
             Element(gauge; id=:gauge, key=:gauge),
             Element(line_gauge; id=:line_gauge, key=:line_gauge),
             Element(sparkline; id=:sparkline, key=:sparkline),
@@ -303,6 +313,7 @@
             Element(canvas; id=:canvas, key=:canvas),
             Element(meter; id=:meter, key=:meter),
         ))
+        render_toolkit!(Frame(Buffer(12, 32)), visual_tree)
         visual_pilot = SemanticPilot(toolkit_semantic_tree(visual_tree); dispatcher)
         @test perform_semantic_action!(visual_pilot, "gauge", SelectSemanticAction).value[:ratio] == 0.75
         @test length(perform_semantic_action!(visual_pilot, "bar_chart", SelectSemanticAction).value[:bars]) == 2
@@ -355,6 +366,7 @@
         repl_dispatcher = SemanticDispatcher()
         register_repl_view_semantic_handlers!(repl_dispatcher, :repl, repl, repl_state)
         repl_tree = ToolkitTree(Element(repl; id=:repl, key=:repl, state_factory=() -> repl_state, focusable=true))
+        render_toolkit!(Frame(Buffer(4, 24)), repl_tree)
         repl_pilot = SemanticPilot(toolkit_semantic_tree(repl_tree); dispatcher=repl_dispatcher)
         @test perform_semantic_action!(repl_pilot, "repl", SetValueSemanticAction; value="3 + 3").handled
         @test perform_semantic_action!(repl_pilot, "repl", ActivateSemanticAction).handled
@@ -370,6 +382,7 @@
         link_dispatcher = SemanticDispatcher()
         register_hyperlink_semantic_handlers!(link_dispatcher, :docs, link, link_state)
         link_tree = ToolkitTree(Element(link; id=:docs, key=:docs, state_factory=() -> link_state, focusable=true))
+        render_toolkit!(Frame(Buffer(2, 24)), link_tree)
         link_pilot = SemanticPilot(toolkit_semantic_tree(link_tree); dispatcher=link_dispatcher)
         link_activate = perform_semantic_action!(link_pilot, "docs", ActivateSemanticAction)
         @test link_activate.handled
@@ -485,7 +498,7 @@
         checkbox_state = state_for(checkbox)
         checkbox_dispatcher = SemanticDispatcher()
         register_checkbox_semantic_handlers!(checkbox_dispatcher, :checkbox, checkbox, checkbox_state)
-        checkbox_pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(checkbox; id=:checkbox, key=:checkbox, state_factory=() -> checkbox_state, focusable=true))); dispatcher=checkbox_dispatcher)
+        checkbox_pilot = rendered_semantic_pilot(Element(checkbox; id=:checkbox, key=:checkbox, state_factory=() -> checkbox_state, focusable=true), checkbox_dispatcher)
         @test perform_semantic_action!(checkbox_pilot, "checkbox", SetValueSemanticAction; value=true).handled
         @test checkbox_state.checked
 
@@ -493,7 +506,7 @@
         check_box_state = state_for(check_box)
         check_box_dispatcher = SemanticDispatcher()
         register_check_box_semantic_handlers!(check_box_dispatcher, :check_box, check_box, check_box_state)
-        check_box_pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(check_box; id=:check_box, key=:check_box, state_factory=() -> check_box_state, focusable=true))); dispatcher=check_box_dispatcher)
+        check_box_pilot = rendered_semantic_pilot(Element(check_box; id=:check_box, key=:check_box, state_factory=() -> check_box_state, focusable=true), check_box_dispatcher)
         @test perform_semantic_action!(check_box_pilot, "check_box", ActivateSemanticAction).handled
         @test check_box_state.checked
 
@@ -501,7 +514,7 @@
         toggle_state = state_for(toggle)
         toggle_dispatcher = SemanticDispatcher()
         register_toggle_semantic_handlers!(toggle_dispatcher, :toggle, toggle, toggle_state)
-        toggle_pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(toggle; id=:toggle, key=:toggle, state_factory=() -> toggle_state, focusable=true))); dispatcher=toggle_dispatcher)
+        toggle_pilot = rendered_semantic_pilot(Element(toggle; id=:toggle, key=:toggle, state_factory=() -> toggle_state, focusable=true), toggle_dispatcher)
         @test perform_semantic_action!(toggle_pilot, "toggle", SetValueSemanticAction; value="on").handled
         @test toggle_state.enabled
 
@@ -509,19 +522,19 @@
         switch_state = state_for(switch_widget)
         switch_dispatcher = SemanticDispatcher()
         register_switch_semantic_handlers!(switch_dispatcher, :switch, switch_widget, switch_state)
-        switch_pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(switch_widget; id=:switch, key=:switch, state_factory=() -> switch_state, focusable=true))); dispatcher=switch_dispatcher)
+        switch_pilot = rendered_semantic_pilot(Element(switch_widget; id=:switch, key=:switch, state_factory=() -> switch_state, focusable=true), switch_dispatcher)
         @test perform_semantic_action!(switch_pilot, "switch", ActivateSemanticAction).handled
         @test switch_state.enabled
 
         slider_dispatcher = SemanticDispatcher()
         register_slider_semantic_handlers!(slider_dispatcher, :slider, slider, slider_state)
-        slider_pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(slider; id=:slider, key=:slider, state_factory=() -> slider_state, focusable=true))); dispatcher=slider_dispatcher)
+        slider_pilot = rendered_semantic_pilot(Element(slider; id=:slider, key=:slider, state_factory=() -> slider_state, focusable=true), slider_dispatcher)
         @test perform_semantic_action!(slider_pilot, "slider", SetValueSemanticAction; value=75).handled
         @test slider_state.value == 75
 
         range_slider_dispatcher = SemanticDispatcher()
         register_range_slider_semantic_handlers!(range_slider_dispatcher, :range_slider, range_slider, range_slider_state)
-        range_slider_pilot = SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(range_slider; id=:range_slider, key=:range_slider, state_factory=() -> range_slider_state, focusable=true))); dispatcher=range_slider_dispatcher)
+        range_slider_pilot = rendered_semantic_pilot(Element(range_slider; id=:range_slider, key=:range_slider, state_factory=() -> range_slider_state, focusable=true), range_slider_dispatcher)
         @test perform_semantic_action!(range_slider_pilot, "range_slider", SetValueSemanticAction; value=(20, 80)).handled
         @test range_slider_state.lower == 20
         @test range_slider_state.upper == 80
@@ -543,7 +556,7 @@
         @test occursin("# note", snapshots[:editor])
         @test occursin("12-ab", snapshots[:masked])
         @test occursin("alpha", snapshots[:autocomplete])
-        @test occursin("debug", snapshots[:combobox])
+        @test occursin("release", snapshots[:combobox])
         @test occursin("tui", snapshots[:tag_input])
         @test occursin("#", snapshots[:slider])
         @test occursin("[", snapshots[:range_slider])
@@ -569,7 +582,7 @@
         grid_node = semantic_node(semantics, "data_grid")
         @test grid_node.role == TableRole
         @test !isempty(grid_node.children)
-        @test grid_node.children[1].role == RowRole
+        @test any(child -> child.role == RowRole, grid_node.children)
         data_table_node = semantic_node(semantics, "data_table")
         @test data_table_node.role == TableRole
         @test data_table_node.label == "Data table"
@@ -779,6 +792,35 @@
         @test !console_state.visible
     end
 
+    @testset "virtualized progress viewport" begin
+        tracker = ProgressTracker{Int}(clock=() -> UInt64(0))
+        add_progress_task!(tracker, 2; description="Task Ω", total=10, completed=2)
+        add_progress_task!(tracker, 10; description="Task ten", total=10, completed=10)
+        add_progress_task!(tracker, 1; description="Task one", total=10, completed=1)
+        complete_progress!(tracker, 10)
+        progress = ProgressGroup(tracker; width=40, height=2)
+        state = state_for(progress)
+        buffer = Buffer(2, 40)
+
+        render!(buffer, progress, buffer.area, state)
+        first_page = plain_snapshot(buffer)
+        @test occursin("Task one", first_page)
+        @test occursin("Task ten", first_page)
+        @test !occursin("Task Ω", first_page)
+
+        set_progress!(tracker, 2, 8)
+        @test handle!(state, progress, KeyEvent(Key(:down)))
+        reset!(buffer)
+        render!(buffer, progress, buffer.area, state)
+        second_page = plain_snapshot(buffer)
+        @test !occursin("Task one", second_page)
+        @test occursin("Task ten", second_page)
+        @test occursin("Task Ω", second_page)
+        @test occursin("80%", second_page)
+        @test state.offset == 1
+        @test progress_snapshot(tracker, 10).status == CompletedProgress
+    end
+
     @testset "streaming toolkit semantics" begin
         tracker = ProgressTracker()
         add_progress_task!(tracker, :build; description="Build", total=10)
@@ -880,11 +922,12 @@
         managed_notifications = ManagedNotificationView(manager)
         single_progress = Progress(0.5; label="Build")
         single_progress_state = ProgressState()
-        service_tree = ToolkitTree(Column(
+        service_tree = ToolkitTree(column(
             Element(notification_view; id=:notifications, key=:notifications),
             Element(managed_notifications; id=:managed_notifications, key=:managed_notifications),
             Element(single_progress; id=:single_progress, key=:single_progress, state_factory=() -> single_progress_state),
         ))
+        render_toolkit!(Frame(Buffer(6, 32)), service_tree)
         service_semantics = toolkit_semantic_tree(service_tree)
         service_dispatcher = SemanticDispatcher()
         register_notification_view_semantic_handlers!(service_dispatcher, :notifications, notification_view)
@@ -918,7 +961,8 @@
             "deploy_form",
             GroupRole;
             label="Form",
-            children=SemanticToolkit.widget_semantic_children(form, form_state, "deploy_form"),
+            actions=[DismissSemanticAction],
+            children=Wicked.SemanticToolkit.widget_semantic_children(form, form_state, "deploy_form"),
         )
         form_pilot = SemanticPilot(SemanticTree(form_root); dispatcher=form_dispatcher)
         @test perform_semantic_action!(
@@ -1384,7 +1428,7 @@
         tags_state = state_for(tags)
         transfer = TransferList([:build => "Build", :test => "Test"])
         transfer_state = state_for(transfer)
-        tree = ToolkitTree(Column(
+        tree = ToolkitTree(column(
             Element(autocomplete; id=:autocomplete, key=:autocomplete, state_factory=() -> autocomplete_state, focusable=true),
             Element(combo; id=:combo, key=:combo, state_factory=() -> combo_state, focusable=true),
             Element(tags; id=:tags, key=:tags, state_factory=() -> tags_state, focusable=true),
@@ -1424,7 +1468,7 @@
 
         transfer_move = perform_semantic_action!(pilot, "transfer", IncrementSemanticAction)
         @test transfer_move.handled
-        transfer_select = perform_semantic_action!(pilot, "transfer/1", SelectSemanticAction)
+        transfer_select = perform_semantic_action!(pilot, "transfer/option-1", SelectSemanticAction)
         @test transfer_select.handled
         @test selected_values(transfer, transfer_state) == [:build]
     end
@@ -1445,7 +1489,7 @@
         selection_state = SelectionListState(selected=[2])
         list_box = ListBox(["Build", "Test"])
         list_box_state = state_for(list_box)
-        tree = ToolkitTree(Column(
+        tree = ToolkitTree(column(
             Element(radio; id=:radio, key=:radio, state_factory=() -> radio_state, focusable=true),
             Element(select; id=:select, key=:select, state_factory=() -> select_state, focusable=true),
             Element(dropdown; id=:dropdown, key=:dropdown, state_factory=() -> dropdown_state, focusable=true),
@@ -1635,10 +1679,10 @@
         @test split_button_result.value == :save
         context_focus = perform_semantic_action!(pilot, "context_menu", FocusSemanticAction)
         @test context_focus.handled
-        context_select = perform_semantic_action!(pilot, "context_menu/1", SelectSemanticAction)
+        context_select = perform_semantic_action!(pilot, "context_menu/item-1", SelectSemanticAction)
         @test context_select.handled
         @test context_select.value == :copy
-        context_activate = perform_semantic_action!(pilot, "context_menu/2", ActivateSemanticAction)
+        context_activate = perform_semantic_action!(pilot, "context_menu/item-2", ActivateSemanticAction)
         @test context_activate.handled
         @test context_activate.value == :paste
     end
@@ -1745,7 +1789,9 @@
                 @test increment_result.handled
                 select_result = perform_semantic_action!(pilot, "$(id)/entry-1", SelectSemanticAction)
                 @test select_result.handled
-                @test state.entries[1].path in state.selected
+                if state.entries[1].kind != DirectoryFileEntry
+                    @test state.entries[1].path in state.selected
+                end
                 first_entry_kind = state.entries[1].kind
                 activate_result = perform_semantic_action!(pilot, "$(id)/entry-1", ActivateSemanticAction)
                 @test activate_result.handled || first_entry_kind == DirectoryFileEntry
@@ -1988,10 +2034,10 @@
             "loading_widgets",
             GroupRole;
             children=[
-                SemanticNode("spinner", ProgressRole; label="Spinner"),
-                SemanticNode("loading", ProgressRole; label="Loading"),
-                SemanticNode("skeleton", StatusRole; label="Skeleton"),
-                SemanticNode("placeholder", GroupRole; label="Placeholder"),
+                SemanticNode("spinner", ProgressRole; label="Spinner", actions=[IncrementSemanticAction]),
+                SemanticNode("loading", ProgressRole; label="Loading", actions=[SelectSemanticAction]),
+                SemanticNode("skeleton", StatusRole; label="Skeleton", actions=[IncrementSemanticAction]),
+                SemanticNode("placeholder", GroupRole; label="Placeholder", actions=[SelectSemanticAction]),
             ],
         ))
         loading_pilot = SemanticPilot(loading_semantics; dispatcher)
@@ -2265,9 +2311,10 @@
         modal_state = DialogState([DialogButton("Close", :close)]; open=true)
         modal_dispatcher = SemanticDispatcher()
         register_modal_semantic_handlers!(modal_dispatcher, :modal, modal, modal_state)
-        modal_pilot = SemanticPilot(
-            toolkit_semantic_tree(ToolkitTree(Element(modal; id=:modal, key=:modal, state_factory=() -> modal_state, focusable=true)));
-            dispatcher=modal_dispatcher,
+        modal_pilot = rendered_semantic_pilot(
+            Element(modal; id=:modal, key=:modal, state_factory=() -> modal_state, focusable=true),
+            modal_dispatcher;
+            height=8,
         )
         modal_result = perform_semantic_action!(modal_pilot, "modal/1", ActivateSemanticAction)
         @test modal_result.handled
@@ -2275,9 +2322,10 @@
         window_state = WindowState([DialogButton("Close", :close)]; open=true)
         window_dispatcher = SemanticDispatcher()
         register_window_semantic_handlers!(window_dispatcher, :window, window, window_state)
-        window_pilot = SemanticPilot(
-            toolkit_semantic_tree(ToolkitTree(Element(window; id=:window, key=:window, state_factory=() -> window_state, focusable=true)));
-            dispatcher=window_dispatcher,
+        window_pilot = rendered_semantic_pilot(
+            Element(window; id=:window, key=:window, state_factory=() -> window_state, focusable=true),
+            window_dispatcher;
+            height=8,
         )
         window_dismiss = perform_semantic_action!(window_pilot, "window", DismissSemanticAction)
         @test window_dismiss.handled

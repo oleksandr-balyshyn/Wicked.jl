@@ -96,3 +96,42 @@ function grapheme_width(policy::UnicodeWidthPolicy, grapheme::AbstractString)
         return 2
     return width
 end
+
+function _cluster_width(width::Int, ambiguous::Bool, policy::UnicodeWidthPolicy)
+    resolved = clamp(width, 0, 2)
+    return policy.ambiguous_width == 2 && resolved == 1 && ambiguous ? 2 : resolved
+end
+
+"""Measure terminal columns without materializing grapheme substrings."""
+function text_width(text::AbstractString, policy::UnicodeWidthPolicy)
+    first_item = iterate(text)
+    first_item === nothing && return 0
+    previous, iteration_state = first_item
+    break_state = Ref{Int32}(0)
+    cluster_width = textwidth(previous)
+    cluster_has_base = cluster_width != 0
+    cluster_ambiguous = cluster_width != 0 && _is_east_asian_ambiguous(previous)
+    total = 0
+
+    while true
+        item = iterate(text, iteration_state)
+        item === nothing && break
+        character, iteration_state = item
+        if Base.Unicode.isgraphemebreak!(break_state, previous, character)
+            total += _cluster_width(cluster_width, cluster_ambiguous, policy)
+            cluster_width = textwidth(character)
+            cluster_has_base = cluster_width != 0
+            cluster_ambiguous =
+                cluster_width != 0 && _is_east_asian_ambiguous(character)
+        else
+            character_width = textwidth(character)
+            cluster_width += character_width
+            if !cluster_has_base && character_width != 0
+                cluster_has_base = true
+                cluster_ambiguous = _is_east_asian_ambiguous(character)
+            end
+        end
+        previous = character
+    end
+    return total + _cluster_width(cluster_width, cluster_ambiguous, policy)
+end

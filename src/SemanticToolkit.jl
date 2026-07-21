@@ -57,6 +57,7 @@ using ..Accessibility: SemanticRole,
 using ..Interaction: focused
 using ..Toolkit: ToolkitTree,
                  ElementPath,
+                 BoundWidgetState,
                  element_path_components
 using ..Widgets: Button,
                  ButtonState,
@@ -1152,6 +1153,20 @@ function _subtree_has_focus(nodes)
     return any(node -> node.state.focused || _subtree_has_focus(node.children), nodes)
 end
 
+function _without_semantic_focus(node::SemanticNode)
+    return SemanticNode(
+        node.id,
+        node.role;
+        label=node.label,
+        description=node.description,
+        bounds=node.bounds,
+        state=_without_semantic_focus(node.state),
+        actions=node.actions,
+        children=SemanticNode[_without_semantic_focus(child) for child in node.children],
+        metadata=node.metadata,
+    )
+end
+
 function _instance_semantic_id(root_id::String, path, instance)
     instance.element.id === nothing || return string(instance.element.id)
     components = String[
@@ -1162,12 +1177,13 @@ function _instance_semantic_id(root_id::String, path, instance)
 end
 
 function _instance_descriptor(instance)
+    state = instance.state isa BoundWidgetState ? instance.state.inner : instance.state
     override = instance.element.semantics
-    override === nothing && return widget_semantic_descriptor(instance.element.widget, instance.state)
+    override === nothing && return widget_semantic_descriptor(instance.element.widget, state)
     override isa SemanticDescriptor && return override
-    applicable(override, instance.element.widget, instance.state, instance.element) ||
+    applicable(override, instance.element.widget, state, instance.element) ||
         throw(ArgumentError("element semantics callback must accept (widget, state, element)"))
-    descriptor = override(instance.element.widget, instance.state, instance.element)
+    descriptor = override(instance.element.widget, state, instance.element)
     descriptor isa SemanticDescriptor ||
         throw(ArgumentError("element semantics callback must return SemanticDescriptor"))
     return descriptor
@@ -1193,7 +1209,9 @@ function toolkit_semantic_tree(
         node_id = _instance_semantic_id(root_id, path, instance)
         state = _merge_semantic_state(instance, descriptor, tree.state, path)
         actions = state.enabled && !state.hidden ? descriptor.actions : Set{SemanticAction}()
-        internal = widget_semantic_children(instance.element.widget, instance.state, node_id)
+        semantic_state = instance.state isa BoundWidgetState ? instance.state.inner : instance.state
+        internal = widget_semantic_children(instance.element.widget, semantic_state, node_id)
+        state.focused || (internal = SemanticNode[_without_semantic_focus(child) for child in internal])
         descendants = SemanticNode[build(child) for child in get(children_by_parent, path, ElementPath[])]
         children = vcat(internal, descendants)
         state = state.focused && _subtree_has_focus(children) ? _without_semantic_focus(state) : state

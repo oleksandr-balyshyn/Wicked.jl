@@ -1,6 +1,11 @@
 module ReactiveToolkit
 
 import ..Reactive: dispose!
+using ..Toolkit: ComponentState,
+                 component,
+                 invalidate_component!,
+                 state_binding,
+                 use_effect!
 using ..Reactive: ReactiveRuntime,
                   AbstractReactive,
                   Signal,
@@ -16,6 +21,7 @@ using ..Reactive: ReactiveRuntime,
                   transaction!,
                   computed_signal,
                   reactive_effect!
+using ..Reactive: track_reactive_reads
 
 export InvalidationKind,
        RenderInvalidation,
@@ -41,8 +47,13 @@ export InvalidationKind,
        computed_component_state!,
        component_effect!,
        transaction_component!,
+       use_reactive!,
+       TrackedComponentView,
+       tracked_component,
+       signal_binding,
        ReactiveElement,
        reactive_element,
+       reactive_component,
        reactive_element_value!,
        invalidate_reactive_element!,
        ReactiveClassSet,
@@ -290,6 +301,75 @@ end
 transaction_component!(operation::F, state::ReactiveComponentState) where {F} =
     transaction!(() -> operation(state), state.runtime)
 
+struct ReactiveEffectKey
+    key::Any
+end
+
+struct TrackedComponentEffectKey end
+
+"""Callable component view that automatically subscribes to reactive reads."""
+struct TrackedComponentView{F}
+    view::F
+end
+
+function (tracked::TrackedComponentView)(state::ComponentState)
+    applicable(tracked.view, state) ||
+        throw(ArgumentError("tracked component view must accept ComponentState"))
+    result = track_reactive_reads(() -> tracked.view(state))
+    dependencies = Tuple(result.dependencies)
+    versions = UInt64[signal_version(dependency) for dependency in dependencies]
+    use_effect!(state, TrackedComponentEffectKey(), dependencies) do component_state
+        subscriptions = ReactiveSubscription[]
+        try
+            for dependency in dependencies
+                push!(subscriptions, subscribe!(dependency) do _, _, _
+                    invalidate_component!(component_state)
+                end)
+            end
+            any(
+                index -> signal_version(dependencies[index]) != versions[index],
+                eachindex(dependencies),
+            ) && invalidate_component!(component_state)
+        catch
+            for subscription in subscriptions
+                unsubscribe!(subscription)
+            end
+            rethrow()
+        end
+        return () -> foreach(unsubscribe!, subscriptions)
+    end
+    return result.value
+end
+
+"""Create a retained component with automatic signal-read subscriptions."""
+tracked_component(view; kwargs...) = component(TrackedComponentView(view); kwargs...)
+
+"""Expose a mutable Signal through the common controlled-state binding protocol."""
+signal_binding(signal::Signal; equals=isequal) =
+    state_binding(() -> signal_value(signal), value -> set_signal!(signal, value); equals)
+
+"""Read a reactive value and retain a component-scoped redraw subscription.
+
+The explicit key gives the subscription stable identity independently of call
+order. Signal notifications invalidate the owning retained Toolkit tree; a
+change between the read and post-render subscription is detected as well.
+"""
+function use_reactive!(state::ComponentState, key, reactive::AbstractReactive)
+    version = signal_version(reactive)
+    value = signal_value(reactive)
+    use_effect!(state, ReactiveEffectKey(key), (reactive,)) do component_state
+        subscription = subscribe!(reactive) do _, _, _
+            invalidate_component!(component_state)
+        end
+        signal_version(reactive) == version || invalidate_component!(component_state)
+        return () -> unsubscribe!(subscription)
+    end
+    return value
+end
+
+use_reactive!(reactive::AbstractReactive, state::ComponentState, key) =
+    use_reactive!(state, key, reactive)
+
 function dispose!(state::ReactiveComponentState)
     for value in values(state.computed)
         dispose!(value)
@@ -360,6 +440,38 @@ function reactive_element(
         end)
     end
     return element
+end
+
+"""Expose a cached ReactiveElement as a retained declarative component.
+
+Each dependency is observed with an explicitly keyed component effect, so
+reactive transactions coalesce through Toolkit's redraw latch. By default the
+ReactiveElement is owned by the returned component and disposed on unmount.
+"""
+function reactive_component(
+    element::ReactiveElement;
+    dispose_on_unmount::Bool=true,
+    on_unmount=state -> nothing,
+    kwargs...,
+)
+    view = function (state)
+        for (index, dependency) in enumerate(element.dependencies)
+            use_reactive!(state, (:dependency, index), dependency)
+        end
+        return reactive_element_value!(element)
+    end
+    return component(
+        view;
+        initial=nothing,
+        on_unmount=state -> begin
+            try
+                on_unmount(state)
+            finally
+                dispose_on_unmount && dispose!(element)
+            end
+        end,
+        kwargs...,
+    )
 end
 
 function reactive_element_value!(element::ReactiveElement)

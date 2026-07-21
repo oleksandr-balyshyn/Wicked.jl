@@ -1,9 +1,3 @@
-@enum MouseTrackingMode::UInt8 begin
-    BasicMouseTracking
-    ButtonMotionTracking
-    AnyMotionTracking
-end
-
 """Terminal session behavior for the ANSI backend."""
 struct TerminalOptions
     raw_mode::Bool
@@ -351,6 +345,83 @@ function enter!(backend::AnsiBackend)
         rethrow()
     end
     nothing
+end
+
+function _set_ansi_session_mode!(
+    backend::AnsiBackend,
+    desired::Union{Nothing,Bool},
+    bit::UInt16,
+    enable_sequence::AbstractString,
+    disable_sequence::AbstractString;
+    supported::Bool=true,
+)
+    desired === nothing && return false
+    enabled = backend.session_state & bit != 0
+    target = desired && supported
+    enabled == target && return false
+    print(backend.output, target ? enable_sequence : disable_sequence)
+    if target
+        backend.session_state |= bit
+    else
+        backend.session_state &= ~bit
+    end
+    true
+end
+
+function _ansi_mouse_enable_sequence(mode::MouseTrackingMode)
+    tracking = mode == ButtonMotionTracking ? "\e[?1002h" :
+               mode == AnyMotionTracking ? "\e[?1003h" : ""
+    string("\e[?1000h", tracking, "\e[?1006h")
+end
+
+function apply_terminal_modes!(backend::AnsiBackend, request::TerminalModeRequest)
+    backend.session_state == 0 && return false
+    changed = false
+    changed |= _set_ansi_session_mode!(
+        backend,
+        request.alternate_screen,
+        _SESSION_ALTERNATE,
+        "\e[?1049h",
+        "\e[?1049l",
+    )
+    changed |= _set_ansi_session_mode!(
+        backend,
+        request.bracketed_paste,
+        _SESSION_PASTE,
+        "\e[?2004h",
+        "\e[?2004l";
+        supported=backend.capabilities.bracketed_paste,
+    )
+    changed |= _set_ansi_session_mode!(
+        backend,
+        request.focus_reporting,
+        _SESSION_FOCUS,
+        "\e[?1004h",
+        "\e[?1004l";
+        supported=backend.capabilities.focus,
+    )
+
+    mouse_enabled = backend.session_state & _SESSION_MOUSE != 0
+    requested_mouse = request.mouse_capture
+    requested_tracking = request.mouse_tracking
+    if requested_mouse === false && mouse_enabled
+        print(backend.output, "\e[?1006l\e[?1003l\e[?1002l\e[?1000l")
+        backend.session_state &= ~_SESSION_MOUSE
+        changed = true
+    elseif backend.capabilities.mouse &&
+           ((requested_mouse === true && !mouse_enabled) ||
+            (requested_tracking !== nothing && mouse_enabled))
+        mouse_enabled && print(
+            backend.output,
+            "\e[?1006l\e[?1003l\e[?1002l\e[?1000l",
+        )
+        mode = requested_tracking === nothing ? backend.options.mouse_tracking : requested_tracking
+        print(backend.output, _ansi_mouse_enable_sequence(mode))
+        backend.session_state |= _SESSION_MOUSE
+        changed = true
+    end
+    changed && flush(backend.output)
+    changed
 end
 
 function leave!(backend::AnsiBackend)

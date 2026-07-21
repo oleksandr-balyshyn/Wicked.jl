@@ -1,4 +1,7 @@
 """One terminal cell or the continuation of a width-two grapheme."""
+struct _UncheckedCellToken end
+const _UNCHECKED_CELL = _UncheckedCellToken()
+
 struct Cell
     grapheme::String
     style::Style
@@ -21,6 +24,16 @@ struct Cell
         end
         new(grapheme, style, width, continuation)
     end
+
+    # Internal rendering paths use this only after proving the cell invariant
+    # (single printable ASCII grapheme, blank, or continuation footprint).
+    Cell(
+        grapheme::String,
+        style::Style,
+        width::UInt8,
+        continuation::Bool,
+        ::_UncheckedCellToken,
+    ) = new(grapheme, style, width, continuation)
 end
 
 function Cell(
@@ -35,6 +48,6 @@ function Cell(
     Cell(value, style, UInt8(width), false)
 end
 
-Cell(; style::Style=Style()) = Cell(" ", style, 0x01, false)
+Cell(; style::Style=Style()) = Cell(" ", style, 0x01, false, _UNCHECKED_CELL)
 
-continuation_cell(style::Style) = Cell("", style, 0x00, true)
+continuation_cell(style::Style) = Cell("", style, 0x00, true, _UNCHECKED_CELL)

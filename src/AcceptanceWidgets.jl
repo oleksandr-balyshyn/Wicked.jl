@@ -1726,7 +1726,7 @@ function SemanticToolkit.widget_semantic_children(widget::MarkdownView, state::M
         push!(
             children,
             Accessibility.SemanticNode(
-                (id, :link, link.id),
+                "$(id)/link/$(link.id)",
                 Accessibility.LinkRole;
                 label=link.label,
                 state=Accessibility.SemanticState(
@@ -2063,6 +2063,9 @@ Widgets.selected_value(widget::Combobox, state::SelectState) =
     Widgets.selected_value(widget.select, state)
 
 function SemanticToolkit.widget_semantic_descriptor(widget::Combobox, state::SelectState)
+    selected = Widgets.selected_value(widget.select, state)
+    label = state.selected === nothing || state.selected > length(widget.select.options) ? nothing :
+        _line_label(widget.select.options[state.selected].label)
     return SemanticToolkit.SemanticDescriptor(
         Accessibility.ListRole;
         label=widget.select.placeholder,
@@ -2070,10 +2073,13 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Combobox, state::Sel
             focusable=true,
             focused=state.focused,
             expanded=state.open,
-            value=selected_value(widget, state),
+            value=label,
         ),
         actions=[Accessibility.FocusSemanticAction, Accessibility.ActivateSemanticAction, Accessibility.SetValueSemanticAction],
-        metadata=Dict(:option_count => length(widget.select.options)),
+        metadata=Dict(
+            :option_count => length(widget.select.options),
+            :selected_value => selected,
+        ),
     )
 end
 
@@ -2175,29 +2181,18 @@ function SemanticToolkit.widget_semantic_descriptor(widget::TransferList, state:
         Accessibility.ListRole;
         label="Transfer list",
         state=Accessibility.SemanticState(focusable=true),
-        actions=[Accessibility.FocusSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+            Accessibility.SetValueSemanticAction,
+        ],
         metadata=Dict(:option_count => length(widget.multiselect.options), :selected_count => length(state.selected)),
     )
 end
 
-function SemanticToolkit.widget_semantic_children(widget::TransferList, state::MultiSelectState, id)
-    return Accessibility.SemanticNode[
-        Accessibility.SemanticNode(
-            "$(id)/$(index)",
-            Accessibility.ListItemRole;
-            label=option.label,
-            state=Accessibility.SemanticState(
-                enabled=!option.disabled,
-                focusable=!option.disabled,
-                focused=state.highlighted == index,
-                selected=index in state.selected,
-            ),
-            actions=option.disabled ? Accessibility.SemanticAction[] :
-                [Accessibility.FocusSemanticAction, Accessibility.SelectSemanticAction, Accessibility.ActivateSemanticAction],
-            metadata=Dict(:value => option.value),
-        ) for (index, option) in enumerate(widget.multiselect.options)
-    ]
-end
+SemanticToolkit.widget_semantic_children(widget::TransferList, state::MultiSelectState, id) =
+    SemanticToolkit.widget_semantic_children(widget.multiselect, state, id)
 
 function _autocomplete_semantic_value(state::AutocompleteState)
     return Dict(
@@ -2467,7 +2462,7 @@ function register_transfer_list_semantic_handlers!(
         return Accessibility.SemanticActionResult(false; message="transfer list semantic action is not supported")
     end)
     for index in eachindex(widget.multiselect.options)
-        Accessibility.register_semantic_handler!(dispatcher, "$(node_id)/$(index)", function (request)
+        Accessibility.register_semantic_handler!(dispatcher, "$(node_id)/option-$(index)", function (request)
             1 <= index <= length(widget.multiselect.options) ||
                 return Accessibility.SemanticActionResult(false; message="transfer list option is not available")
             current = widget.multiselect.options[index]
@@ -2522,10 +2517,10 @@ function register_radio_group_semantic_handlers!(
             state.focused = true
             return Accessibility.SemanticActionResult(true; value=_radio_semantic_value(widget, state))
         elseif request.action == Accessibility.IncrementSemanticAction
-            state.selected = _next_choice(widget.options, something(state.selected, 0), 1)
+            state.selected = Widgets._next_choice(widget.options, something(state.selected, 0), 1)
             return Accessibility.SemanticActionResult(state.selected !== nothing; value=_radio_semantic_value(widget, state))
         elseif request.action == Accessibility.DecrementSemanticAction
-            state.selected = _next_choice(widget.options, something(state.selected, 1), -1)
+            state.selected = Widgets._next_choice(widget.options, something(state.selected, 1), -1)
             return Accessibility.SemanticActionResult(state.selected !== nothing; value=_radio_semantic_value(widget, state))
         elseif request.action == Accessibility.SetValueSemanticAction
             handled = _set_radio_semantic_value!(widget, state, request.value)
@@ -2609,16 +2604,16 @@ function register_select_semantic_handlers!(
                 state.open = false
             else
                 state.open = true
-                state.highlighted = something(state.selected, _next_choice(widget.options, 0, 1))
+                state.highlighted = something(state.selected, Widgets._next_choice(widget.options, 0, 1))
             end
             return Accessibility.SemanticActionResult(true; value=_select_semantic_value(widget, state))
         elseif request.action == Accessibility.IncrementSemanticAction
             state.open = true
-            state.highlighted = _next_choice(widget.options, something(state.highlighted, 0), 1)
+            state.highlighted = Widgets._next_choice(widget.options, something(state.highlighted, 0), 1)
             return Accessibility.SemanticActionResult(state.highlighted !== nothing; value=_select_semantic_value(widget, state))
         elseif request.action == Accessibility.DecrementSemanticAction
             state.open = true
-            state.highlighted = _next_choice(widget.options, something(state.highlighted, 1), -1)
+            state.highlighted = Widgets._next_choice(widget.options, something(state.highlighted, 1), -1)
             return Accessibility.SemanticActionResult(state.highlighted !== nothing; value=_select_semantic_value(widget, state))
         elseif request.action == Accessibility.SetValueSemanticAction
             handled = _set_select_semantic_value!(widget, state, request.value)
@@ -2689,13 +2684,13 @@ function register_multi_select_semantic_handlers!(
     node_id = string(id)
     Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
         if request.action == Accessibility.FocusSemanticAction
-            state.highlighted === nothing && (state.highlighted = _next_choice(widget.options, 0, 1))
+            state.highlighted === nothing && (state.highlighted = Widgets._next_choice(widget.options, 0, 1))
             return Accessibility.SemanticActionResult(true; value=_multi_select_semantic_value(widget, state))
         elseif request.action == Accessibility.IncrementSemanticAction
-            state.highlighted = _next_choice(widget.options, something(state.highlighted, 0), 1)
+            state.highlighted = Widgets._next_choice(widget.options, something(state.highlighted, 0), 1)
             return Accessibility.SemanticActionResult(state.highlighted !== nothing; value=_multi_select_semantic_value(widget, state))
         elseif request.action == Accessibility.DecrementSemanticAction
-            state.highlighted = _next_choice(widget.options, something(state.highlighted, 1), -1)
+            state.highlighted = Widgets._next_choice(widget.options, something(state.highlighted, 1), -1)
             return Accessibility.SemanticActionResult(state.highlighted !== nothing; value=_multi_select_semantic_value(widget, state))
         elseif request.action == Accessibility.SetValueSemanticAction
             _set_multi_select_values!(widget, state, request.value)
@@ -3823,7 +3818,7 @@ end
 
 NavigationRail(items::AbstractVector; kwargs...) = NavigationRail(Menu(items; kwargs...))
 const NavigationRailState = MenuState
-state_for(widget::NavigationRail) = MenuState()
+state_for(widget::NavigationRail) = MenuState(selected=findfirst(item -> !item.disabled, widget.menu.items))
 render!(buffer::Buffer, widget::NavigationRail, area::Rect, state::NavigationRailState) =
     render!(buffer, widget.menu, area, state)
 render!(buffer::Buffer, widget::NavigationRail, area::Rect) =
@@ -4287,7 +4282,12 @@ function SemanticToolkit.widget_semantic_descriptor(widget::ResizablePane, state
             value_min=0.0,
             value_max=1.0,
         ),
-        actions=[Accessibility.FocusSemanticAction, Accessibility.SetValueSemanticAction],
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.SetValueSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+        ],
         metadata=Dict(:orientation => widget.orientation, :minimum_first => state.minimum_first, :minimum_second => state.minimum_second),
     )
 end
@@ -6570,6 +6570,7 @@ end
 """Compatibility alias for a modal naming convention used by upstream frameworks."""
 struct Modal
     dialog::Dialog
+    Modal(dialog::Dialog) = new(dialog)
 end
 
 function Modal(body::Vararg{Any}; kwargs...)
@@ -6620,6 +6621,7 @@ register_modal_semantic_handlers!(
 """Compatibility alias for a top-level dialog/window naming convention."""
 struct Window
     dialog::Dialog
+    Window(dialog::Dialog) = new(dialog)
 end
 
 """Compatibility state alias for `Window`; identical to `DialogState`."""
@@ -7654,6 +7656,7 @@ function SemanticToolkit.widget_semantic_children(widget::HelpView, state, id)
             label=hint.key,
             description=hint.description,
             state=Accessibility.SemanticState(readonly=true),
+            actions=_readonly_widget_semantic_actions(),
             metadata=Dict{Symbol,Any}(:key => hint.key),
         ) for (index, hint) in enumerate(widget.hints)
     ]
@@ -8176,6 +8179,7 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Padding, state)
         Accessibility.GroupRole;
         label="Padded content",
         state=Accessibility.SemanticState(readonly=true),
+        actions=_readonly_widget_semantic_actions(),
         metadata=Dict{Symbol,Any}(
             :margin => (widget.margin.top, widget.margin.right, widget.margin.bottom, widget.margin.left),
         ),
@@ -8188,6 +8192,7 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Box, state)
         Accessibility.GroupRole;
         label=title,
         state=Accessibility.SemanticState(readonly=true),
+        actions=_readonly_widget_semantic_actions(),
         metadata=Dict{Symbol,Any}(:borders => widget.block.borders.bits),
     )
 end
@@ -8197,6 +8202,7 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Row, state)
         Accessibility.GroupRole;
         label="Row",
         state=Accessibility.SemanticState(readonly=true),
+        actions=_readonly_widget_semantic_actions(),
         metadata=Dict{Symbol,Any}(:child_count => length(widget.children), :orientation => :horizontal),
     )
 end
@@ -8206,6 +8212,7 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Column, state)
         Accessibility.GroupRole;
         label="Column",
         state=Accessibility.SemanticState(readonly=true),
+        actions=_readonly_widget_semantic_actions(),
         metadata=Dict{Symbol,Any}(:child_count => length(widget.children), :orientation => :vertical),
     )
 end
@@ -8215,6 +8222,7 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Stack, state)
         Accessibility.GroupRole;
         label="Stack",
         state=Accessibility.SemanticState(readonly=true),
+        actions=_readonly_widget_semantic_actions(),
         metadata=Dict{Symbol,Any}(:child_count => length(widget.children), :layered => true),
     )
 end
@@ -8224,6 +8232,7 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Overlay, state)
         Accessibility.GroupRole;
         label="Overlay",
         state=Accessibility.SemanticState(readonly=true),
+        actions=_readonly_widget_semantic_actions(),
         metadata=Dict{Symbol,Any}(:child_count => length(widget.stack.children), :layered => true),
     )
 end
@@ -8233,6 +8242,7 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Center, state)
         Accessibility.GroupRole;
         label="Centered content",
         state=Accessibility.SemanticState(readonly=true),
+        actions=_readonly_widget_semantic_actions(),
         metadata=Dict{Symbol,Any}(:height => widget.size.height, :width => widget.size.width),
     )
 end
@@ -8242,6 +8252,7 @@ function SemanticToolkit.widget_semantic_descriptor(widget::Grid, state)
         Accessibility.GroupRole;
         label="Grid",
         state=Accessibility.SemanticState(readonly=true),
+        actions=_readonly_widget_semantic_actions(),
         metadata=Dict{Symbol,Any}(
             :child_count => length(widget.children),
             :rows => length(widget.layout.rows),
@@ -8321,3 +8332,2798 @@ register_grid_semantic_handlers!(dispatcher::Accessibility.SemanticDispatcher, i
         ),
         "grid semantic action is not supported",
     )
+# Concise controlled/uncontrolled Toolkit constructors for common input widgets.
+function bound_slider(
+    binding::AbstractStateBinding;
+    minimum::Real=0,
+    maximum::Real=100,
+    step::Real=1,
+    width::Integer=20,
+    disabled::Bool=false,
+    bindings::AdvancedControlBindings=default_advanced_control_bindings(),
+    label::AbstractString="Slider",
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+)
+    widget = Slider(
+        minimum,
+        maximum;
+        value=binding_value(binding),
+        step,
+        width,
+        disabled,
+        bindings,
+        label,
+    )
+    return bound_element(
+        widget,
+        binding;
+        key,
+        id,
+        classes,
+        focusable,
+        apply_value! = (state, value) -> set_slider!(state, value),
+        extract_value=state -> state.value,
+    )
+end
+
+function _range_binding_values(value)
+    if value isa NamedTuple && haskey(value, :lower) && haskey(value, :upper)
+        return value.lower, value.upper, :named
+    elseif value isa Tuple && length(value) == 2
+        return value[1], value[2], :tuple
+    end
+    throw(ArgumentError("range slider binding must contain (lower, upper) values"))
+end
+
+function bound_range_slider(
+    binding::AbstractStateBinding;
+    minimum::Real=0,
+    maximum::Real=100,
+    step::Real=1,
+    active::RangeSliderHandle=LowerRangeHandle,
+    allow_crossing::Bool=false,
+    width::Integer=20,
+    disabled::Bool=false,
+    bindings::AdvancedControlBindings=default_advanced_control_bindings(),
+    label::AbstractString="Range slider",
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+)
+    lower, upper, shape = _range_binding_values(binding_value(binding))
+    widget = RangeSlider(
+        minimum,
+        maximum;
+        lower,
+        upper,
+        step,
+        active,
+        allow_crossing,
+        width,
+        disabled,
+        bindings,
+        label,
+    )
+    extract = shape == :named ?
+        state -> (lower=state.lower, upper=state.upper) :
+        state -> (state.lower, state.upper)
+    return bound_element(
+        widget,
+        binding;
+        key,
+        id,
+        classes,
+        focusable,
+        apply_value! = (state, value) -> begin
+            next_lower, next_upper, _ = _range_binding_values(value)
+            set_range_slider!(state, next_lower, next_upper)
+        end,
+        extract_value=extract,
+    )
+end
+
+function bound_checkbox(
+    label::AbstractString,
+    binding::AbstractStateBinding;
+    checked_symbol::AbstractString="[x]",
+    unchecked_symbol::AbstractString="[ ]",
+    style::Style=Style(),
+    checked_style::Style=Style(modifiers=BOLD),
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+)
+    widget = Checkbox(label; checked_symbol, unchecked_symbol, style, checked_style)
+    return bound_property_element(
+        widget,
+        binding,
+        :checked;
+        key,
+        id,
+        classes,
+        focusable,
+    )
+end
+
+function bound_toggle(
+    binding::AbstractStateBinding;
+    on_label::AbstractString="ON",
+    off_label::AbstractString="OFF",
+    on_style::Style=Style(modifiers=BOLD),
+    off_style::Style=Style(modifiers=DIM),
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+)
+    widget = Toggle(; on_label, off_label, on_style, off_style)
+    return bound_property_element(
+        widget,
+        binding,
+        :enabled;
+        key,
+        id,
+        classes,
+        focusable,
+    )
+end
+
+function bound_text_input(
+    binding::AbstractStateBinding;
+    placeholder::AbstractString="",
+    block::Union{Nothing,Block}=nothing,
+    style::Style=Style(),
+    placeholder_style::Style=Style(modifiers=DIM),
+    selection_style::Style=Style(modifiers=REVERSED),
+    cursor_style::Style=Style(modifiers=REVERSED),
+    mask::Union{Nothing,AbstractString}=nothing,
+    maximum_length::Integer=typemax(Int),
+    history_limit::Integer=100,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+)
+    initial = String(binding_value(binding))
+    widget = TextInput(;
+        placeholder,
+        block,
+        style,
+        placeholder_style,
+        selection_style,
+        cursor_style,
+        mask,
+        maximum_length,
+    )
+    return bound_element(
+        widget,
+        binding;
+        key,
+        id,
+        classes,
+        focusable,
+        state_factory=() -> TextInputState(initial; history_limit),
+        apply_value! = (state, value) -> begin
+            text = String(value)
+            editing_text(state) == text || set_text!(state, text; record=false)
+            state
+        end,
+        extract_value=editing_text,
+    )
+end
+
+"""Invisible controller backing a declaratively composed virtual viewport."""
+abstract type AbstractLazyController end
+
+struct LazyColumnController{S,B,P,A,C} <: AbstractLazyController
+    source::S
+    width::Int
+    height::Int
+    item_extent::Int
+    overscan::Int
+    multiple::Bool
+    bindings::B
+    pointer_options::P
+    on_activate::A
+    on_selection_change::C
+end
+
+function LazyColumnController(
+    source::AbstractDataSource;
+    width::Integer=80,
+    height::Integer=24,
+    item_extent::Integer=1,
+    overscan::Integer=2,
+    multiple::Bool=false,
+    bindings::VirtualBindings=default_virtual_bindings(),
+    pointer_options::VirtualPointerOptions=VirtualPointerOptions(),
+    on_activate=nothing,
+    on_selection_change=nothing,
+)
+    width > 0 || throw(ArgumentError("lazy column width must be positive"))
+    height >= 0 || throw(ArgumentError("lazy column height cannot be negative"))
+    item_extent > 0 || throw(ArgumentError("lazy column item extent must be positive"))
+    overscan >= 0 || throw(ArgumentError("lazy column overscan cannot be negative"))
+    return LazyColumnController(
+        source,
+        Int(width),
+        Int(height),
+        Int(item_extent),
+        Int(overscan),
+        multiple,
+        bindings,
+        pointer_options,
+        on_activate,
+        on_selection_change,
+    )
+end
+
+function state_for(widget::LazyColumnController{S}) where {T,K,S<:AbstractDataSource{T,K}}
+    return VirtualListState{K}(
+        viewport_size=cld(widget.height, widget.item_extent),
+        overscan=widget.overscan,
+        multiple=widget.multiple,
+    )
+end
+
+measure(widget::LazyColumnController, available::Rect) =
+    Size(min(available.height, widget.height), min(available.width, widget.width))
+
+render!(buffer::Buffer, ::LazyColumnController, ::Rect, ::VirtualListState) = buffer
+render!(buffer::Buffer, widget::LazyColumnController, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+function _lazy_column_window!(widget::LazyColumnController, state::VirtualListState)
+    resize_virtual_list!(state, cld(widget.height, widget.item_extent))
+    return refresh_virtual_list!(widget.source, state)
+end
+
+function _notify_lazy_selection(widget::AbstractLazyController, state::VirtualListState)
+    callback = widget.on_selection_change
+    callback === nothing && return
+    selection = copy(state.selected)
+    if applicable(callback, selection, state)
+        callback(selection, state)
+    elseif applicable(callback, selection)
+        callback(selection)
+    elseif applicable(callback, state)
+        callback(state)
+    else
+        throw(ArgumentError("lazy column selection callback must accept selection/state, selection, or state"))
+    end
+end
+
+function _notify_lazy_activation(widget::AbstractLazyController, key, state::VirtualListState)
+    callback = widget.on_activate
+    callback === nothing && return
+    if applicable(callback, key, state)
+        callback(key, state)
+    elseif applicable(callback, key)
+        callback(key)
+    elseif applicable(callback, state)
+        callback(state)
+    else
+        throw(ArgumentError("lazy column activation callback must accept key/state, key, or state"))
+    end
+end
+
+function handle!(state::VirtualListState, widget::LazyColumnController, event::KeyEvent)
+    event.kind in (KeyPress, KeyRepeat) || return false
+    window = _lazy_column_window!(widget, state)
+    before = copy(state.selected)
+    result = handle_virtual_key!(
+        state,
+        window,
+        widget.bindings,
+        event.key.code;
+        control=in(CTRL, event.modifiers),
+        alt=in(ALT, event.modifiers),
+        shift=in(SHIFT, event.modifiers),
+    )
+    before == state.selected || _notify_lazy_selection(widget, state)
+    result.action == VirtualActivate && result.key !== nothing &&
+        _notify_lazy_activation(widget, result.key, state)
+    return result.consumed
+end
+
+function handle!(state::VirtualListState, widget::LazyColumnController, event::MouseEvent, area::Rect)
+    active = intersection(area, Rect(area.row, area.column, widget.height, widget.width))
+    contains(active, event.position) || return false
+    window = _lazy_column_window!(widget, state)
+    if event.action == MouseScroll
+        delta = event.button == WheelUpButton ? -3 : event.button == WheelDownButton ? 3 : 0
+        delta == 0 && return false
+        scroll_virtual_list!(state, delta; total_length=window.total_length)
+        return true
+    end
+    event.action in (MousePress, MouseRelease, MouseMove) || return false
+    kind = event.action == MouseMove ? VirtualPointerHover :
+           event.click_count > 1 ? VirtualPointerDoublePress : VirtualPointerPress
+    viewport_row = div(event.position.row - active.row, widget.item_extent) + 1
+    before = copy(state.selected)
+    result = handle_virtual_pointer!(
+        state,
+        window,
+        VirtualPointerEvent(
+            kind,
+            viewport_row,
+            event.position.column - active.column + 1;
+            control=in(CTRL, event.modifiers),
+            shift=in(SHIFT, event.modifiers),
+        );
+        options=widget.pointer_options,
+    )
+    before == state.selected || _notify_lazy_selection(widget, state)
+    result.activated && _notify_lazy_activation(widget, result.key, state)
+    return result.consumed
+end
+
+handle!(::VirtualListState, ::LazyColumnController, ::PasteEvent) = false
+
+SemanticToolkit.widget_semantic_descriptor(widget::LazyColumnController, state::VirtualListState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.ListRole;
+        label="Lazy column",
+        state=Accessibility.SemanticState(focusable=true),
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+            Accessibility.SelectSemanticAction,
+            Accessibility.ActivateSemanticAction,
+        ],
+        metadata=Dict(
+            :cursor => state.cursor,
+            :first_index => state.viewport.first_index,
+            :selected_count => length(state.selected),
+            :total_length => data_length(widget.source),
+        ),
+    )
+
+function _invoke_lazy_content(builder, primary, slot::DataSlot, state::VirtualListState)
+    applicable(builder, primary, slot.index, slot.key, state) &&
+        return builder(primary, slot.index, slot.key, state)
+    applicable(builder, primary, slot.index, slot.key) &&
+        return builder(primary, slot.index, slot.key)
+    applicable(builder, primary, slot.index) && return builder(primary, slot.index)
+    applicable(builder, primary) && return builder(primary)
+    applicable(builder) && return builder()
+    throw(ArgumentError("lazy column content builder has an unsupported signature"))
+end
+
+function _keyed_lazy_content(content, key; on_event=nothing)
+    children = Toolkit._normalize_elements((content,))
+    isempty(children) && return nothing
+    root = length(children) == 1 ? only(children) : column(children...)
+    on_event === nothing && return modify(root, element_modifier(key=key))
+    return Element(nothing; key, children=(root,), layout=:stack, on_event)
+end
+
+function _invoke_lazy_empty(builder, state::VirtualListState)
+    applicable(builder, state) && return builder(state)
+    applicable(builder) && return builder()
+    throw(ArgumentError("lazy column empty builder must accept state or no arguments"))
+end
+
+struct LazyColumnStateKey end
+struct LazyColumnViewportKey end
+
+function _lazy_row_event_handler(
+    controller::AbstractLazyController,
+    state::VirtualListState,
+    slot::DataSlot,
+)
+    return function (routed, _)
+        routed.phase == BubblePhase || return nothing
+        event = routed.event
+        event isa MouseEvent || return nothing
+        if event.action == MouseScroll
+            amount = _lazy_scroll_step(controller)
+            delta = event.button == WheelUpButton ? -amount : event.button == WheelDownButton ? amount : 0
+            delta == 0 && return nothing
+            window = _lazy_controller_window!(controller, state)
+            scroll_virtual_list!(state, delta; total_length=window.total_length)
+            return EventResponse(consumed=true, redraw=true)
+        end
+        slot.kind == ReadySlot || return nothing
+        if event.action == MouseMove
+            controller.pointer_options.focus_on_hover && (state.cursor = slot.index)
+            return EventResponse(consumed=true, redraw=true)
+        elseif event.action == MousePress
+            before = copy(state.selected)
+            if controller.pointer_options.select_on_press
+                if controller.pointer_options.toggle_with_control && in(CTRL, event.modifiers) && slot.key in state.selected
+                    delete!(state.selected, slot.key)
+                    state.cursor = slot.index
+                    state.anchor = slot.index
+                else
+                    select_virtual_index!(state, slot)
+                end
+            end
+            before == state.selected || _notify_lazy_selection(controller, state)
+            if event.click_count > 1 && controller.pointer_options.activate_on_double_press
+                _notify_lazy_activation(controller, slot.key, state)
+            end
+            return EventResponse(consumed=true, redraw=true)
+        end
+        return nothing
+    end
+end
+
+_lazy_controller_window!(controller::LazyColumnController, state::VirtualListState) =
+    _lazy_column_window!(controller, state)
+_lazy_scroll_step(::LazyColumnController) = 3
+
+"""Compose only the visible rows of a keyed virtual data source.
+
+The `item` builder may accept `(item, index, key, state)`, progressively fewer
+arguments, or no arguments. Each materialized root is forcibly keyed from the
+data source so retained descendant state follows the item while it remains in
+the viewport. Loading and failure builders receive the slot and index through
+the same progressive callback convention.
+"""
+function lazy_column(
+    source::AbstractDataSource;
+    item,
+    loading=slot -> "Loading…",
+    failure=(error, index) -> "Error loading row $index",
+    empty="",
+    width::Integer=80,
+    height::Integer=24,
+    item_extent::Integer=1,
+    overscan::Integer=2,
+    multiple::Bool=false,
+    bindings::VirtualBindings=default_virtual_bindings(),
+    pointer_options::VirtualPointerOptions=VirtualPointerOptions(),
+    on_activate=nothing,
+    on_selection_change=nothing,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+)
+    controller = LazyColumnController(
+        source;
+        width,
+        height,
+        item_extent,
+        overscan,
+        multiple,
+        bindings,
+        pointer_options,
+        on_activate,
+        on_selection_change,
+    )
+    view = function (component_state)
+        remembered = remember!(component_state, LazyColumnStateKey(), state_for(controller))
+        state = remembered_value(remembered)
+        window = _lazy_column_window!(controller, state)
+        children = Element[]
+        if window.total_length == 0
+            content = empty isa Function ? _invoke_lazy_empty(empty, state) : empty
+            keyed = _keyed_lazy_content(content, (:empty, 0))
+            keyed === nothing || push!(children, keyed)
+        else
+            for slot in window.slots
+                window.first_visible <= slot.index <= window.last_visible || continue
+                content = if slot.kind == ReadySlot
+                    _invoke_lazy_content(item, slot.item, slot, state)
+                elseif slot.kind == LoadingSlot
+                    _invoke_lazy_content(loading, slot, slot, state)
+                elseif slot.kind == FailedSlot
+                    _invoke_lazy_content(failure, slot.error, slot, state)
+                else
+                    continue
+                end
+                row_key = slot.kind == ReadySlot ? slot.key : (slot.kind, slot.index)
+                keyed = _keyed_lazy_content(
+                    content,
+                    row_key;
+                    on_event=_lazy_row_event_handler(controller, state, slot),
+                )
+                keyed === nothing || push!(children, keyed)
+            end
+        end
+        constraints = Constraint[Length(item_extent) for _ in children]
+        return Element(
+            controller;
+            key=LazyColumnViewportKey(),
+            id,
+            children,
+            layout=FlexLayout(VerticalLayout, constraints),
+            state_factory=() -> state,
+            focusable,
+            classes,
+        )
+    end
+    return component(view; key)
+end
+
+function lazy_column(
+    items::AbstractVector;
+    item,
+    item_key=(value, index) -> index,
+    kwargs...,
+)
+    resolved_key = (value, index) -> begin
+        applicable(item_key, value, index) && return item_key(value, index)
+        applicable(item_key, value) && return item_key(value)
+        throw(ArgumentError("lazy column item key must accept item/index or item"))
+    end
+    return lazy_column(VectorDataSource(items; key=resolved_key); item, kwargs...)
+end
+
+lazy_column(item::Function, source::AbstractDataSource; kwargs...) =
+    lazy_column(source; item, kwargs...)
+
+lazy_column(item::Function, items::AbstractVector; kwargs...) =
+    lazy_column(items; item, kwargs...)
+
+"""Invisible controller for a viewport-only declarative grid."""
+struct LazyGridController{S,B,P,A,C} <: AbstractLazyController
+    source::S
+    width::Int
+    height::Int
+    columns::Int
+    row_extent::Int
+    row_gap::Int
+    column_gap::Int
+    overscan::Int
+    multiple::Bool
+    bindings::B
+    pointer_options::P
+    on_activate::A
+    on_selection_change::C
+end
+
+function LazyGridController(
+    source::AbstractDataSource;
+    width::Integer=80,
+    height::Integer=24,
+    columns::Integer=2,
+    row_extent::Integer=1,
+    row_gap::Integer=0,
+    column_gap::Integer=0,
+    overscan::Integer=2,
+    multiple::Bool=false,
+    bindings::VirtualBindings=default_virtual_bindings(),
+    pointer_options::VirtualPointerOptions=VirtualPointerOptions(),
+    on_activate=nothing,
+    on_selection_change=nothing,
+)
+    width > 0 || throw(ArgumentError("lazy grid width must be positive"))
+    height >= 0 || throw(ArgumentError("lazy grid height cannot be negative"))
+    columns > 0 || throw(ArgumentError("lazy grid column count must be positive"))
+    row_extent > 0 || throw(ArgumentError("lazy grid row extent must be positive"))
+    row_gap >= 0 || throw(ArgumentError("lazy grid row gap cannot be negative"))
+    column_gap >= 0 || throw(ArgumentError("lazy grid column gap cannot be negative"))
+    overscan >= 0 || throw(ArgumentError("lazy grid overscan cannot be negative"))
+    return LazyGridController(
+        source,
+        Int(width),
+        Int(height),
+        Int(columns),
+        Int(row_extent),
+        Int(row_gap),
+        Int(column_gap),
+        Int(overscan),
+        multiple,
+        bindings,
+        pointer_options,
+        on_activate,
+        on_selection_change,
+    )
+end
+
+_lazy_grid_rows(widget::LazyGridController) = widget.height == 0 ? 0 :
+    max(1, cld(widget.height + widget.row_gap, widget.row_extent + widget.row_gap))
+_lazy_grid_capacity(widget::LazyGridController) = _lazy_grid_rows(widget) * widget.columns
+_lazy_scroll_step(widget::LazyGridController) = 3 * widget.columns
+
+function state_for(widget::LazyGridController{S}) where {T,K,S<:AbstractDataSource{T,K}}
+    return VirtualListState{K}(
+        viewport_size=_lazy_grid_capacity(widget),
+        overscan=widget.overscan * widget.columns,
+        multiple=widget.multiple,
+    )
+end
+
+measure(widget::LazyGridController, available::Rect) =
+    Size(min(available.height, widget.height), min(available.width, widget.width))
+render!(buffer::Buffer, ::LazyGridController, ::Rect, ::VirtualListState) = buffer
+render!(buffer::Buffer, widget::LazyGridController, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+function _lazy_controller_window!(widget::LazyGridController, state::VirtualListState)
+    resize_virtual_list!(state, _lazy_grid_capacity(widget))
+    return refresh_virtual_list!(widget.source, state)
+end
+
+function _lazy_grid_cursor_slot(window::VirtualListWindow, cursor)
+    cursor === nothing && return nothing
+    return findfirst(slot -> slot.index == cursor && slot.kind == ReadySlot, window.slots)
+end
+
+function _ensure_lazy_grid_cursor_visible!(
+    state::VirtualListState,
+    widget::LazyGridController;
+    total_length=nothing,
+)
+    state.cursor === nothing && return state
+    rows = max(1, _lazy_grid_rows(widget))
+    cursor_row = div(state.cursor - 1, widget.columns)
+    first_row = div(state.viewport.first_index - 1, widget.columns)
+    if cursor_row < first_row
+        first_row = cursor_row
+    elseif cursor_row >= first_row + rows
+        first_row = cursor_row - rows + 1
+    end
+    first_index = first_row * widget.columns + 1
+    if total_length !== nothing
+        final_row = max(0, cld(Int(total_length), widget.columns) - 1)
+        first_index = min(first_index, max(1, (max(0, final_row - rows + 1) * widget.columns) + 1))
+    end
+    state.viewport = VirtualViewport(
+        max(1, first_index),
+        state.viewport.viewport_size;
+        overscan=state.viewport.overscan,
+    )
+    return state
+end
+
+function handle!(state::VirtualListState, widget::LazyGridController, event::KeyEvent)
+    event.kind in (KeyPress, KeyRepeat) || return false
+    action = virtual_action_for_key(
+        widget.bindings,
+        event.key.code;
+        control=in(CTRL, event.modifiers),
+        alt=in(ALT, event.modifiers),
+        shift=in(SHIFT, event.modifiers),
+    )
+    action === nothing && return false
+    window = _lazy_controller_window!(widget, state)
+    total = window.total_length
+    if action == VirtualCursorUp
+        move_virtual_cursor!(state, -widget.columns; total_length=total)
+    elseif action == VirtualCursorDown
+        move_virtual_cursor!(state, widget.columns; total_length=total)
+    elseif action == VirtualExpand
+        move_virtual_cursor!(state, 1; total_length=total)
+    elseif action == VirtualCollapse
+        move_virtual_cursor!(state, -1; total_length=total)
+    elseif action == VirtualPageUp
+        move_virtual_cursor!(state, -max(1, _lazy_grid_capacity(widget)); total_length=total)
+    elseif action == VirtualPageDown
+        move_virtual_cursor!(state, max(1, _lazy_grid_capacity(widget)); total_length=total)
+    elseif action == VirtualHome
+        state.cursor = total == 0 ? nothing : 1
+    elseif action == VirtualEnd
+        total === nothing && return false
+        state.cursor = total == 0 ? nothing : total
+    elseif action in (VirtualToggleSelection, VirtualActivate)
+        slot_index = _lazy_grid_cursor_slot(window, state.cursor)
+        slot_index === nothing && return false
+        slot = window.slots[slot_index]
+        if action == VirtualToggleSelection
+            before = copy(state.selected)
+            toggle_virtual_selection!(state, slot)
+            before == state.selected || _notify_lazy_selection(widget, state)
+        else
+            _notify_lazy_activation(widget, slot.key, state)
+        end
+        return true
+    else
+        return false
+    end
+    _ensure_lazy_grid_cursor_visible!(state, widget; total_length=total)
+    return true
+end
+
+handle!(::VirtualListState, ::LazyGridController, ::PasteEvent) = false
+
+SemanticToolkit.widget_semantic_descriptor(widget::LazyGridController, state::VirtualListState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.TableRole;
+        label="Lazy grid",
+        state=Accessibility.SemanticState(focusable=true),
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+            Accessibility.SelectSemanticAction,
+            Accessibility.ActivateSemanticAction,
+        ],
+        metadata=Dict(
+            :columns => widget.columns,
+            :cursor => state.cursor,
+            :first_index => state.viewport.first_index,
+            :selected_count => length(state.selected),
+            :total_length => data_length(widget.source),
+        ),
+    )
+
+struct LazyGridStateKey end
+struct LazyGridViewportKey end
+
+"""Compose only the visible cells of a keyed virtual data source."""
+function lazy_grid(
+    source::AbstractDataSource;
+    item,
+    loading=slot -> "Loading…",
+    failure=(error, index) -> "Error loading cell $index",
+    empty="",
+    width::Integer=80,
+    height::Integer=24,
+    columns::Integer=2,
+    row_extent::Integer=1,
+    row_gap::Integer=0,
+    column_gap::Integer=0,
+    overscan::Integer=2,
+    multiple::Bool=false,
+    bindings::VirtualBindings=default_virtual_bindings(),
+    pointer_options::VirtualPointerOptions=VirtualPointerOptions(),
+    on_activate=nothing,
+    on_selection_change=nothing,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+)
+    controller = LazyGridController(
+        source;
+        width,
+        height,
+        columns,
+        row_extent,
+        row_gap,
+        column_gap,
+        overscan,
+        multiple,
+        bindings,
+        pointer_options,
+        on_activate,
+        on_selection_change,
+    )
+    view = function (component_state)
+        remembered = remember!(component_state, LazyGridStateKey(), state_for(controller))
+        state = remembered_value(remembered)
+        window = _lazy_controller_window!(controller, state)
+        children = Element[]
+        if window.total_length == 0
+            content = empty isa Function ? _invoke_lazy_empty(empty, state) : empty
+            keyed = _keyed_lazy_content(content, (:empty, 0))
+            keyed === nothing || push!(children, keyed)
+        else
+            for slot in window.slots
+                window.first_visible <= slot.index <= window.last_visible || continue
+                content = slot.kind == ReadySlot ?
+                    _invoke_lazy_content(item, slot.item, slot, state) :
+                    slot.kind == LoadingSlot ? _invoke_lazy_content(loading, slot, slot, state) :
+                    slot.kind == FailedSlot ? _invoke_lazy_content(failure, slot.error, slot, state) : nothing
+                content === nothing && continue
+                cell_key = slot.kind == ReadySlot ? slot.key : (slot.kind, slot.index)
+                keyed = _keyed_lazy_content(
+                    content,
+                    cell_key;
+                    on_event=_lazy_row_event_handler(controller, state, slot),
+                )
+                keyed === nothing || push!(children, keyed)
+            end
+        end
+        row_count = isempty(children) ? 0 : cld(length(children), controller.columns)
+        return Element(
+            controller;
+            key=LazyGridViewportKey(),
+            id,
+            children,
+            layout=GridLayout(
+                fill(Length(controller.row_extent), row_count),
+                fill(Fill(1), controller.columns);
+                row_gap=controller.row_gap,
+                column_gap=controller.column_gap,
+            ),
+            state_factory=() -> state,
+            focusable,
+            classes,
+        )
+    end
+    return component(view; key)
+end
+
+function lazy_grid(
+    items::AbstractVector;
+    item,
+    item_key=(value, index) -> index,
+    kwargs...,
+)
+    resolved_key = (value, index) -> begin
+        applicable(item_key, value, index) && return item_key(value, index)
+        applicable(item_key, value) && return item_key(value)
+        throw(ArgumentError("lazy grid item key must accept item/index or item"))
+    end
+    return lazy_grid(VectorDataSource(items; key=resolved_key); item, kwargs...)
+end
+
+lazy_grid(item::Function, source::AbstractDataSource; kwargs...) =
+    lazy_grid(source; item, kwargs...)
+lazy_grid(item::Function, items::AbstractVector; kwargs...) =
+    lazy_grid(items; item, kwargs...)
+
+"""Invisible controller for a horizontally virtualized declarative row."""
+struct LazyRowController{S,B,P,A,C} <: AbstractLazyController
+    source::S
+    width::Int
+    height::Int
+    item_extent::Int
+    column_gap::Int
+    overscan::Int
+    multiple::Bool
+    bindings::B
+    pointer_options::P
+    on_activate::A
+    on_selection_change::C
+end
+
+function LazyRowController(
+    source::AbstractDataSource;
+    width::Integer=80,
+    height::Integer=1,
+    item_extent::Integer=12,
+    column_gap::Integer=0,
+    overscan::Integer=2,
+    multiple::Bool=false,
+    bindings::VirtualBindings=default_virtual_bindings(),
+    pointer_options::VirtualPointerOptions=VirtualPointerOptions(),
+    on_activate=nothing,
+    on_selection_change=nothing,
+)
+    width > 0 || throw(ArgumentError("lazy row width must be positive"))
+    height >= 0 || throw(ArgumentError("lazy row height cannot be negative"))
+    item_extent > 0 || throw(ArgumentError("lazy row item extent must be positive"))
+    column_gap >= 0 || throw(ArgumentError("lazy row column gap cannot be negative"))
+    overscan >= 0 || throw(ArgumentError("lazy row overscan cannot be negative"))
+    return LazyRowController(
+        source,
+        Int(width),
+        Int(height),
+        Int(item_extent),
+        Int(column_gap),
+        Int(overscan),
+        multiple,
+        bindings,
+        pointer_options,
+        on_activate,
+        on_selection_change,
+    )
+end
+
+_lazy_row_capacity(widget::LazyRowController) = max(
+    1,
+    cld(widget.width + widget.column_gap, widget.item_extent + widget.column_gap),
+)
+_lazy_scroll_step(::LazyRowController) = 3
+
+function state_for(widget::LazyRowController{S}) where {T,K,S<:AbstractDataSource{T,K}}
+    return VirtualListState{K}(
+        viewport_size=_lazy_row_capacity(widget),
+        overscan=widget.overscan,
+        multiple=widget.multiple,
+    )
+end
+
+measure(widget::LazyRowController, available::Rect) =
+    Size(min(available.height, widget.height), min(available.width, widget.width))
+render!(buffer::Buffer, ::LazyRowController, ::Rect, ::VirtualListState) = buffer
+render!(buffer::Buffer, widget::LazyRowController, area::Rect) =
+    render!(buffer, widget, area, state_for(widget))
+
+function _lazy_controller_window!(widget::LazyRowController, state::VirtualListState)
+    resize_virtual_list!(state, _lazy_row_capacity(widget))
+    return refresh_virtual_list!(widget.source, state)
+end
+
+function handle!(state::VirtualListState, widget::LazyRowController, event::KeyEvent)
+    event.kind in (KeyPress, KeyRepeat) || return false
+    action = virtual_action_for_key(
+        widget.bindings,
+        event.key.code;
+        control=in(CTRL, event.modifiers),
+        alt=in(ALT, event.modifiers),
+        shift=in(SHIFT, event.modifiers),
+    )
+    action === nothing && return false
+    window = _lazy_controller_window!(widget, state)
+    total = window.total_length
+    if action == VirtualExpand
+        move_virtual_cursor!(state, 1; total_length=total)
+    elseif action == VirtualCollapse
+        move_virtual_cursor!(state, -1; total_length=total)
+    elseif action == VirtualPageUp
+        move_virtual_cursor!(state, -max(1, _lazy_row_capacity(widget)); total_length=total)
+    elseif action == VirtualPageDown
+        move_virtual_cursor!(state, max(1, _lazy_row_capacity(widget)); total_length=total)
+    elseif action == VirtualHome
+        state.cursor = total == 0 ? nothing : 1
+    elseif action == VirtualEnd
+        total === nothing && return false
+        state.cursor = total == 0 ? nothing : total
+    elseif action in (VirtualToggleSelection, VirtualActivate)
+        slot_index = _lazy_grid_cursor_slot(window, state.cursor)
+        slot_index === nothing && return false
+        slot = window.slots[slot_index]
+        if action == VirtualToggleSelection
+            before = copy(state.selected)
+            toggle_virtual_selection!(state, slot)
+            before == state.selected || _notify_lazy_selection(widget, state)
+        else
+            _notify_lazy_activation(widget, slot.key, state)
+        end
+        return true
+    else
+        return false
+    end
+    ensure_virtual_cursor_visible!(state; total_length=total)
+    return true
+end
+
+handle!(::VirtualListState, ::LazyRowController, ::PasteEvent) = false
+
+SemanticToolkit.widget_semantic_descriptor(widget::LazyRowController, state::VirtualListState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.ListRole;
+        label="Lazy row",
+        state=Accessibility.SemanticState(focusable=true),
+        actions=[
+            Accessibility.FocusSemanticAction,
+            Accessibility.ScrollIntoViewSemanticAction,
+            Accessibility.IncrementSemanticAction,
+            Accessibility.DecrementSemanticAction,
+            Accessibility.SelectSemanticAction,
+            Accessibility.ActivateSemanticAction,
+        ],
+        metadata=Dict(
+            :orientation => :horizontal,
+            :cursor => state.cursor,
+            :first_index => state.viewport.first_index,
+            :selected_count => length(state.selected),
+            :total_length => data_length(widget.source),
+        ),
+    )
+
+struct LazyRowStateKey end
+struct LazyRowViewportKey end
+
+"""Compose only the visible cells of a horizontally scrolling keyed row."""
+function lazy_row(
+    source::AbstractDataSource;
+    item,
+    loading=slot -> "Loading…",
+    failure=(error, index) -> "Error loading item $index",
+    empty="",
+    width::Integer=80,
+    height::Integer=1,
+    item_extent::Integer=12,
+    column_gap::Integer=0,
+    overscan::Integer=2,
+    multiple::Bool=false,
+    bindings::VirtualBindings=default_virtual_bindings(),
+    pointer_options::VirtualPointerOptions=VirtualPointerOptions(),
+    on_activate=nothing,
+    on_selection_change=nothing,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+)
+    controller = LazyRowController(
+        source;
+        width,
+        height,
+        item_extent,
+        column_gap,
+        overscan,
+        multiple,
+        bindings,
+        pointer_options,
+        on_activate,
+        on_selection_change,
+    )
+    view = function (component_state)
+        remembered = remember!(component_state, LazyRowStateKey(), state_for(controller))
+        state = remembered_value(remembered)
+        window = _lazy_controller_window!(controller, state)
+        children = Element[]
+        if window.total_length == 0
+            content = empty isa Function ? _invoke_lazy_empty(empty, state) : empty
+            keyed = _keyed_lazy_content(content, (:empty, 0))
+            keyed === nothing || push!(children, keyed)
+        else
+            for slot in window.slots
+                window.first_visible <= slot.index <= window.last_visible || continue
+                content = slot.kind == ReadySlot ?
+                    _invoke_lazy_content(item, slot.item, slot, state) :
+                    slot.kind == LoadingSlot ? _invoke_lazy_content(loading, slot, slot, state) :
+                    slot.kind == FailedSlot ? _invoke_lazy_content(failure, slot.error, slot, state) : nothing
+                content === nothing && continue
+                cell_key = slot.kind == ReadySlot ? slot.key : (slot.kind, slot.index)
+                keyed = _keyed_lazy_content(
+                    content,
+                    cell_key;
+                    on_event=_lazy_row_event_handler(controller, state, slot),
+                )
+                keyed === nothing || push!(children, keyed)
+            end
+        end
+        return Element(
+            controller;
+            key=LazyRowViewportKey(),
+            id,
+            children,
+            layout=FlexLayout(
+                HorizontalLayout,
+                Constraint[Length(controller.item_extent) for _ in children];
+                gap=controller.column_gap,
+            ),
+            state_factory=() -> state,
+            focusable,
+            classes,
+        )
+    end
+    return component(view; key)
+end
+
+function lazy_row(
+    items::AbstractVector;
+    item,
+    item_key=(value, index) -> index,
+    kwargs...,
+)
+    resolved_key = (value, index) -> begin
+        applicable(item_key, value, index) && return item_key(value, index)
+        applicable(item_key, value) && return item_key(value)
+        throw(ArgumentError("lazy row item key must accept item/index or item"))
+    end
+    return lazy_row(VectorDataSource(items; key=resolved_key); item, kwargs...)
+end
+
+lazy_row(item::Function, source::AbstractDataSource; kwargs...) =
+    lazy_row(source; item, kwargs...)
+lazy_row(item::Function, items::AbstractVector; kwargs...) =
+    lazy_row(items; item, kwargs...)
+
+"""Composition-local owner for declarative animations."""
+struct AnimationContext
+    manager::AnimationManager
+end
+
+const AnimationLocal = composition_local(
+    :animation_manager,
+    nothing;
+    value_type=Union{Nothing,AnimationContext},
+)
+
+"""Provide an animation manager to declarative descendants."""
+animation_provider(
+    manager::AnimationManager,
+    children...;
+    kwargs...,
+) = provide_context(AnimationLocal => AnimationContext(manager); children, kwargs...)
+
+animation_provider(build::Function, manager::AnimationManager; kwargs...) =
+    animation_provider(manager, build(); kwargs...)
+
+"""Lifecycle-bound value driven by Wicked's deterministic animation manager."""
+mutable struct AnimatedValue
+    value::Any
+    target::Any
+    status::AnimationStatus
+    handle::Union{Nothing,AnimationHandle}
+    generation::UInt64
+    lock::ReentrantLock
+end
+
+AnimatedValue(value) = AnimatedValue(
+    value,
+    value,
+    CompletedAnimation,
+    nothing,
+    UInt64(0),
+    ReentrantLock(),
+)
+
+animated_value(value::AnimatedValue) = lock(value.lock) do
+    value.value
+end
+animation_target(value::AnimatedValue) = lock(value.lock) do
+    value.target
+end
+animated_value_status(value::AnimatedValue) = lock(value.lock) do
+    value.status
+end
+animated_value_running(value::AnimatedValue) = animated_value_status(value) in
+    (PendingAnimation, RunningAnimation)
+
+struct AnimatedValueMemoryKey
+    key::Any
+end
+struct AnimatedValueEffectKey
+    key::Any
+end
+
+function _animation_manager(
+    state::ComponentState,
+    manager::Union{Nothing,AnimationManager},
+)
+    manager !== nothing && return manager
+    context = composition_value(state, AnimationLocal)
+    context === nothing && throw(ArgumentError(
+        "animate_value_as_state! requires a manager keyword or animation_provider ancestor",
+    ))
+    return context.manager
+end
+
+function _cancel_animated_value!(value::AnimatedValue, manager::AnimationManager)
+    handle = lock(value.lock) do
+        value.generation += UInt64(1)
+        handle = value.handle
+        value.handle = nothing
+        value.status in (PendingAnimation, RunningAnimation, PausedAnimation) &&
+            (value.status = CancelledAnimation)
+        handle
+    end
+    handle === nothing || cancel_animation!(manager, handle)
+    return value
+end
+
+function _start_animated_value!(
+    value::AnimatedValue,
+    target,
+    manager::AnimationManager,
+    state::ComponentState;
+    duration::Real,
+    delay::Real,
+    easing,
+    interpolation,
+    essential::Bool,
+)
+    from, generation = lock(value.lock) do
+        value.generation += UInt64(1)
+        value.target = target
+        value.status = RunningAnimation
+        value.handle = nothing
+        value.value, value.generation
+    end
+    if isequal(from, target)
+        lock(value.lock) do
+            value.status = CompletedAnimation
+        end
+        return value
+    end
+    spec = AnimationSpec(
+        AnimationTrack(from, target; easing, interpolation);
+        duration,
+        delay,
+        essential,
+    )
+    handle = animate!(
+        manager,
+        spec;
+        on_update=sample -> begin
+            changed = lock(value.lock) do
+                value.generation == generation || return false
+                previous_status = value.status
+                changed = !isequal(value.value, sample)
+                value.value = sample
+                status = animation_status(manager, something(value.handle, AnimationHandle(0)))
+                status === nothing || (value.status = status)
+                changed || value.status != previous_status
+            end
+            changed && invalidate_component!(state)
+        end,
+        on_finish=(finished, reason, sample) -> begin
+            changed = lock(value.lock) do
+                value.generation == generation || return false
+                changed = !isequal(value.value, sample) || value.handle !== nothing
+                value.value = sample
+                value.handle = nothing
+                value.status = reason == AnimationFinished ? CompletedAnimation : CancelledAnimation
+                changed
+            end
+            changed && invalidate_component!(state)
+        end,
+    )
+    lock(value.lock) do
+        if value.generation == generation && value.status != CompletedAnimation
+            value.handle = handle
+            current_status = animation_status(manager, handle)
+            value.status = something(current_status, CompletedAnimation)
+        end
+    end
+    return value
+end
+
+"""Animate a remembered value toward `target` and invalidate its component on samples.
+
+The manager remains pull-driven; application services or tests advance it with
+`tick_animations!`. Retargeting starts from the latest sampled value. Omitting
+the call or unmounting the component cancels its current handle.
+"""
+function animate_value_as_state!(
+    state::ComponentState,
+    key,
+    target;
+    manager::Union{Nothing,AnimationManager}=nothing,
+    duration::Real=0.25,
+    delay::Real=0.0,
+    easing=linear_easing,
+    interpolation=interpolate_value,
+    essential::Bool=false,
+)
+    resolved_manager = _animation_manager(state, manager)
+    remembered = remember!(state, AnimatedValueMemoryKey(key), AnimatedValue(target))
+    value = remembered_value(remembered)
+    dependencies = (target, resolved_manager, duration, delay, easing, interpolation, essential)
+    use_effect!(state, AnimatedValueEffectKey(key), dependencies) do component_state
+        _start_animated_value!(
+            value,
+            target,
+            resolved_manager,
+            component_state;
+            duration,
+            delay,
+            easing,
+            interpolation,
+            essential,
+        )
+        return () -> _cancel_animated_value!(value, resolved_manager)
+    end
+    return value
+end
+
+"""Retained interaction state for an arbitrary clickable content region."""
+mutable struct ClickableState
+    focused::Bool
+    pressed::Bool
+    hovered::Bool
+    activations::UInt64
+end
+
+ClickableState() = ClickableState(false, false, false, UInt64(0))
+
+struct ClickableRegion{F}
+    on_click::F
+    label::String
+    disabled::Bool
+end
+
+function _invoke_clickable(widget::ClickableRegion, state::ClickableState)
+    widget.disabled && return nothing
+    state.activations == typemax(UInt64) && throw(OverflowError("clickable activation count exhausted"))
+    state.activations += UInt64(1)
+    callback = widget.on_click
+    applicable(callback, state) && return callback(state)
+    applicable(callback) && return callback()
+    throw(ArgumentError("clickable callback must accept ClickableState or no arguments"))
+end
+
+activate(widget::ClickableRegion, state::ClickableState) = _invoke_clickable(widget, state)
+
+function handle!(state::ClickableState, widget::ClickableRegion, event::KeyEvent)
+    widget.disabled && return false
+    event.kind in (KeyPress, KeyRepeat) || return false
+    return event.key.code in (:enter, :space) ||
+        (event.key.code == :character && event.text == " ")
+end
+
+function handle!(state::ClickableState, widget::ClickableRegion, event::MouseEvent)
+    widget.disabled && return false
+    if event.action == MousePress && event.button == LeftMouseButton
+        state.pressed = true
+        return true
+    elseif event.action == MouseRelease && event.button == LeftMouseButton
+        state.pressed = false
+        return true
+    end
+    return false
+end
+
+measure(::ClickableRegion, available::Rect) = Size(available.height, available.width)
+render!(buffer::Buffer, ::ClickableRegion, ::Rect, ::ClickableState) = buffer
+render!(buffer::Buffer, widget::ClickableRegion, area::Rect) =
+    render!(buffer, widget, area, ClickableState())
+
+SemanticToolkit.widget_semantic_descriptor(widget::ClickableRegion, state::ClickableState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.ButtonRole;
+        label=widget.label,
+        state=Accessibility.SemanticState(
+            enabled=!widget.disabled,
+            focusable=!widget.disabled,
+            focused=state.focused,
+        ),
+        actions=widget.disabled ? Accessibility.SemanticAction[] : [
+            Accessibility.FocusSemanticAction,
+            Accessibility.ActivateSemanticAction,
+        ],
+        metadata=Dict(:activations => state.activations, :pressed => state.pressed, :hovered => state.hovered),
+    )
+
+function _clickable_bubble_handler(widget::ClickableRegion)
+    return function (routed, state)
+        routed.phase == BubblePhase || return nothing
+        event = routed.event
+        event isa MouseEvent || return nothing
+        handled = handle!(state, widget, event)
+        handled || return nothing
+        if event.action == MouseRelease
+            message = activate(widget, state)
+            return EventResponse(
+                consumed=true,
+                stop_propagation=true,
+                redraw=true,
+                message=message,
+            )
+        end
+        return EventResponse(
+            consumed=true,
+            stop_propagation=true,
+            redraw=true,
+            focus=routed.current,
+        )
+    end
+end
+
+"""Make arbitrary declarative content keyboard, pointer, and semantics actionable."""
+function clickable(
+    children...;
+    on_click,
+    label::AbstractString="Action",
+    disabled::Bool=false,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+    tab_index::Integer=0,
+    style_role::Union{Nothing,Symbol}=nothing,
+    style_patch::StylePatch=StylePatch(),
+)
+    widget = ClickableRegion(on_click, String(label), disabled)
+    return Element(
+        widget;
+        key,
+        id,
+        children,
+        layout=:stack,
+        state_factory=ClickableState,
+        on_event=_clickable_bubble_handler(widget),
+        focusable,
+        disabled,
+        tab_index,
+        classes,
+        style_role,
+        style_patch,
+    )
+end
+
+clickable(build::Function; kwargs...) = clickable(build(); kwargs...)
+
+"""Retained state for an arbitrary state-hoisted toggle region."""
+mutable struct ToggleableState
+    focused::Bool
+    pressed::Bool
+    hovered::Bool
+    checked::Bool
+    activations::UInt64
+end
+
+ToggleableState(checked::Bool=false) = ToggleableState(false, false, false, checked, UInt64(0))
+
+struct ToggleableRegion{B,F}
+    binding::B
+    on_change::F
+    label::String
+    disabled::Bool
+end
+
+function _sync_toggleable!(state::ToggleableState, widget::ToggleableRegion)
+    value = binding_value(widget.binding)
+    value isa Bool || throw(ArgumentError("toggleable binding value must be Bool"))
+    state.checked = value
+    return state
+end
+
+function _invoke_toggleable(widget::ToggleableRegion, state::ToggleableState)
+    widget.disabled && return nothing
+    state.activations == typemax(UInt64) && throw(OverflowError("toggleable activation count exhausted"))
+    value = !state.checked
+    set_binding_value!(widget.binding, value)
+    state.checked = value
+    state.activations += UInt64(1)
+    callback = widget.on_change
+    callback === nothing && return nothing
+    applicable(callback, value, state) && return callback(value, state)
+    applicable(callback, value) && return callback(value)
+    applicable(callback, state) && return callback(state)
+    applicable(callback) && return callback()
+    throw(ArgumentError("toggleable callback must accept value/state, value, state, or no arguments"))
+end
+
+activate(widget::ToggleableRegion, state::ToggleableState) = _invoke_toggleable(widget, state)
+
+function handle!(state::ToggleableState, widget::ToggleableRegion, event::KeyEvent)
+    widget.disabled && return false
+    event.kind in (KeyPress, KeyRepeat) || return false
+    return event.key.code in (:enter, :space) ||
+        (event.key.code == :character && event.text == " ")
+end
+
+function handle!(state::ToggleableState, widget::ToggleableRegion, event::MouseEvent)
+    widget.disabled && return false
+    if event.action == MousePress && event.button == LeftMouseButton
+        state.pressed = true
+        return true
+    elseif event.action == MouseRelease && event.button == LeftMouseButton
+        state.pressed = false
+        return true
+    end
+    return false
+end
+
+measure(::ToggleableRegion, available::Rect) = Size(available.height, available.width)
+function render!(buffer::Buffer, widget::ToggleableRegion, area::Rect, state::ToggleableState)
+    _sync_toggleable!(state, widget)
+    return buffer
+end
+render!(buffer::Buffer, widget::ToggleableRegion, area::Rect) =
+    render!(buffer, widget, area, ToggleableState(Bool(binding_value(widget.binding))))
+
+SemanticToolkit.widget_semantic_descriptor(widget::ToggleableRegion, state::ToggleableState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.CheckboxRole;
+        label=widget.label,
+        state=Accessibility.SemanticState(
+            enabled=!widget.disabled,
+            focusable=!widget.disabled,
+            focused=state.focused,
+            checked=state.checked ? Accessibility.CheckedValue : Accessibility.UncheckedState,
+        ),
+        actions=widget.disabled ? Accessibility.SemanticAction[] : [
+            Accessibility.FocusSemanticAction,
+            Accessibility.SetValueSemanticAction,
+            Accessibility.ActivateSemanticAction,
+        ],
+        metadata=Dict(:activations => state.activations, :pressed => state.pressed, :hovered => state.hovered),
+    )
+
+function _toggleable_bubble_handler(widget::ToggleableRegion)
+    return function (routed, state)
+        routed.phase == BubblePhase || return nothing
+        event = routed.event
+        event isa MouseEvent || return nothing
+        handled = handle!(state, widget, event)
+        handled || return nothing
+        if event.action == MouseRelease
+            message = activate(widget, state)
+            return EventResponse(
+                consumed=true,
+                stop_propagation=true,
+                redraw=true,
+                message=message,
+            )
+        end
+        return EventResponse(
+            consumed=true,
+            stop_propagation=true,
+            redraw=true,
+            focus=routed.current,
+        )
+    end
+end
+
+"""Make arbitrary content a controlled or remembered Boolean toggle surface."""
+function toggleable(
+    children...;
+    binding::AbstractStateBinding,
+    on_change=nothing,
+    label::AbstractString="Toggle",
+    disabled::Bool=false,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+    tab_index::Integer=0,
+    style_role::Union{Nothing,Symbol}=nothing,
+    style_patch::StylePatch=StylePatch(),
+)
+    initial = binding_value(binding)
+    initial isa Bool || throw(ArgumentError("toggleable binding value must be Bool"))
+    widget = ToggleableRegion(binding, on_change, String(label), disabled)
+    return Element(
+        widget;
+        key,
+        id,
+        children,
+        layout=:stack,
+        state_factory=() -> ToggleableState(initial),
+        on_event=_toggleable_bubble_handler(widget),
+        focusable,
+        disabled,
+        tab_index,
+        classes,
+        style_role,
+        style_patch,
+    )
+end
+
+toggleable(build::Function; kwargs...) = toggleable(build(); kwargs...)
+
+"""Retained interaction state for one arbitrary-value selection surface."""
+mutable struct SelectableState
+    focused::Bool
+    pressed::Bool
+    hovered::Bool
+    selected::Bool
+    activations::UInt64
+end
+
+SelectableState(selected::Bool=false) = SelectableState(false, false, false, selected, UInt64(0))
+
+struct SelectableRegion{B,V,F,E}
+    binding::B
+    value::V
+    on_select::F
+    equals::E
+    label::String
+    disabled::Bool
+end
+
+function _selectable_selected(widget::SelectableRegion)
+    current = binding_value(widget.binding)
+    applicable(widget.equals, current, widget.value) ||
+        throw(ArgumentError("selectable equality must accept current and option values"))
+    result = widget.equals(current, widget.value)
+    result isa Bool || throw(ArgumentError("selectable equality must return Bool"))
+    return result
+end
+
+function _sync_selectable!(state::SelectableState, widget::SelectableRegion)
+    state.selected = _selectable_selected(widget)
+    return state
+end
+
+function _invoke_selectable(widget::SelectableRegion, state::SelectableState)
+    widget.disabled && return nothing
+    state.activations == typemax(UInt64) && throw(OverflowError("selectable activation count exhausted"))
+    set_binding_value!(widget.binding, widget.value)
+    state.selected = true
+    state.activations += UInt64(1)
+    callback = widget.on_select
+    callback === nothing && return nothing
+    applicable(callback, widget.value, state) && return callback(widget.value, state)
+    applicable(callback, widget.value) && return callback(widget.value)
+    applicable(callback, state) && return callback(state)
+    applicable(callback) && return callback()
+    throw(ArgumentError("selectable callback must accept value/state, value, state, or no arguments"))
+end
+
+activate(widget::SelectableRegion, state::SelectableState) = _invoke_selectable(widget, state)
+
+function handle!(state::SelectableState, widget::SelectableRegion, event::KeyEvent)
+    widget.disabled && return false
+    event.kind in (KeyPress, KeyRepeat) || return false
+    return event.key.code in (:enter, :space) ||
+        (event.key.code == :character && event.text == " ")
+end
+
+
+function handle!(state::SelectableState, widget::SelectableRegion, event::MouseEvent)
+    widget.disabled && return false
+    if event.action == MousePress && event.button == LeftMouseButton
+        state.pressed = true
+        return true
+    elseif event.action == MouseRelease && event.button == LeftMouseButton
+        state.pressed = false
+        return true
+    end
+    return false
+end
+
+measure(::SelectableRegion, available::Rect) = Size(available.height, available.width)
+function render!(buffer::Buffer, widget::SelectableRegion, area::Rect, state::SelectableState)
+    _sync_selectable!(state, widget)
+    return buffer
+end
+render!(buffer::Buffer, widget::SelectableRegion, area::Rect) =
+    render!(buffer, widget, area, SelectableState(_selectable_selected(widget)))
+
+SemanticToolkit.widget_semantic_descriptor(widget::SelectableRegion, state::SelectableState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.RadioRole;
+        label=widget.label,
+        state=Accessibility.SemanticState(
+            enabled=!widget.disabled,
+            focusable=!widget.disabled,
+            focused=state.focused,
+            selected=state.selected,
+            checked=state.selected ? Accessibility.CheckedValue : Accessibility.UncheckedState,
+        ),
+        actions=widget.disabled ? Accessibility.SemanticAction[] : [
+            Accessibility.FocusSemanticAction,
+            Accessibility.SelectSemanticAction,
+            Accessibility.ActivateSemanticAction,
+        ],
+        metadata=Dict(:activations => state.activations, :pressed => state.pressed, :hovered => state.hovered),
+    )
+
+function _selectable_bubble_handler(widget::SelectableRegion)
+    return function (routed, state)
+        routed.phase == BubblePhase || return nothing
+        event = routed.event
+        event isa MouseEvent || return nothing
+        handled = handle!(state, widget, event)
+        handled || return nothing
+        if event.action == MouseRelease
+            message = activate(widget, state)
+            return EventResponse(
+                consumed=true,
+                stop_propagation=true,
+                redraw=true,
+                message=message,
+            )
+        end
+        return EventResponse(
+            consumed=true,
+            stop_propagation=true,
+            redraw=true,
+            focus=routed.current,
+        )
+    end
+end
+
+"""Make arbitrary content select an option value through a state binding."""
+function selectable(
+    children...;
+    binding::AbstractStateBinding,
+    value,
+    on_select=nothing,
+    equals=isequal,
+    label::AbstractString="Option",
+    disabled::Bool=false,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+    tab_index::Integer=0,
+    style_role::Union{Nothing,Symbol}=nothing,
+    style_patch::StylePatch=StylePatch(),
+)
+    widget = SelectableRegion(binding, value, on_select, equals, String(label), disabled)
+    initial = _selectable_selected(widget)
+    return Element(
+        widget;
+        key,
+        id,
+        children,
+        layout=:stack,
+        state_factory=() -> SelectableState(initial),
+        on_event=_selectable_bubble_handler(widget),
+        focusable,
+        disabled,
+        tab_index,
+        classes,
+        style_role,
+        style_patch,
+    )
+end
+
+
+selectable(build::Function; kwargs...) = selectable(build(); kwargs...)
+
+"""Retained pointer-presence state for arbitrary declarative content."""
+mutable struct HoverableState
+    hovered::Bool
+    entries::UInt64
+    exits::UInt64
+end
+
+HoverableState() = HoverableState(false, UInt64(0), UInt64(0))
+
+struct HoverableRegion{F,G}
+    on_enter::F
+    on_exit::G
+    label::String
+    disabled::Bool
+end
+
+function _invoke_hover_callback(callback, state::HoverableState, hovered::Bool)
+    callback === nothing && return nothing
+    applicable(callback, hovered, state) && return callback(hovered, state)
+    applicable(callback, hovered) && return callback(hovered)
+    applicable(callback) && return callback()
+    throw(ArgumentError("hover callback must accept hovered/state, hovered, or no arguments"))
+end
+
+function Toolkit._hover_transition_message(
+    widget::HoverableRegion,
+    state::HoverableState,
+    hovered::Bool,
+)
+    widget.disabled && return nothing
+    if hovered
+        state.entries == typemax(UInt64) && throw(OverflowError("hover entry count exhausted"))
+        state.entries += UInt64(1)
+        return _invoke_hover_callback(widget.on_enter, state, true)
+    end
+    state.exits == typemax(UInt64) && throw(OverflowError("hover exit count exhausted"))
+    state.exits += UInt64(1)
+    return _invoke_hover_callback(widget.on_exit, state, false)
+end
+
+measure(::HoverableRegion, available::Rect) = Size(available.height, available.width)
+render!(buffer::Buffer, ::HoverableRegion, ::Rect, ::HoverableState) = buffer
+render!(buffer::Buffer, ::HoverableRegion, ::Rect) = buffer
+
+SemanticToolkit.widget_semantic_descriptor(widget::HoverableRegion, state::HoverableState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.GroupRole;
+        label=widget.label,
+        state=Accessibility.SemanticState(enabled=!widget.disabled),
+        metadata=Dict(
+            :hovered => state.hovered,
+            :entries => state.entries,
+            :exits => state.exits,
+        ),
+    )
+
+"""Track pointer entry and exit for arbitrary composed content.
+
+Hover follows the routed element ancestry, so nested leaves keep their parent
+region hovered and moving to a sibling produces exactly one exit and one entry.
+Callback return values are emitted as Toolkit messages.
+"""
+function hoverable(
+    children...;
+    on_enter=nothing,
+    on_exit=nothing,
+    label::AbstractString="Hover region",
+    disabled::Bool=false,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    style_role::Union{Nothing,Symbol}=nothing,
+    style_patch::StylePatch=StylePatch(),
+)
+    widget = HoverableRegion(on_enter, on_exit, String(label), disabled)
+    return Element(
+        widget;
+        key,
+        id,
+        children,
+        layout=:stack,
+        state_factory=HoverableState,
+        disabled,
+        classes,
+        style_role,
+        style_patch,
+    )
+end
+
+hoverable(build::Function; kwargs...) = hoverable(build(); kwargs...)
+
+"""Retained state for single, double, and long pointer activation."""
+mutable struct CombinedClickableState
+    focused::Bool
+    pressed::Bool
+    hovered::Bool
+    pressed_at_ns::Union{Nothing,UInt64}
+    activations::UInt64
+    double_activations::UInt64
+    long_activations::UInt64
+end
+
+CombinedClickableState() = CombinedClickableState(
+    false,
+    false,
+    false,
+    nothing,
+    UInt64(0),
+    UInt64(0),
+    UInt64(0),
+)
+
+struct CombinedClickableRegion{F,G,H,C}
+    on_click::F
+    on_double_click::G
+    on_long_click::H
+    clock::C
+    long_press_ns::UInt64
+    label::String
+    disabled::Bool
+end
+
+function _combined_clock(widget::CombinedClickableRegion)
+    value = widget.clock()
+    value isa Integer || throw(ArgumentError("combined clickable clock must return an integer nanosecond value"))
+    value >= 0 || throw(ArgumentError("combined clickable clock cannot return a negative value"))
+    UInt64(value)
+end
+
+function _invoke_combined_callback(callback, state::CombinedClickableState, label::AbstractString)
+    callback === nothing && return nothing
+    applicable(callback, state) && return callback(state)
+    applicable(callback) && return callback()
+    throw(ArgumentError("$label callback must accept CombinedClickableState or no arguments"))
+end
+
+function _increment_combined!(state::CombinedClickableState, kind::Symbol)
+    field = kind === :double ? :double_activations : kind === :long ? :long_activations : :activations
+    value = getproperty(state, field)
+    value == typemax(UInt64) && throw(OverflowError("combined clickable $kind activation count exhausted"))
+    setproperty!(state, field, value + UInt64(1))
+    return state
+end
+
+function _activate_combined!(widget::CombinedClickableRegion, state::CombinedClickableState, kind::Symbol)
+    widget.disabled && return nothing
+    _increment_combined!(state, kind)
+    callback = kind === :double ? widget.on_double_click :
+        kind === :long ? widget.on_long_click : widget.on_click
+    callback === nothing && kind !== :single && (callback = widget.on_click)
+    return _invoke_combined_callback(callback, state, String(kind))
+end
+
+activate(widget::CombinedClickableRegion, state::CombinedClickableState) =
+    _activate_combined!(widget, state, :single)
+
+Toolkit._automatic_mouse_activation(::CombinedClickableRegion) = false
+
+function handle!(state::CombinedClickableState, widget::CombinedClickableRegion, event::KeyEvent)
+    widget.disabled && return false
+    event.kind in (KeyPress, KeyRepeat) || return false
+    return event.key.code in (:enter, :space) ||
+        (event.key.code == :character && event.text == " ")
+end
+
+function handle!(state::CombinedClickableState, widget::CombinedClickableRegion, event::MouseEvent)
+    return false
+end
+
+function _combined_release_kind(widget::CombinedClickableRegion, state::CombinedClickableState, event::MouseEvent)
+    event.click_count > 1 && return :double
+    started = state.pressed_at_ns
+    started === nothing && return :single
+    finished = _combined_clock(widget)
+    finished >= started || return :single
+    return finished - started >= widget.long_press_ns ? :long : :single
+end
+
+function _combined_clickable_bubble_handler(widget::CombinedClickableRegion)
+    return function (routed, state)
+        event = routed.event
+        event isa MouseEvent || return nothing
+        widget.disabled && return nothing
+        if event.action == MousePress
+            event.button == LeftMouseButton || return nothing
+            state.pressed = true
+            state.pressed_at_ns = _combined_clock(widget)
+            return EventResponse(
+                consumed=true,
+                stop_propagation=true,
+                redraw=true,
+                focus=routed.current,
+            )
+        elseif event.action == MouseRelease && event.button == LeftMouseButton
+            state.pressed || return nothing
+            kind = _combined_release_kind(widget, state, event)
+            state.pressed = false
+            state.pressed_at_ns = nothing
+            message = _activate_combined!(widget, state, kind)
+            return EventResponse(
+                consumed=true,
+                stop_propagation=true,
+                redraw=true,
+                message=message,
+            )
+        end
+        return nothing
+    end
+end
+
+measure(::CombinedClickableRegion, available::Rect) = Size(available.height, available.width)
+render!(buffer::Buffer, ::CombinedClickableRegion, ::Rect, ::CombinedClickableState) = buffer
+render!(buffer::Buffer, ::CombinedClickableRegion, ::Rect) = buffer
+
+SemanticToolkit.widget_semantic_descriptor(widget::CombinedClickableRegion, state::CombinedClickableState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.ButtonRole;
+        label=widget.label,
+        state=Accessibility.SemanticState(
+            enabled=!widget.disabled,
+            focusable=!widget.disabled,
+            focused=state.focused,
+        ),
+        actions=widget.disabled ? Accessibility.SemanticAction[] : [
+            Accessibility.FocusSemanticAction,
+            Accessibility.ActivateSemanticAction,
+        ],
+        metadata=Dict(
+            :pressed => state.pressed,
+            :hovered => state.hovered,
+            :activations => state.activations,
+            :double_activations => state.double_activations,
+            :long_activations => state.long_activations,
+            :long_press_ns => widget.long_press_ns,
+        ),
+    )
+
+"""Make arbitrary content support single, double, and long activation gestures.
+
+Double and long callbacks fall back to `on_click` when omitted. Long presses
+are classified on pointer release using the injected monotonic `clock`.
+"""
+function combined_clickable(
+    children...;
+    on_click,
+    on_double_click=nothing,
+    on_long_click=nothing,
+    long_press_duration::Real=0.5,
+    clock=time_ns,
+    label::AbstractString="Action",
+    disabled::Bool=false,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+    tab_index::Integer=0,
+    style_role::Union{Nothing,Symbol}=nothing,
+    style_patch::StylePatch=StylePatch(),
+)
+    isfinite(long_press_duration) && long_press_duration >= 0 ||
+        throw(ArgumentError("long press duration must be finite and non-negative"))
+    duration_ns = Float64(long_press_duration) * 1_000_000_000
+    duration_ns <= Float64(typemax(UInt64)) ||
+        throw(ArgumentError("long press duration is too large"))
+    long_press_ns = round(UInt64, duration_ns)
+    applicable(clock) || throw(ArgumentError("combined clickable clock must accept no arguments"))
+    widget = CombinedClickableRegion(
+        on_click,
+        on_double_click,
+        on_long_click,
+        clock,
+        long_press_ns,
+        String(label),
+        disabled,
+    )
+    return Element(
+        widget;
+        key,
+        id,
+        children,
+        layout=:stack,
+        state_factory=CombinedClickableState,
+        on_event=_combined_clickable_bubble_handler(widget),
+        focusable,
+        disabled,
+        tab_index,
+        classes,
+        style_role,
+        style_patch,
+    )
+end
+
+combined_clickable(build::Function; kwargs...) = combined_clickable(build(); kwargs...)
+
+@enum DragGestureKind::UInt8 begin
+    DragGestureStarted
+    DragGestureMoved
+    DragGestureEnded
+    DragGestureCancelled
+end
+
+"""One declarative drag transition with signed row/column displacement."""
+struct DragGesture
+    kind::DragGestureKind
+    origin::Position
+    current::Position
+    row_delta::Int
+    column_delta::Int
+    total_row_delta::Int
+    total_column_delta::Int
+end
+
+"""Retained state for a pointer-captured declarative drag region."""
+mutable struct DraggableState
+    focused::Bool
+    pressed::Bool
+    hovered::Bool
+    dragging::Bool
+    origin::Union{Nothing,Position}
+    current::Union{Nothing,Position}
+    gestures::UInt64
+end
+
+DraggableState() = DraggableState(false, false, false, false, nothing, nothing, UInt64(0))
+
+struct DraggableRegion{F}
+    on_drag::F
+    threshold::Int
+    label::String
+    disabled::Bool
+end
+
+function _drag_gesture(state::DraggableState, kind::DragGestureKind, position::Position)
+    origin = something(state.origin, position)
+    previous = something(state.current, origin)
+    return DragGesture(
+        kind,
+        origin,
+        position,
+        position.row - previous.row,
+        position.column - previous.column,
+        position.row - origin.row,
+        position.column - origin.column,
+    )
+end
+
+function _invoke_drag_callback(widget::DraggableRegion, gesture::DragGesture, state::DraggableState)
+    callback = widget.on_drag
+    applicable(callback, gesture, state) && return callback(gesture, state)
+    applicable(callback, gesture) && return callback(gesture)
+    applicable(callback) && return callback()
+    throw(ArgumentError("drag callback must accept DragGesture/state, DragGesture, or no arguments"))
+end
+
+function _emit_drag!(widget::DraggableRegion, state::DraggableState, gesture::DragGesture)
+    state.gestures == typemax(UInt64) && throw(OverflowError("drag gesture count exhausted"))
+    state.gestures += UInt64(1)
+    return _invoke_drag_callback(widget, gesture, state)
+end
+
+function _reset_draggable!(state::DraggableState)
+    state.pressed = false
+    state.dragging = false
+    state.origin = nothing
+    state.current = nothing
+    return state
+end
+
+function _draggable_event_handler(widget::DraggableRegion)
+    return function (routed, state)
+        widget.disabled && return nothing
+        event = routed.event
+        if event isa MouseEvent && event.button == LeftMouseButton
+            if event.action == MousePress
+                state.pressed = true
+                state.dragging = false
+                state.origin = event.position
+                state.current = event.position
+                return EventResponse(
+                    consumed=true,
+                    stop_propagation=true,
+                    redraw=true,
+                    focus=routed.current,
+                    pointer_capture=routed.current,
+                )
+            elseif event.action == MouseDrag && state.pressed
+                origin = something(state.origin, event.position)
+                distance = max(
+                    abs(event.position.row - origin.row),
+                    abs(event.position.column - origin.column),
+                )
+                state.dragging || distance >= widget.threshold || return EventResponse(consumed=true)
+                kind = state.dragging ? DragGestureMoved : DragGestureStarted
+                gesture = _drag_gesture(state, kind, event.position)
+                state.dragging = true
+                state.current = event.position
+                message = _emit_drag!(widget, state, gesture)
+                return EventResponse(
+                    consumed=true,
+                    stop_propagation=true,
+                    redraw=true,
+                    message=message,
+                )
+            elseif event.action == MouseRelease && (state.pressed || state.dragging)
+                message = nothing
+                if state.dragging
+                    gesture = _drag_gesture(state, DragGestureEnded, event.position)
+                    state.current = event.position
+                    message = _emit_drag!(widget, state, gesture)
+                end
+                _reset_draggable!(state)
+                return EventResponse(
+                    consumed=true,
+                    stop_propagation=true,
+                    redraw=true,
+                    message=message,
+                    pointer_capture=:release,
+                )
+            end
+        elseif event isa KeyEvent && event.key.code == :escape && (state.pressed || state.dragging)
+            position = something(state.current, something(state.origin, Position(1, 1)))
+            gesture = _drag_gesture(state, DragGestureCancelled, position)
+            message = _emit_drag!(widget, state, gesture)
+            _reset_draggable!(state)
+            return EventResponse(
+                consumed=true,
+                stop_propagation=true,
+                redraw=true,
+                message=message,
+                pointer_capture=:release,
+            )
+        end
+        return nothing
+    end
+end
+
+measure(::DraggableRegion, available::Rect) = Size(available.height, available.width)
+render!(buffer::Buffer, ::DraggableRegion, ::Rect, ::DraggableState) = buffer
+render!(buffer::Buffer, ::DraggableRegion, ::Rect) = buffer
+Toolkit._automatic_mouse_activation(::DraggableRegion) = false
+
+SemanticToolkit.widget_semantic_descriptor(widget::DraggableRegion, state::DraggableState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.GroupRole;
+        label=widget.label,
+        state=Accessibility.SemanticState(
+            enabled=!widget.disabled,
+            focusable=!widget.disabled,
+            focused=state.focused,
+        ),
+        actions=widget.disabled ? Accessibility.SemanticAction[] : [Accessibility.FocusSemanticAction],
+        metadata=Dict(
+            :draggable => true,
+            :dragging => state.dragging,
+            :pressed => state.pressed,
+            :hovered => state.hovered,
+            :gestures => state.gestures,
+        ),
+    )
+
+"""Make arbitrary declarative content a pointer-captured drag source."""
+function draggable(
+    children...;
+    on_drag,
+    threshold::Integer=1,
+    label::AbstractString="Draggable content",
+    disabled::Bool=false,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+    tab_index::Integer=0,
+    style_role::Union{Nothing,Symbol}=nothing,
+    style_patch::StylePatch=StylePatch(),
+)
+    threshold >= 0 || throw(ArgumentError("drag threshold cannot be negative"))
+    widget = DraggableRegion(on_drag, Int(threshold), String(label), disabled)
+    handler = _draggable_event_handler(widget)
+    return Element(
+        widget;
+        key,
+        id,
+        children,
+        layout=:stack,
+        state_factory=DraggableState,
+        on_event=handler,
+        focusable,
+        disabled,
+        tab_index,
+        classes,
+        style_role,
+        style_patch,
+    )
+end
+
+draggable(build::Function; kwargs...) = draggable(build(); kwargs...)
+
+"""Composition-local owner for declarative payload drag/drop."""
+struct DragDropContext
+    router::ToolkitDragRouter
+end
+
+const DragDropLocal = composition_local(
+    :drag_drop_router,
+    nothing;
+    value_type=Union{Nothing,DragDropContext},
+)
+
+drag_drop_provider(
+    router::ToolkitDragRouter,
+    children...;
+    kwargs...,
+) = provide_context(DragDropLocal => DragDropContext(router); children, kwargs...)
+
+drag_drop_provider(build::Function, router::ToolkitDragRouter; kwargs...) =
+    drag_drop_provider(router, build(); kwargs...)
+
+function _drag_drop_router(state::ComponentState)
+    context = composition_value(state, DragDropLocal)
+    context === nothing && throw(ArgumentError(
+        "declarative drag/drop requires a drag_drop_provider ancestor",
+    ))
+    return context.router
+end
+
+mutable struct DragSourceState
+    focused::Bool
+    pressed::Bool
+    hovered::Bool
+    dragging::Bool
+end
+
+DragSourceState() = DragSourceState(false, false, false, false)
+
+struct DragSourceRegion{P}
+    router::ToolkitDragRouter
+    source_id::String
+    payload::P
+    label::String
+    disabled::Bool
+end
+
+function _router_messages(router::ToolkitDragRouter, extra=nothing)
+    dispatch = route_toolkit_drag_events!(router)
+    isempty(dispatch.errors) || throw(first(dispatch.errors)[2])
+    values = copy(dispatch.messages)
+    extra === nothing || push!(values, extra)
+    return EventMessages(values)
+end
+
+function _drag_source_handler(widget::DragSourceRegion)
+    return function (routed, state)
+        widget.disabled && return nothing
+        event = routed.event
+        if event isa MouseEvent && event.button == LeftMouseButton
+            point = drag_point_from_event(event)
+            if event.action == MousePress
+                begin_toolkit_drag!(widget.router, widget.source_id, widget.payload, point)
+                state.pressed = true
+                state.dragging = false
+                return EventResponse(
+                    consumed=true,
+                    stop_propagation=true,
+                    redraw=true,
+                    focus=routed.current,
+                    pointer_capture=routed.current,
+                )
+            elseif event.action == MouseDrag && state.pressed
+                update_toolkit_drag!(widget.router, point)
+                state.dragging = widget.router.manager.phase == Dragging
+                return EventResponse(
+                    consumed=true,
+                    stop_propagation=true,
+                    redraw=true,
+                    message=_router_messages(widget.router),
+                )
+            elseif event.action == MouseRelease && (state.pressed || state.dragging)
+                result, drop_message = drop_toolkit_drag!(widget.router, point)
+                state.pressed = false
+                state.dragging = false
+                return EventResponse(
+                    consumed=true,
+                    stop_propagation=true,
+                    redraw=true,
+                    message=_router_messages(widget.router, drop_message),
+                    pointer_capture=:release,
+                )
+            end
+        elseif event isa KeyEvent && event.key.code == :escape && (state.pressed || state.dragging)
+            cancel_toolkit_drag!(widget.router)
+            state.pressed = false
+            state.dragging = false
+            return EventResponse(
+                consumed=true,
+                stop_propagation=true,
+                redraw=true,
+                message=_router_messages(widget.router),
+                pointer_capture=:release,
+            )
+        end
+        return nothing
+    end
+end
+
+measure(::DragSourceRegion, available::Rect) = Size(available.height, available.width)
+render!(buffer::Buffer, ::DragSourceRegion, ::Rect, ::DragSourceState) = buffer
+render!(buffer::Buffer, ::DragSourceRegion, ::Rect) = buffer
+Toolkit._automatic_mouse_activation(::DragSourceRegion) = false
+
+SemanticToolkit.widget_semantic_descriptor(widget::DragSourceRegion, state::DragSourceState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.GroupRole;
+        label=widget.label,
+        state=Accessibility.SemanticState(
+            enabled=!widget.disabled,
+            focusable=!widget.disabled,
+            focused=state.focused,
+        ),
+        actions=widget.disabled ? Accessibility.SemanticAction[] : [Accessibility.FocusSemanticAction],
+        metadata=Dict(
+            :drag_source => true,
+            :source_id => widget.source_id,
+            :mime => widget.payload.mime,
+            :dragging => state.dragging,
+            :pressed => state.pressed,
+            :hovered => state.hovered,
+        ),
+    )
+
+function drag_source(
+    children...;
+    id,
+    payload::DragPayload,
+    label::AbstractString="Drag source",
+    disabled::Bool=false,
+    key=nothing,
+    classes=Symbol[],
+    focusable::Bool=true,
+    tab_index::Integer=0,
+    style_role::Union{Nothing,Symbol}=nothing,
+    style_patch::StylePatch=StylePatch(),
+)
+    return component(key=key) do component_state
+        router = _drag_drop_router(component_state)
+        widget = DragSourceRegion(router, string(id), payload, String(label), disabled)
+        Element(
+            widget;
+            id,
+            children,
+            layout=:stack,
+            state_factory=DragSourceState,
+            on_event=_drag_source_handler(widget),
+            focusable,
+            disabled,
+            tab_index,
+            classes,
+            style_role,
+            style_patch,
+        )
+    end
+end
+
+drag_source(build::Function; kwargs...) = drag_source(build(); kwargs...)
+
+mutable struct DropTargetState
+    router::ToolkitDragRouter
+    target_id::String
+    registered::Bool
+    config::Any
+    handler::Any
+    hovered::Bool
+    drops::UInt64
+end
+
+struct DropTargetRegion
+    router::ToolkitDragRouter
+    target_id::String
+    accepted_mime_prefixes::Vector{String}
+    accepted_effects::Set{DragEffect}
+    preferred_effect::DragEffect
+    priority::Int
+    enabled::Bool
+    handler::Any
+    label::String
+end
+
+function _invoke_declarative_drop(state::DropTargetState, result::DropResult)
+    state.drops == typemax(UInt64) && throw(OverflowError("drop target count exhausted"))
+    state.drops += UInt64(1)
+    callback = state.handler
+    applicable(callback, result, state) && return callback(result, state)
+    applicable(callback, result) && return callback(result)
+    applicable(callback) && return callback()
+    throw(ArgumentError("drop callback must accept DropResult/state, DropResult, or no arguments"))
+end
+
+function _drop_target_config(widget::DropTargetRegion)
+    return (
+        widget.accepted_mime_prefixes,
+        widget.accepted_effects,
+        widget.preferred_effect,
+        widget.priority,
+    )
+end
+
+function render!(buffer::Buffer, widget::DropTargetRegion, area::Rect, state::DropTargetState)
+    if state.router !== widget.router || state.target_id != widget.target_id
+        state.registered && unregister_toolkit_drop_target!(state.router, state.target_id)
+        state.router = widget.router
+        state.target_id = widget.target_id
+        state.registered = false
+        state.config = nothing
+    end
+    state.handler = widget.handler
+    config = _drop_target_config(widget)
+    rect = ComponentRect(area.row, area.column, area.width, area.height)
+    if !state.registered || !isequal(state.config, config)
+        state.registered && unregister_toolkit_drop_target!(state.router, state.target_id)
+        register_toolkit_drop_target!(
+            state.router,
+            widget.target_id,
+            rect,
+            result -> _invoke_declarative_drop(state, result);
+            target_id=widget.target_id,
+            accepted_mime_prefixes=widget.accepted_mime_prefixes,
+            accepted_effects=widget.accepted_effects,
+            preferred_effect=widget.preferred_effect,
+            priority=widget.priority,
+            enabled=widget.enabled,
+        )
+        state.registered = true
+        state.config = config
+    else
+        sync_toolkit_drop_target!(state.router, widget.target_id, rect; enabled=widget.enabled)
+    end
+    active = active_drop_target(state.router.manager)
+    state.hovered = active !== nothing && active.id == widget.target_id
+    return buffer
+end
+
+render!(buffer::Buffer, widget::DropTargetRegion, area::Rect) = buffer
+measure(::DropTargetRegion, available::Rect) = Size(available.height, available.width)
+
+SemanticToolkit.widget_semantic_descriptor(widget::DropTargetRegion, state::DropTargetState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.GroupRole;
+        label=widget.label,
+        state=Accessibility.SemanticState(enabled=widget.enabled),
+        metadata=Dict(
+            :drop_target => true,
+            :target_id => widget.target_id,
+            :hovered => state.hovered,
+            :drops => state.drops,
+            :preferred_effect => widget.preferred_effect,
+        ),
+    )
+
+function drop_target(
+    children...;
+    id,
+    on_drop,
+    target_id=id,
+    accepted_mime_prefixes=("",),
+    accepted_effects=(CopyDragEffect,),
+    preferred_effect::DragEffect=CopyDragEffect,
+    priority::Integer=0,
+    enabled::Bool=true,
+    key=nothing,
+    label::AbstractString="Drop target",
+    classes=Symbol[],
+    style_role::Union{Nothing,Symbol}=nothing,
+    style_patch::StylePatch=StylePatch(),
+)
+    return component(key=key) do component_state
+        router = _drag_drop_router(component_state)
+        identifier = string(target_id)
+        widget = DropTargetRegion(
+            router,
+            identifier,
+            String[lowercase(String(prefix)) for prefix in accepted_mime_prefixes],
+            Set{DragEffect}(accepted_effects),
+            preferred_effect,
+            Int(priority),
+            enabled,
+            on_drop,
+            String(label),
+        )
+        Element(
+            widget;
+            id,
+            children,
+            layout=:stack,
+            state_factory=() -> DropTargetState(
+                router,
+                identifier,
+                false,
+                nothing,
+                on_drop,
+                false,
+                UInt64(0),
+            ),
+            on_unmount=state -> begin
+                state.registered && unregister_toolkit_drop_target!(state.router, state.target_id)
+                state.registered = false
+            end,
+            disabled=!enabled,
+            classes,
+            style_role,
+            style_patch,
+        )
+    end
+end
+
+drop_target(build::Function; kwargs...) = drop_target(build(); kwargs...)
+
+"""Retained diagnostics for one declarative key-input region."""
+mutable struct KeyInputState
+    focused::Bool
+    events::UInt64
+    last_event::Union{Nothing,KeyEvent}
+end
+
+KeyInputState() = KeyInputState(false, UInt64(0), nothing)
+
+struct KeyInputRegion{F}
+    on_key::F
+    preview::Bool
+    key_codes::Union{Nothing,Set{Symbol}}
+    kinds::Union{Nothing,Set{Events.KeyEventKind}}
+    modifiers::Union{Nothing,KeyModifiers}
+    label::String
+    disabled::Bool
+end
+
+function _key_input_matches(widget::KeyInputRegion, event::KeyEvent)
+    widget.key_codes === nothing || event.key.code in widget.key_codes || return false
+    widget.kinds === nothing || event.kind in widget.kinds || return false
+    widget.modifiers === nothing || event.modifiers == widget.modifiers || return false
+    return true
+end
+
+function _invoke_key_input(widget::KeyInputRegion, event::KeyEvent, state::KeyInputState)
+    state.events == typemax(UInt64) && throw(OverflowError("key input event count exhausted"))
+    state.events += UInt64(1)
+    state.last_event = event
+    callback = widget.on_key
+    applicable(callback, event, state) && return callback(event, state)
+    applicable(callback, event) && return callback(event)
+    applicable(callback) && return callback()
+    throw(ArgumentError("key input callback must accept KeyEvent/state, KeyEvent, or no arguments"))
+end
+
+function _key_input_handler(widget::KeyInputRegion)
+    return function (routed, state)
+        widget.disabled && return nothing
+        event = routed.event
+        event isa KeyEvent || return nothing
+        expected = widget.preview ? CapturePhase : routed.target == routed.current ? TargetPhase : BubblePhase
+        routed.phase == expected || return nothing
+        _key_input_matches(widget, event) || return nothing
+        return _invoke_key_input(widget, event, state)
+    end
+end
+
+measure(::KeyInputRegion, available::Rect) = Size(available.height, available.width)
+render!(buffer::Buffer, ::KeyInputRegion, ::Rect, ::KeyInputState) = buffer
+render!(buffer::Buffer, ::KeyInputRegion, ::Rect) = buffer
+
+SemanticToolkit.widget_semantic_descriptor(widget::KeyInputRegion, state::KeyInputState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.GroupRole;
+        label=widget.label,
+        state=Accessibility.SemanticState(
+            enabled=!widget.disabled,
+            focusable=!widget.disabled,
+            focused=state.focused,
+        ),
+        metadata=Dict(
+            :key_input => true,
+            :preview => widget.preview,
+            :events => state.events,
+            :last_key => state.last_event === nothing ? nothing : state.last_event.key.code,
+        ),
+    )
+
+function _key_input_region(
+    children...;
+    on_key,
+    preview::Bool,
+    keys=nothing,
+    kinds=nothing,
+    modifiers::Union{Nothing,KeyModifiers}=nothing,
+    label::AbstractString=preview ? "Preview key input" : "Key input",
+    disabled::Bool=false,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=false,
+    tab_index::Integer=0,
+    style_role::Union{Nothing,Symbol}=nothing,
+    style_patch::StylePatch=StylePatch(),
+)
+    key_values = keys isa Union{Symbol,Key} ? (keys,) : keys
+    key_codes = key_values === nothing ? nothing : Set{Symbol}(
+        value isa Key ? value.code : Symbol(value) for value in key_values
+    )
+    kind_values = kinds isa Events.KeyEventKind ? (kinds,) : kinds
+    event_kinds = kind_values === nothing ? nothing : Set{Events.KeyEventKind}(kind_values)
+    widget = KeyInputRegion(
+        on_key,
+        preview,
+        key_codes,
+        event_kinds,
+        modifiers,
+        String(label),
+        disabled,
+    )
+    handler = _key_input_handler(widget)
+    return Element(
+        widget;
+        key,
+        id,
+        children,
+        layout=:stack,
+        state_factory=KeyInputState,
+        on_capture=preview ? handler : (event, state) -> nothing,
+        on_event=preview ? (event, state) -> nothing : handler,
+        focusable,
+        disabled,
+        tab_index,
+        classes,
+        style_role,
+        style_patch,
+    )
+end
+
+"""Handle matching key events at target/bubble time around arbitrary content."""
+key_input(children...; kwargs...) = _key_input_region(children...; preview=false, kwargs...)
+key_input(build::Function; kwargs...) = key_input(build(); kwargs...)
+
+"""Preview matching key events during root-to-target capture."""
+preview_key_input(children...; kwargs...) = _key_input_region(children...; preview=true, kwargs...)
+preview_key_input(build::Function; kwargs...) = preview_key_input(build(); kwargs...)
+
+"""Retained diagnostics for one declarative pointer-input region."""
+mutable struct PointerInputState
+    focused::Bool
+    hovered::Bool
+    pressed::Bool
+    events::UInt64
+    last_event::Union{Nothing,MouseEvent}
+end
+
+PointerInputState() = PointerInputState(false, false, false, UInt64(0), nothing)
+
+struct PointerInputRegion{F}
+    on_pointer::F
+    preview::Bool
+    actions::Union{Nothing,Set{MouseAction}}
+    buttons::Union{Nothing,Set{MouseButton}}
+    modifiers::Union{Nothing,KeyModifiers}
+    capture_on_press::Bool
+    label::String
+    disabled::Bool
+end
+
+function _pointer_input_matches(widget::PointerInputRegion, event::MouseEvent)
+    widget.actions === nothing || event.action in widget.actions || return false
+    widget.buttons === nothing || event.button in widget.buttons || return false
+    widget.modifiers === nothing || event.modifiers == widget.modifiers || return false
+    return true
+end
+
+function _invoke_pointer_input(widget::PointerInputRegion, event::MouseEvent, state::PointerInputState)
+    state.events == typemax(UInt64) && throw(OverflowError("pointer input event count exhausted"))
+    state.events += UInt64(1)
+    state.last_event = event
+    event.action == MousePress && event.button == LeftMouseButton && (state.pressed = true)
+    event.action == MouseRelease && (state.pressed = false)
+    callback = widget.on_pointer
+    applicable(callback, event, state) && return callback(event, state)
+    applicable(callback, event) && return callback(event)
+    applicable(callback) && return callback()
+    throw(ArgumentError("pointer input callback must accept MouseEvent/state, MouseEvent, or no arguments"))
+end
+
+function _pointer_capture_response(value, target)
+    response = Toolkit._normalize_response(value)
+    response.pointer_capture !== nothing && return response
+    return EventResponse(
+        consumed=response.consumed,
+        stop_propagation=response.stop_propagation,
+        redraw=response.redraw,
+        message=response.message,
+        focus=response.focus,
+        pointer_capture=target,
+    )
+end
+
+function _pointer_input_handler(widget::PointerInputRegion)
+    return function (routed, state)
+        widget.disabled && return nothing
+        event = routed.event
+        event isa MouseEvent || return nothing
+        expected = widget.preview ? CapturePhase : routed.target == routed.current ? TargetPhase : BubblePhase
+        routed.phase == expected || return nothing
+        _pointer_input_matches(widget, event) || return nothing
+        result = _invoke_pointer_input(widget, event, state)
+        if widget.capture_on_press && event.action == MousePress
+            return _pointer_capture_response(result, routed.current)
+        end
+        return result
+    end
+end
+
+measure(::PointerInputRegion, available::Rect) = Size(available.height, available.width)
+render!(buffer::Buffer, ::PointerInputRegion, ::Rect, ::PointerInputState) = buffer
+render!(buffer::Buffer, ::PointerInputRegion, ::Rect) = buffer
+Toolkit._automatic_mouse_activation(::PointerInputRegion) = false
+
+SemanticToolkit.widget_semantic_descriptor(widget::PointerInputRegion, state::PointerInputState) =
+    SemanticToolkit.SemanticDescriptor(
+        Accessibility.GroupRole;
+        label=widget.label,
+        state=Accessibility.SemanticState(
+            enabled=!widget.disabled,
+            focusable=!widget.disabled,
+            focused=state.focused,
+        ),
+        metadata=Dict(
+            :pointer_input => true,
+            :preview => widget.preview,
+            :capture_on_press => widget.capture_on_press,
+            :hovered => state.hovered,
+            :pressed => state.pressed,
+            :events => state.events,
+            :last_action => state.last_event === nothing ? nothing : state.last_event.action,
+        ),
+    )
+
+function _pointer_input_region(
+    children...;
+    on_pointer,
+    preview::Bool,
+    actions=nothing,
+    buttons=nothing,
+    modifiers::Union{Nothing,KeyModifiers}=nothing,
+    capture_on_press::Bool=false,
+    label::AbstractString=preview ? "Preview pointer input" : "Pointer input",
+    disabled::Bool=false,
+    key=nothing,
+    id=nothing,
+    classes=Symbol[],
+    focusable::Bool=false,
+    tab_index::Integer=0,
+    style_role::Union{Nothing,Symbol}=nothing,
+    style_patch::StylePatch=StylePatch(),
+)
+    preview && capture_on_press && throw(ArgumentError(
+        "preview pointer input cannot capture itself; use a normal pointer_input region",
+    ))
+    action_values = actions isa MouseAction ? (actions,) : actions
+    action_set = action_values === nothing ? nothing : Set{MouseAction}(action_values)
+    button_values = buttons isa MouseButton ? (buttons,) : buttons
+    button_set = button_values === nothing ? nothing : Set{MouseButton}(button_values)
+    widget = PointerInputRegion(
+        on_pointer,
+        preview,
+        action_set,
+        button_set,
+        modifiers,
+        capture_on_press,
+        String(label),
+        disabled,
+    )
+    handler = _pointer_input_handler(widget)
+    return Element(
+        widget;
+        key,
+        id,
+        children,
+        layout=:stack,
+        state_factory=PointerInputState,
+        on_capture=preview ? handler : (event, state) -> nothing,
+        on_event=preview ? (event, state) -> nothing : handler,
+        focusable,
+        disabled,
+        tab_index,
+        classes,
+        style_role,
+        style_patch,
+    )
+end
+
+"""Handle matching pointer events at target/bubble time around arbitrary content."""
+pointer_input(children...; kwargs...) = _pointer_input_region(children...; preview=false, kwargs...)
+pointer_input(build::Function; kwargs...) = pointer_input(build(); kwargs...)
+
+"""Preview matching pointer events during root-to-target capture."""
+preview_pointer_input(children...; kwargs...) = _pointer_input_region(children...; preview=true, kwargs...)
+preview_pointer_input(build::Function; kwargs...) = preview_pointer_input(build(); kwargs...)

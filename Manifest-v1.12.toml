@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "4db73e28f4d506e526c802f59e58b7467866487d"
+project_hash = "8ec81706b15515677f141e9ba1092718c93d4bcf"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -11,6 +11,10 @@ version = "1.11.0"
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
+version = "1.11.0"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 version = "1.11.0"
 
 [[deps.InteractiveUtils]]
@@ -65,7 +69,7 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
 
 [[deps.Wicked]]
-deps = ["Base64", "Dates", "REPL", "UUIDs", "Unicode"]
+deps = ["Base64", "Dates", "FileWatching", "REPL", "SHA", "UUIDs", "Unicode"]
 path = "."
 uuid = "fbfe6d93-aa95-4a38-a5f6-4229975dad61"
 version = "0.0.1"

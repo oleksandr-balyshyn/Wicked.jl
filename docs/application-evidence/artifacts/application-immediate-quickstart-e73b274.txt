@@ -1,2 +1,0 @@
-immediate quickstart example completed
-application_exit:0

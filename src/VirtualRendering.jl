@@ -41,8 +41,13 @@ using ..Accessibility: SemanticRect,
                        CellRole,
                        TreeRole,
                        TreeItemRole,
+                       FocusSemanticAction,
+                       ScrollIntoViewSemanticAction,
+                       IncrementSemanticAction,
+                       DecrementSemanticAction,
                        SelectSemanticAction,
                        ActivateSemanticAction,
+                       SetValueSemanticAction,
                        ExpandSemanticAction,
                        CollapseSemanticAction
 
@@ -462,6 +467,14 @@ function virtual_list_semantic_tree(
         ListRole;
         label=label,
         bounds=SemanticRect(origin_row, origin_column, width, length(children)),
+        actions=SemanticAction[
+            FocusSemanticAction,
+            ScrollIntoViewSemanticAction,
+            IncrementSemanticAction,
+            DecrementSemanticAction,
+            SelectSemanticAction,
+            ActivateSemanticAction,
+        ],
         children=children,
     )
     return SemanticTree(root; generation=window.version)
@@ -493,7 +506,12 @@ function virtual_table_semantic_tree(
     for row in window.rows
         row.kind == ReadySlot || continue
         cells = SemanticNode[
-            SemanticNode("$(id)/$(row.index)/$(cell.column)", CellRole; label=cell.value) for cell in row.cells
+            SemanticNode(
+                "$(id)/$(row.index)/$(cell.column)",
+                CellRole;
+                label=cell.value,
+                actions=SemanticAction[SetValueSemanticAction],
+            ) for cell in row.cells
         ]
         push!(rows, SemanticNode(
             "$(id)/$(something(row.key, row.index))",
@@ -509,6 +527,14 @@ function virtual_table_semantic_tree(
         TableRole;
         label=label,
         bounds=SemanticRect(origin_row, origin_column, width, length(rows) + 1),
+        actions=SemanticAction[
+            FocusSemanticAction,
+            ScrollIntoViewSemanticAction,
+            IncrementSemanticAction,
+            DecrementSemanticAction,
+            SelectSemanticAction,
+            ActivateSemanticAction,
+        ],
         children=vcat(column_nodes, [selection_node], rows),
     ))
 end
@@ -547,6 +573,16 @@ function virtual_tree_semantic_tree(
         TreeRole;
         label=label,
         bounds=SemanticRect(origin_row, origin_column, width, length(children)),
+        actions=SemanticAction[
+            FocusSemanticAction,
+            ScrollIntoViewSemanticAction,
+            IncrementSemanticAction,
+            DecrementSemanticAction,
+            SelectSemanticAction,
+            ActivateSemanticAction,
+            ExpandSemanticAction,
+            CollapseSemanticAction,
+        ],
         children=children,
     ))
 end

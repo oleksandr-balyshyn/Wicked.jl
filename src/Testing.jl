@@ -469,13 +469,25 @@ mutable struct RuntimePilot{A<:Runtime.WickedApp}
     process_executor::Any
     queue::Vector{Any}
     pending_delays::Dict{ScheduledToken,Nothing}
-    subscription_tokens::Dict{Any,ScheduledToken}
+    pending_retries::Dict{Any,ScheduledToken}
+    subscription_tokens::Dict{Any,Any}
     subscription_specs::Dict{Any,Runtime.AbstractSubscription}
     processed_messages::Vector{Any}
     last_command::Runtime.AbstractCommand
     redraw::Bool
     exited::Bool
     result::Any
+end
+
+struct _PilotCommandContinuation
+    callback::Any
+end
+
+struct _PilotRetryContinuation
+    command::Runtime.RetryCommand
+    attempt::Int
+    runtime_id::Any
+    on_complete::Any
 end
 
 """Compact lifecycle and timing status for Toolkit and runtime pilots."""
@@ -574,6 +586,7 @@ function RuntimePilot(
         Any[],
         Dict{ScheduledToken,Nothing}(),
         Dict{Any,ScheduledToken}(),
+        Dict{Any,Any}(),
         Dict{Any,Runtime.AbstractSubscription}(),
         Any[],
         Runtime.NoCommand(),
@@ -765,24 +778,75 @@ function _schedule_pilot_subscription!(
     token
 end
 
+function _start_pilot_subscription!(
+    pilot::RuntimePilot,
+    subscription::Runtime.EventSubscription,
+)
+    id = subscription.id
+    active = Threads.Atomic{Bool}(true)
+    handle = Runtime._EventSubscriptionHandle(active, nothing)
+    pilot.subscription_tokens[id] = handle
+    pilot.subscription_specs[id] = subscription
+    emit = message -> begin
+        active[] && !pilot.exited || return false
+        push!(pilot.queue, message)
+        true
+    end
+    try
+        cleanup = subscription.register(emit)
+        (cleanup === nothing || applicable(cleanup)) ||
+            throw(ArgumentError("event subscription cleanup must accept no arguments or be nothing"))
+        handle.cleanup = cleanup
+    catch error
+        active[] = false
+        push!(
+            pilot.queue,
+            Runtime.RuntimeFailure(:subscription_registration, id, error, catch_backtrace()),
+        )
+    end
+    handle
+end
+
+function _cancel_pilot_subscription!(pilot::RuntimePilot, id)
+    handle = pop!(pilot.subscription_tokens, id, nothing)
+    handle === nothing && return false
+    if handle isa ScheduledToken
+        cancel_scheduled!(pilot.clock, handle)
+    elseif handle isa Runtime._EventSubscriptionHandle
+        try
+            Runtime._deactivate_event_subscription!(handle)
+        catch error
+            pilot.exited || push!(
+                pilot.queue,
+                Runtime.RuntimeFailure(:subscription_cleanup, id, error, catch_backtrace()),
+            )
+        end
+    else
+        throw(ArgumentError("unsupported pilot subscription handle: $(typeof(handle))"))
+    end
+    true
+end
+
+function _start_pilot_subscription!(pilot::RuntimePilot, subscription::Runtime.IntervalSubscription)
+    pilot.subscription_specs[subscription.id] = subscription
+    _schedule_pilot_subscription!(pilot, subscription)
+end
+
 function _sync_pilot_subscriptions!(pilot::RuntimePilot)
     desired = Runtime._subscription_map(pilot.app, pilot.model)
     for id in setdiff(Set(keys(pilot.subscription_specs)), Set(keys(desired)))
-        token = pop!(pilot.subscription_tokens, id, nothing)
-        isnothing(token) || cancel_scheduled!(pilot.clock, token)
+        _cancel_pilot_subscription!(pilot, id)
         pop!(pilot.subscription_specs, id, nothing)
     end
     for (id, subscription) in desired
-        subscription isa Runtime.IntervalSubscription ||
+        subscription isa Union{Runtime.IntervalSubscription,Runtime.EventSubscription} ||
             throw(ArgumentError("unsupported subscription type: $(typeof(subscription))"))
         if haskey(pilot.subscription_specs, id)
             current = pilot.subscription_specs[id]
             Runtime._same_subscription(current, subscription) && continue
-            token = pop!(pilot.subscription_tokens, id, nothing)
-            isnothing(token) || cancel_scheduled!(pilot.clock, token)
+            _cancel_pilot_subscription!(pilot, id)
         end
-        pilot.subscription_specs[id] = subscription
-        _schedule_pilot_subscription!(pilot, subscription)
+        _start_pilot_subscription!(pilot, subscription)
     end
     nothing
 end
@@ -812,6 +876,14 @@ end
 function request_exit!(pilot::RuntimePilot, result=nothing)
     pilot.result = result
     pilot.exited = true
+    for id in collect(keys(pilot.subscription_tokens))
+        _cancel_pilot_subscription!(pilot, id)
+    end
+    empty!(pilot.subscription_specs)
+    for token in values(pilot.pending_retries)
+        cancel_scheduled!(pilot.clock, token)
+    end
+    empty!(pilot.pending_retries)
     true
 end
 
@@ -848,6 +920,68 @@ function _execute_runtime_command!(pilot::RuntimePilot, command::Runtime.TaskCom
     pilot.exited || push!(pilot.queue, message)
     nothing
 end
+
+function _schedule_pilot_retry!(pilot::RuntimePilot, continuation::_PilotRetryContinuation)
+    delay = Runtime.retry_delay(continuation.command.policy, continuation.attempt)
+    token_ref = Ref{ScheduledToken}()
+    token = schedule_after!(pilot.clock, delay) do _
+        token = token_ref[]
+        get(pilot.pending_retries, continuation.runtime_id, nothing) === token || return
+        delete!(pilot.pending_retries, continuation.runtime_id)
+        pilot.exited || push!(pilot.queue, _PilotRetryContinuation(
+            continuation.command,
+            continuation.attempt + 1,
+            continuation.runtime_id,
+            continuation.on_complete,
+        ))
+    end
+    token_ref[] = token
+    pilot.pending_retries[continuation.runtime_id] = token
+    return nothing
+end
+
+function _execute_pilot_retry!(pilot::RuntimePilot, continuation::_PilotRetryContinuation)
+    command = continuation.command
+    started = time()
+    try
+        token = Runtime.CancellationToken(false)
+        value = Runtime._invoke_command_work(command.work, token)
+        if command.timeout_seconds !== nothing && time() - started > command.timeout_seconds
+            throw(Runtime.CommandTimeoutError(command.timeout_seconds))
+        end
+        pop!(pilot.pending_retries, continuation.runtime_id, nothing)
+        message = command.on_success(value)
+        wrapped = isnothing(command.id) ? message : Runtime.CommandFinished(command.id, message)
+        isnothing(wrapped) || pilot.exited || push!(pilot.queue, wrapped)
+        continuation.on_complete === nothing || continuation.on_complete()
+    catch error
+        retry = Runtime._retry_permitted(command.policy, error, continuation.attempt)
+        if retry && continuation.attempt < command.policy.maximum_attempts && !pilot.exited
+            _schedule_pilot_retry!(pilot, continuation)
+            return nothing
+        end
+        pop!(pilot.pending_retries, continuation.runtime_id, nothing)
+        final_error = retry && continuation.attempt >= command.policy.maximum_attempts ?
+                      Runtime.RetryExhaustedError(continuation.attempt, error) : error
+        failure = Runtime.RuntimeFailure(:command, command.id, final_error, catch_backtrace())
+        message = command.on_error(failure)
+        isnothing(message) || pilot.exited || push!(pilot.queue, message)
+        continuation.on_complete === nothing || continuation.on_complete()
+    end
+    return nothing
+end
+
+function _start_pilot_retry!(pilot::RuntimePilot, command::Runtime.RetryCommand, on_complete=nothing)
+    runtime_id = isnothing(command.id) ? gensym(:retry) : command.id
+    if haskey(pilot.pending_retries, runtime_id)
+        command.replace || return nothing
+        cancel_scheduled!(pilot.clock, pop!(pilot.pending_retries, runtime_id))
+    end
+    _execute_pilot_retry!(pilot, _PilotRetryContinuation(command, 1, runtime_id, on_complete))
+end
+
+_execute_runtime_command!(pilot::RuntimePilot, command::Runtime.RetryCommand) =
+    _start_pilot_retry!(pilot, command)
 
 function _execute_runtime_command!(pilot::RuntimePilot, command::Runtime.TerminalCommand)
     message = try
@@ -898,6 +1032,83 @@ function _execute_runtime_command!(pilot::RuntimePilot, command::Runtime.BatchCo
     nothing
 end
 
+function _execute_runtime_command!(pilot::RuntimePilot, command::Runtime.SequenceCommand)
+    isempty(command.commands) ||
+        push!(pilot.queue, Runtime._SequenceContinuation(command.commands, 1, nothing))
+    nothing
+end
+
+function _execute_pilot_with_completion!(callback, pilot::RuntimePilot, command::Runtime.DelayCommand)
+    token_ref = Ref{ScheduledToken}()
+    token = schedule_after!(pilot.clock, command.delay_seconds) do _
+        token = token_ref[]
+        pop!(pilot.pending_delays, token, nothing)
+        if !pilot.exited
+            push!(pilot.queue, command.message)
+            callback()
+        end
+    end
+    token_ref[] = token
+    pilot.pending_delays[token] = nothing
+    nothing
+end
+
+function _execute_pilot_with_completion!(callback, pilot::RuntimePilot, command::Runtime.RetryCommand)
+    _start_pilot_retry!(pilot, command, callback)
+end
+
+function _execute_pilot_with_completion!(callback, pilot::RuntimePilot, command::Runtime.BatchCommand)
+    isempty(command.commands) && return callback()
+    remaining = Ref(length(command.commands))
+    for child in command.commands
+        _execute_pilot_with_completion!(pilot, child) do
+            remaining[] -= 1
+            remaining[] == 0 && callback()
+        end
+    end
+    nothing
+end
+
+function _execute_pilot_with_completion!(callback, pilot::RuntimePilot, command::Runtime.SequenceCommand)
+    if isempty(command.commands)
+        callback()
+    else
+        push!(pilot.queue, Runtime._SequenceContinuation(command.commands, 1, callback))
+    end
+    nothing
+end
+
+function _execute_pilot_with_completion!(callback, pilot::RuntimePilot, command::Runtime.AbstractCommand)
+    queue_length = length(pilot.queue)
+    _execute_runtime_command!(pilot, command)
+    pilot.exited && return nothing
+    insert!(
+        pilot.queue,
+        min(queue_length + 2, length(pilot.queue) + 1),
+        _PilotCommandContinuation(callback),
+    )
+    nothing
+end
+
+function _execute_runtime_sequence_step!(
+    pilot::RuntimePilot,
+    continuation::Runtime._SequenceContinuation,
+)
+    if continuation.index > length(continuation.commands)
+        continuation.on_complete === nothing || continuation.on_complete()
+        return nothing
+    end
+    child = continuation.commands[continuation.index]
+    _execute_pilot_with_completion!(pilot, child) do
+        push!(pilot.queue, Runtime._SequenceContinuation(
+            continuation.commands,
+            continuation.index + 1,
+            continuation.on_complete,
+        ))
+    end
+    nothing
+end
+
 _execute_runtime_command!(pilot::RuntimePilot, command::Runtime.ExitCommand) =
     request_exit!(pilot, command.result)
 
@@ -906,9 +1117,17 @@ function _execute_runtime_command!(pilot::RuntimePilot, ::Runtime.FrameCommand)
     nothing
 end
 
-_execute_runtime_command!(::RuntimePilot, ::Runtime.CancelCommand) = false
+function _execute_runtime_command!(pilot::RuntimePilot, command::Runtime.CancelCommand)
+    token = pop!(pilot.pending_retries, command.id, nothing)
+    token === nothing && return false
+    cancel_scheduled!(pilot.clock, token)
+end
 
 function _apply_runtime_message!(pilot::RuntimePilot, message)
+    message isa Runtime._SequenceContinuation &&
+        return _execute_runtime_sequence_step!(pilot, message)
+    message isa _PilotCommandContinuation && return message.callback()
+    message isa _PilotRetryContinuation && return _execute_pilot_retry!(pilot, message)
     result = Runtime.update!(pilot.app, pilot.model, message)
     command = Runtime.NoCommand()
     if result isa Runtime.UpdateResult
@@ -931,13 +1150,18 @@ end
 function _drain_runtime!(pilot::RuntimePilot; max_messages::Integer=10_000)
     max_messages > 0 || throw(ArgumentError("message limit must be positive"))
     processed = 0
+    steps = 0
     while !pilot.exited && !isempty(pilot.queue)
-        processed < max_messages ||
+        steps < max_messages ||
             throw(ErrorException("runtime pilot message limit exceeded"))
         message = popfirst!(pilot.queue)
-        push!(pilot.processed_messages, message)
+        internal = message isa Runtime._SequenceContinuation ||
+                   message isa _PilotCommandContinuation ||
+                   message isa _PilotRetryContinuation
+        internal || push!(pilot.processed_messages, message)
         _apply_runtime_message!(pilot, message)
-        processed += 1
+        internal || (processed += 1)
+        steps += 1
     end
     redrawn = pilot.redraw && !pilot.exited
     pilot.exited || _sync_pilot_subscriptions!(pilot)
@@ -2844,7 +3068,7 @@ function read_pilot_evidence_package_manifest_records(
     for name in sort!(collect(_pilot_evidence_report_required_files()))
         push!(records, _artifact_record_from_file(joinpath("reports", name), joinpath(reports_directory, name)))
     end
-    records
+    sort!(records; by=record -> record.name)
 end
 
 """Render expected pilot evidence package manifest records as a stable TSV table."""

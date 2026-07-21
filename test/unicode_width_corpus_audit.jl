@@ -18,7 +18,7 @@ include(joinpath(@__DIR__, "..", "scripts", "unicode_width_corpus_audit.jl"))
             ),
         )
         failures = UnicodeWidthCorpusAudit.audit(corpus)
-        @test any(occursin("missing required case `cjk-wide`"), failures)
+        @test any(value -> occursin("missing required case `cjk-wide`", value), failures)
     end
 
     mktempdir() do directory
@@ -35,7 +35,7 @@ include(joinpath(@__DIR__, "..", "scripts", "unicode_width_corpus_audit.jl"))
             ),
         )
         failures = UnicodeWidthCorpusAudit.audit(corpus)
-        @test any(occursin("duplicates case `ascii-letter`"), failures)
+        @test any(value -> occursin("duplicates case `ascii-letter`", value), failures)
     end
 
     mktempdir() do directory
@@ -52,8 +52,8 @@ include(joinpath(@__DIR__, "..", "scripts", "unicode_width_corpus_audit.jl"))
             ),
         )
         failures = UnicodeWidthCorpusAudit.audit(corpus)
-        @test any(occursin("ascii-letter default text width expected 2, got 1"), failures)
-        @test any(occursin("bad-escape has invalid escaped value"), failures)
+        @test any(value -> occursin("ascii-letter default text width expected 2, got 1", value), failures)
+        @test any(value -> occursin("bad-escape has invalid escaped value", value), failures)
     end
 
     help_output = IOBuffer()

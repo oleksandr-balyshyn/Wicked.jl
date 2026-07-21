@@ -17,7 +17,7 @@ include(joinpath(@__DIR__, "..", "scripts", "remote_protocol_fixture_audit.jl"))
             ),
         )
         failures = RemoteProtocolFixtureAudit.audit(fixtures)
-        @test any(occursin("missing required case `hello-basic`"), failures)
+        @test any(failure -> occursin("missing required case `hello-basic`", failure), failures)
     end
 
     mktempdir() do directory
@@ -34,7 +34,7 @@ include(joinpath(@__DIR__, "..", "scripts", "remote_protocol_fixture_audit.jl"))
             ),
         )
         failures = RemoteProtocolFixtureAudit.audit(fixtures)
-        @test any(occursin("duplicates fixture case `ack-basic`"), failures)
+        @test any(failure -> occursin("duplicates fixture case `ack-basic`", failure), failures)
     end
 
     mktempdir() do directory
@@ -51,14 +51,18 @@ include(joinpath(@__DIR__, "..", "scripts", "remote_protocol_fixture_audit.jl"))
             ),
         )
         failures = RemoteProtocolFixtureAudit.audit(fixtures)
-        @test any(occursin("ack-basic packet kind expected 3, got 4"), failures)
-        @test any(occursin("unknown remote protocol fixture case `unknown-case`"), failures)
+        @test any(failure -> occursin("ack-basic packet kind expected 3, got 4", failure), failures)
+        @test any(failure -> occursin("unknown remote protocol fixture case `unknown-case`", failure), failures)
     end
 
-    help_output = IOBuffer()
-    help_status = redirect_stdout(help_output) do
-        RemoteProtocolFixtureAudit.main(["--help"])
+    help_status, help_text = mktemp() do _, help_output
+        status = redirect_stdout(help_output) do
+            RemoteProtocolFixtureAudit.main(["--help"])
+        end
+        flush(help_output)
+        seekstart(help_output)
+        return status, read(help_output, String)
     end
     @test help_status == 0
-    @test occursin("protocol-v1 remote packet envelope fixtures", String(take!(help_output)))
+    @test occursin("protocol-v1 remote packet envelope fixtures", help_text)
 end

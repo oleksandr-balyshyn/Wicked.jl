@@ -412,18 +412,22 @@ struct SemanticChange
     after::Union{Nothing,SemanticNode}
 end
 
+struct _SemanticIndexEntry
+    node::SemanticNode
+    parent::Union{Nothing,String}
+    position::Int
+end
+
 function _indexed(tree::SemanticTree)
-    nodes = Dict{String,SemanticNode}()
-    positions = Dict{String,Tuple{Union{Nothing,String},Int}}()
+    entries = Dict{String,_SemanticIndexEntry}()
     function visit(node::SemanticNode, parent, position::Int)
-        nodes[node.id] = node
-        positions[node.id] = (parent, position)
+        entries[node.id] = _SemanticIndexEntry(node, parent, position)
         for (child_position, child) in enumerate(node.children)
             visit(child, node.id, child_position)
         end
     end
     visit(tree.root, nothing, 1)
-    return nodes, positions
+    return entries
 end
 
 function _node_payload_equal(left::SemanticNode, right::SemanticNode)
@@ -437,20 +441,28 @@ function _node_payload_equal(left::SemanticNode, right::SemanticNode)
 end
 
 function diff_semantics(before::SemanticTree, after::SemanticTree)
-    old_nodes, old_parents = _indexed(before)
-    new_nodes, new_parents = _indexed(after)
+    old_entries = _indexed(before)
+    new_entries = _indexed(after)
     changes = SemanticChange[]
-    for id in sort!(collect(setdiff(keys(old_nodes), keys(new_nodes))))
-        push!(changes, SemanticChange(RemovedSemanticNode, id, old_nodes[id], nothing))
+    removed = String[id for id in keys(old_entries) if !haskey(new_entries, id)]
+    sort!(removed)
+    for id in removed
+        push!(changes, SemanticChange(RemovedSemanticNode, id, old_entries[id].node, nothing))
     end
-    for id in sort!(collect(setdiff(keys(new_nodes), keys(old_nodes))))
-        push!(changes, SemanticChange(AddedSemanticNode, id, nothing, new_nodes[id]))
+    added = String[id for id in keys(new_entries) if !haskey(old_entries, id)]
+    sort!(added)
+    for id in added
+        push!(changes, SemanticChange(AddedSemanticNode, id, nothing, new_entries[id].node))
     end
-    for id in sort!(collect(intersect(keys(old_nodes), keys(new_nodes))))
-        old_parents[id] != new_parents[id] &&
-            push!(changes, SemanticChange(MovedSemanticNode, id, old_nodes[id], new_nodes[id]))
-        _node_payload_equal(old_nodes[id], new_nodes[id]) ||
-            push!(changes, SemanticChange(UpdatedSemanticNode, id, old_nodes[id], new_nodes[id]))
+    common = String[id for id in keys(old_entries) if haskey(new_entries, id)]
+    sort!(common)
+    for id in common
+        old_entry = old_entries[id]
+        new_entry = new_entries[id]
+        (old_entry.parent, old_entry.position) != (new_entry.parent, new_entry.position) &&
+            push!(changes, SemanticChange(MovedSemanticNode, id, old_entry.node, new_entry.node))
+        _node_payload_equal(old_entry.node, new_entry.node) ||
+            push!(changes, SemanticChange(UpdatedSemanticNode, id, old_entry.node, new_entry.node))
     end
     return changes
 end

@@ -198,7 +198,7 @@ function Base.show(io::IO, diagnostics::ActionRegistryDiagnostics)
     )
 end
 
-struct _ActionRegistration
+mutable struct _ActionRegistration
     action::Action
     scope::Symbol
     sequence::UInt64
@@ -2551,24 +2551,112 @@ function _action_binding_is_better(candidate, current)
     return String(candidate[1].action.id) < String(current[1].action.id)
 end
 
+function _registered_action_binding_is_better(candidate, current)
+    candidate_priority = _action_binding_priority(
+        candidate[1].action.priority,
+        candidate[2].priority,
+    )
+    current_priority = _action_binding_priority(
+        current[1].action.priority,
+        current[2].priority,
+    )
+    candidate_priority != current_priority && return candidate_priority > current_priority
+    candidate[1].action.priority != current[1].action.priority &&
+        return candidate[1].action.priority > current[1].action.priority
+    return String(candidate[1].action.id) < String(current[1].action.id)
+end
+
+function _registered_action_binding_is_better(
+    candidate_registration::_ActionRegistration,
+    candidate_binding::ActionBinding,
+    current_registration::_ActionRegistration,
+    current_binding::ActionBinding,
+)
+    candidate_priority = _action_binding_priority(
+        candidate_registration.action.priority,
+        candidate_binding.priority,
+    )
+    current_priority = _action_binding_priority(
+        current_registration.action.priority,
+        current_binding.priority,
+    )
+    candidate_priority != current_priority && return candidate_priority > current_priority
+    candidate_registration.action.priority != current_registration.action.priority &&
+        return candidate_registration.action.priority > current_registration.action.priority
+    return String(candidate_registration.action.id) < String(current_registration.action.id)
+end
+
+function _matching_action_bindings(
+    registry::ActionRegistry,
+    event::KeyEvent,
+)
+    return lock(registry.mutex) do
+        matches = Tuple{_ActionRegistration,ActionBinding}[]
+        for id in keys(registry.registrations)
+            registration = _resolve_action_locked(registry, id)
+            registration === nothing && continue
+            for binding in registration.action.bindings
+                binding.key == event.key.code && binding.modifiers == event.modifiers || continue
+                push!(matches, (registration, binding))
+            end
+        end
+        matches
+    end
+end
+
+function _action_binding_available(
+    registry::ActionRegistry,
+    registration::_ActionRegistration,
+    context::ActionContext,
+)
+    visible, _ = _evaluate_action_predicate(
+        registry,
+        registration.action.visible,
+        context,
+        false,
+    )
+    visible || return false
+    enabled, _ = _evaluate_action_predicate(
+        registry,
+        registration.action.enabled,
+        context,
+        false,
+    )
+    return enabled
+end
+
 function resolve_action_binding(
     registry::ActionRegistry,
     event::KeyEvent,
     context::ActionContext=ActionContext(; event),
 )
-    matches = Tuple{ActionState,ActionBinding}[]
-    for state in available_actions(registry, context; include_hidden=false, include_disabled=false)
-        for binding in state.action.bindings
+    registrations, scopes = lock(registry.mutex) do
+        registry.registrations, registry.scopes
+    end
+    winner_registration = nothing
+    winner_binding = nothing
+    for scoped in values(registrations)
+        registration = nothing
+        for scope in Iterators.reverse(scopes)
+            registration = get(scoped, scope, nothing)
+            registration === nothing || break
+        end
+        registration === nothing && continue
+        for binding in registration.action.bindings
             binding.key == event.key.code && binding.modifiers == event.modifiers || continue
-            push!(matches, (state, binding))
+            _action_binding_available(registry, registration, context) || continue
+            if winner_registration === nothing || _registered_action_binding_is_better(
+                registration,
+                binding,
+                winner_registration,
+                winner_binding,
+            )
+                winner_registration = registration
+                winner_binding = binding
+            end
         end
     end
-    isempty(matches) && return nothing
-    winner = first(matches)
-    for candidate in Iterators.drop(matches, 1)
-        _action_binding_is_better(candidate, winner) && (winner = candidate)
-    end
-    return winner[1].action.id
+    return winner_registration === nothing ? nothing : winner_registration.action.id
 end
 
 function invoke_key_action!(
@@ -2813,7 +2901,7 @@ function action_help_view(
     kwargs...,
 )
     hints = KeyHint[
-        KeyHint(record.action, record.description)
+        KeyHint(binding_label(record.key; modifiers=record.modifiers), record.description)
         for record in binding_records(action_binding_map(registry, context))
         if !isempty(record.description)
     ]
@@ -2832,7 +2920,7 @@ function action_footer(
     kwargs...,
 )
     hints = KeyHint[
-        KeyHint(record.action, record.description)
+        KeyHint(binding_label(record.key; modifiers=record.modifiers), record.description)
         for record in binding_records(action_binding_map(registry, context))
         if !isempty(record.description)
     ]
@@ -2947,7 +3035,7 @@ end
 
 function _binding_map_hints(map::BindingMap)
     return KeyHint[
-        KeyHint(record.action, record.description)
+        KeyHint(binding_label(record.key; modifiers=record.modifiers), record.description)
         for record in binding_records(map)
         if !isempty(record.description)
     ]
@@ -3261,7 +3349,7 @@ function search_action_help_view(
     kwargs...,
 )
     hints = KeyHint[
-        KeyHint(record.action, record.description)
+        KeyHint(binding_label(record.key; modifiers=record.modifiers), record.description)
         for record in binding_records(search_action_binding_map(registry, query, context; include_hidden))
         if !isempty(record.description)
     ]
@@ -3281,7 +3369,7 @@ function search_action_footer(
     kwargs...,
 )
     hints = KeyHint[
-        KeyHint(record.action, record.description)
+        KeyHint(binding_label(record.key; modifiers=record.modifiers), record.description)
         for record in binding_records(search_action_binding_map(registry, query, context; include_hidden))
         if !isempty(record.description)
     ]

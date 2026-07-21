@@ -17,7 +17,44 @@ backend_capabilities(::AbstractBackend) = TerminalCapabilities()
 function present! end
 
 """Set an opt-in terminal title when supported by the backend."""
-function set_terminal_title! end
+set_terminal_title!(::AbstractBackend, ::AbstractString; kwargs...) = false
+
+@enum MouseTrackingMode::UInt8 begin
+    BasicMouseTracking
+    ButtonMotionTracking
+    AnyMotionTracking
+end
+
+"""Declarative terminal modes managed by an application view.
+
+`nothing` leaves a mode under the backend's existing session options.
+"""
+struct TerminalModeRequest
+    alternate_screen::Union{Nothing,Bool}
+    mouse_capture::Union{Nothing,Bool}
+    mouse_tracking::Union{Nothing,MouseTrackingMode}
+    focus_reporting::Union{Nothing,Bool}
+    bracketed_paste::Union{Nothing,Bool}
+end
+
+function TerminalModeRequest(;
+    alternate_screen::Union{Nothing,Bool}=nothing,
+    mouse_capture::Union{Nothing,Bool}=nothing,
+    mouse_tracking::Union{Nothing,MouseTrackingMode}=nothing,
+    focus_reporting::Union{Nothing,Bool}=nothing,
+    bracketed_paste::Union{Nothing,Bool}=nothing,
+)
+    TerminalModeRequest(
+        alternate_screen,
+        mouse_capture,
+        mouse_tracking,
+        focus_reporting,
+        bracketed_paste,
+    )
+end
+
+"""Apply explicitly managed terminal modes and return whether state changed."""
+apply_terminal_modes!(::AbstractBackend, ::TerminalModeRequest) = false
 
 function _validated_terminal_title(title::AbstractString, maximum_bytes::Integer)
     maximum_bytes > 0 || throw(ArgumentError("maximum terminal title size must be positive"))
@@ -154,7 +191,9 @@ function present!(
 )
     backend.frame_count == typemax(UInt64) &&
         throw(OverflowError("test backend frame counter exhausted"))
-    backend.screen = copy(completed)
+    if !isempty(changes) || backend.screen != completed
+        backend.screen = copy(completed)
+    end
     backend.cursor = cursor
     backend.last_changes = collect(changes)
     backend.frame_count += 1
@@ -369,6 +408,7 @@ export AbstractBackend,
        Terminal,
        TerminalCapabilities,
        TerminalLimits,
+       TerminalModeRequest,
        TerminalOptions,
        TerminalResetError,
        TerminalSessionError,
@@ -378,6 +418,7 @@ export AbstractBackend,
        NoopTerminalController,
        backend_capabilities,
        backend_size,
+       apply_terminal_modes!,
        detect_color_level,
        draw!,
        enter!,

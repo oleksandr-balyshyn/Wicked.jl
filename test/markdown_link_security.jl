@@ -4,6 +4,7 @@
             "https://example.test/path",
             "http://example.test",
             "mailto:user@example.test",
+            "HtTpS://example.test/path",
             "docs/guide.md",
             "../guide.md",
             "#section",
@@ -29,6 +30,9 @@
         custom = MarkdownLinkPolicy(allowed_schemes=("gemini",), allow_relative=false)
         @test markdown_link_safe("gemini://example.test"; policy=custom)
         @test !markdown_link_safe("https://example.test"; policy=custom)
+        compound = MarkdownLinkPolicy(allowed_schemes=("git+ssh",), allow_relative=false)
+        @test markdown_link_safe("GIT+SSH://example.test/repository"; policy=compound)
+        @test !markdown_link_safe("git-ssh://example.test/repository"; policy=compound)
     end
 
     @testset "safe, unsafe, and malformed metadata" begin
@@ -88,6 +92,70 @@
         hostile_link = render_markdown("[label\x00](https://example.test)")
         @test !occursin('\0', plain_text(hostile_link))
         @test only(hostile_link.links).label == "label�"
+    end
+
+    @testset "destination syntax and source ranges" begin
+        document = parse_markdown("π [**β**](docs \"Title\") ω")
+        paragraph = only(document.blocks)::ParagraphBlock
+        link = paragraph.children[2]::MarkdownLink
+        @test link.destination == "docs"
+        @test link.title == "Title"
+        @test link.source.start == SourcePosition(1, 3)
+        @test link.source.stop == SourcePosition(1, 24)
+        strong = only(link.children)::StrongInline
+        @test only(strong.children).value == "β"
+        @test only(strong.children).source == SourceRange(SourcePosition(1, 6), SourcePosition(1, 7))
+
+        image_document = parse_markdown("![](image.png 'Alt')")
+        image = only((only(image_document.blocks)::ParagraphBlock).children)::MarkdownImage
+        @test image.alt == ""
+        @test image.destination == "image.png"
+        @test image.title == "Alt"
+
+        for malformed in ("[](docs)", "[bad](docs \"unterminated)", "[bad](docs trailing)")
+            malformed_document = parse_markdown(malformed)
+            children = (only(malformed_document.blocks)::ParagraphBlock).children
+            @test length(children) == 1
+            @test only(children) isa PlainText
+            @test only(children).value == malformed
+        end
+    end
+
+    @testset "heading grammar and inline columns" begin
+        cases = (
+            ("# hi", 1, "hi", 3),
+            ("  ## hi ###  ", 2, "hi", 6),
+            ("# ###", 1, "#", 3),
+            ("# #abc", 1, "#abc", 3),
+            ("#  x  # y ##", 1, "x  # y", 4),
+            ("#    ", 1, " ", 5),
+            ("# \tα ##", 1, "α", 4),
+        )
+        for (source, level, text, column) in cases
+            heading = only(parse_markdown(source).blocks)::HeadingBlock
+            @test heading.level == level
+            inline = only(heading.children)::PlainText
+            @test inline.value == text
+            @test inline.source.start == SourcePosition(1, column)
+        end
+        for source in ("####### nope", "    # nope", "#no-space")
+            @test only(parse_markdown(source).blocks) isa ParagraphBlock
+        end
+    end
+
+    @testset "normalized source ownership and line views" begin
+        backing = "prefix\r\n# α\r\n\rparagraph\r\nsuffix"
+        source_start = first(findfirst("# α", backing))
+        suffix_start = first(findfirst("\r\nsuffix", backing))
+        source = SubString(backing, source_start, prevind(backing, suffix_start))
+        document = parse_markdown(source)
+        @test document.source == "# α\n\nparagraph"
+        @test document.source isa String
+        @test length(document.blocks) == 2
+        @test document.blocks[1] isa HeadingBlock
+        @test document.blocks[2] isa ParagraphBlock
+        @test only((document.blocks[2]::ParagraphBlock).children).value == "paragraph"
+        @test (document.blocks[2]::ParagraphBlock).source.start == SourcePosition(3, 1)
     end
 
     @testset "unsafe activation remains explicit" begin

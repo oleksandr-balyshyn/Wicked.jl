@@ -199,7 +199,7 @@ function pretty_semantic_node(
         GenericRole;
         label,
         bounds,
-        state=SemanticState(readonly=true, value),
+        state=SemanticState(readonly=true, value=value),
     )
 end
 

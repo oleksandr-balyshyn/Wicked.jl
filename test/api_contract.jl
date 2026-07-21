@@ -3,6 +3,7 @@ module DownstreamAPIContract
 using Wicked.API
 import Wicked: backend_capabilities,
                backend_size,
+               initialize,
                present!,
                read_event!,
                render!
@@ -79,6 +80,7 @@ end
     push!(subscriber.values, new_value)
 
 struct ContractApp <: WickedApp end
+initialize(::ContractApp) = :model
 
 end
 
@@ -135,6 +137,176 @@ end
         @test Wicked.API.RuntimePilot === Wicked.RuntimePilot
         @test Wicked.API.RemoteBackend === Wicked.RemoteBackend
         @test Wicked.API.ChoiceOption === Wicked.ChoiceOption
+        @test Wicked.API.ElementModifier === Wicked.ElementModifier
+        @test Wicked.API.element_modifier === Wicked.element_modifier
+        @test Wicked.API.modify === Wicked.modify
+        @test Wicked.API.then === Wicked.then
+        @test Wicked.API.ComponentState === Wicked.ComponentState
+        @test Wicked.API.ComponentSlots === Wicked.ComponentSlots
+        @test Wicked.API.CompositionLocal === Wicked.CompositionLocal
+        @test Wicked.API.ComponentAreaLocal === Wicked.ComponentAreaLocal
+        @test Wicked.API.FocusRequester === Wicked.FocusRequester
+        @test Wicked.API.focus_requester === Wicked.focus_requester
+        @test Wicked.API.focus_requester_focused === Wicked.focus_requester_focused
+        @test Wicked.API.focus_requester_target === Wicked.focus_requester_target
+        @test Wicked.API.request_focus! === Wicked.request_focus!
+        @test Wicked.API.release_focus! === Wicked.release_focus!
+        @test Wicked.API.ContextProvider === Wicked.ContextProvider
+        @test Wicked.API.ComponentErrorBoundary === Wicked.ComponentErrorBoundary
+        @test Wicked.API.ComponentErrorBoundaryState === Wicked.ComponentErrorBoundaryState
+        @test Wicked.API.ErrorBoundaryState === Wicked.ComponentErrorBoundaryState
+        @test Wicked.ErrorBoundaryState === Wicked.ComponentErrorBoundaryState
+        @test Wicked.API.AsyncResource === Wicked.AsyncResource
+        @test Wicked.API.AsyncResourceStatus === Wicked.AsyncResourceStatus
+        @test Wicked.API.AsyncResourceToken === Wicked.AsyncResourceToken
+        @test Wicked.API.LaunchedTask === Wicked.LaunchedTask
+        @test Wicked.API.LaunchedTaskStatus === Wicked.LaunchedTaskStatus
+        @test Wicked.API.LaunchedTaskToken === Wicked.LaunchedTaskToken
+        @test Wicked.API.ProducedState === Wicked.ProducedState
+        @test Wicked.API.produce_state! === Wicked.produce_state!
+        @test Wicked.API.produced_value === Wicked.produced_value
+        @test Wicked.API.produced_status === Wicked.produced_status
+        @test Wicked.API.produced_failure === Wicked.produced_failure
+        @test Wicked.API.launched_effect! === Wicked.launched_effect!
+        @test Wicked.API.cancel_launched_task! === Wicked.cancel_launched_task!
+        @test Wicked.API.launched_task_status === Wicked.launched_task_status
+        @test Wicked.API.launched_task_failure === Wicked.launched_task_failure
+        @test Wicked.API.TrackedComponentView === Wicked.TrackedComponentView
+        @test Wicked.API.AbstractStateBinding === Wicked.AbstractStateBinding
+        @test Wicked.API.StateBinding === Wicked.StateBinding
+        @test Wicked.API.RememberedStateBinding === Wicked.RememberedStateBinding
+        @test Wicked.API.SaveableStateAddress === Wicked.SaveableStateAddress
+        @test Wicked.API.SaveableStateRegistry === Wicked.SaveableStateRegistry
+        @test Wicked.API.SaveableStateContext === Wicked.SaveableStateContext
+        @test Wicked.API.SaveableStateLocal === Wicked.SaveableStateLocal
+        @test Wicked.API.remember_saveable! === Wicked.remember_saveable!
+        @test Wicked.API.saveable_state_provider === Wicked.saveable_state_provider
+        @test Wicked.API.saveable_state_snapshot === Wicked.saveable_state_snapshot
+        @test Wicked.API.restore_saveable_state! === Wicked.restore_saveable_state!
+        @test Wicked.API.BoundWidgetState === Wicked.BoundWidgetState
+        @test Wicked.API.bound_checkbox === Wicked.bound_checkbox
+        @test Wicked.API.bound_element === Wicked.bound_element
+        @test Wicked.API.bound_property_element === Wicked.bound_property_element
+        @test Wicked.API.bound_range_slider === Wicked.bound_range_slider
+        @test Wicked.API.bound_slider === Wicked.bound_slider
+        @test Wicked.API.bound_text_input === Wicked.bound_text_input
+        @test Wicked.API.bound_toggle === Wicked.bound_toggle
+        @test Wicked.API.bound_widget_state === Wicked.bound_widget_state
+        @test Wicked.API.LazyColumnController === Wicked.LazyColumnController
+        @test Wicked.API.lazy_column === Wicked.lazy_column
+        @test Wicked.API.LazyGridController === Wicked.LazyGridController
+        @test Wicked.API.lazy_grid === Wicked.lazy_grid
+        @test Wicked.API.LazyRowController === Wicked.LazyRowController
+        @test Wicked.API.lazy_row === Wicked.lazy_row
+        @test Wicked.API.AnimatedValue === Wicked.AnimatedValue
+        @test Wicked.API.AnimationContext === Wicked.AnimationContext
+        @test Wicked.API.AnimationLocal === Wicked.AnimationLocal
+        @test Wicked.API.animate_value_as_state! === Wicked.animate_value_as_state!
+        @test Wicked.API.animation_provider === Wicked.animation_provider
+        @test Wicked.API.animated_value === Wicked.animated_value
+        @test Wicked.API.animated_value_status === Wicked.animated_value_status
+        @test Wicked.API.state_binding === Wicked.state_binding
+        @test Wicked.API.remember_binding! === Wicked.remember_binding!
+        @test Wicked.API.signal_binding === Wicked.signal_binding
+        @test Wicked.API.map_binding === Wicked.map_binding
+        @test Wicked.API.binding_value === Wicked.binding_value
+        @test Wicked.API.set_binding_value! === Wicked.set_binding_value!
+        @test Wicked.API.update_binding_value! === Wicked.update_binding_value!
+        @test Wicked.API.track_reactive_reads === Wicked.track_reactive_reads
+        @test Wicked.API.tracked_component === Wicked.tracked_component
+        @test Wicked.API.use_resource! === Wicked.use_resource!
+        @test Wicked.API.resource_content === Wicked.resource_content
+        @test Wicked.API.async_resource_component === Wicked.async_resource_component
+        @test Wicked.API.load_async_resource! === Wicked.load_async_resource!
+        @test Wicked.API.cancel_async_resource! === Wicked.cancel_async_resource!
+        @test Wicked.API.retry_async_resource! === Wicked.retry_async_resource!
+        @test Wicked.API.resource_status === Wicked.resource_status
+        @test Wicked.API.resource_value === Wicked.resource_value
+        @test Wicked.API.resource_failure === Wicked.resource_failure
+        @test Wicked.API.resource_generation === Wicked.resource_generation
+        @test Wicked.API.RememberedValue === Wicked.RememberedValue
+        @test Wicked.API.StatefulComponent === Wicked.StatefulComponent
+        @test Wicked.API.component === Wicked.component
+        @test Wicked.API.box_with_constraints === Wicked.box_with_constraints
+        @test Wicked.API.component_area === Wicked.component_area
+        @test Wicked.API.component_size === Wicked.component_size
+        @test Wicked.API.ClickableRegion === Wicked.ClickableRegion
+        @test Wicked.API.ClickableState === Wicked.ClickableState
+        @test Wicked.API.clickable === Wicked.clickable
+        @test Wicked.API.CombinedClickableRegion === Wicked.CombinedClickableRegion
+        @test Wicked.API.CombinedClickableState === Wicked.CombinedClickableState
+        @test Wicked.API.combined_clickable === Wicked.combined_clickable
+        @test Wicked.API.DragGestureKind === Wicked.DragGestureKind
+        @test Wicked.API.DragGesture === Wicked.DragGesture
+        @test Wicked.API.DraggableRegion === Wicked.DraggableRegion
+        @test Wicked.API.DraggableState === Wicked.DraggableState
+        @test Wicked.API.draggable === Wicked.draggable
+        @test Wicked.API.EventMessages === Wicked.EventMessages
+        @test Wicked.API.event_messages === Wicked.event_messages
+        @test Wicked.API.DragDropContext === Wicked.DragDropContext
+        @test Wicked.API.DragDropLocal === Wicked.DragDropLocal
+        @test Wicked.API.drag_drop_provider === Wicked.drag_drop_provider
+        @test Wicked.API.DragSourceRegion === Wicked.DragSourceRegion
+        @test Wicked.API.DragSourceState === Wicked.DragSourceState
+        @test Wicked.API.drag_source === Wicked.drag_source
+        @test Wicked.API.DropTargetRegion === Wicked.DropTargetRegion
+        @test Wicked.API.DropTargetState === Wicked.DropTargetState
+        @test Wicked.API.drop_target === Wicked.drop_target
+        @test Wicked.API.KeyInputRegion === Wicked.KeyInputRegion
+        @test Wicked.API.KeyInputState === Wicked.KeyInputState
+        @test Wicked.API.key_input === Wicked.key_input
+        @test Wicked.API.preview_key_input === Wicked.preview_key_input
+        @test Wicked.API.PointerInputRegion === Wicked.PointerInputRegion
+        @test Wicked.API.PointerInputState === Wicked.PointerInputState
+        @test Wicked.API.pointer_input === Wicked.pointer_input
+        @test Wicked.API.preview_pointer_input === Wicked.preview_pointer_input
+        @test Wicked.API.capture_pointer! === Wicked.capture_pointer!
+        @test Wicked.API.release_pointer! === Wicked.release_pointer!
+        @test Wicked.API.has_pointer_capture === Wicked.has_pointer_capture
+        @test Wicked.API.pointer_capture_target === Wicked.pointer_capture_target
+        @test Wicked.API.HoverableRegion === Wicked.HoverableRegion
+        @test Wicked.API.HoverableState === Wicked.HoverableState
+        @test Wicked.API.hoverable === Wicked.hoverable
+        @test Wicked.API.ToggleableRegion === Wicked.ToggleableRegion
+        @test Wicked.API.ToggleableState === Wicked.ToggleableState
+        @test Wicked.API.toggleable === Wicked.toggleable
+        @test Wicked.API.SelectableRegion === Wicked.SelectableRegion
+        @test Wicked.API.SelectableState === Wicked.SelectableState
+        @test Wicked.API.selectable === Wicked.selectable
+        @test Wicked.API.disposable_effect! === Wicked.disposable_effect!
+        @test Wicked.API.side_effect! === Wicked.side_effect!
+        @test Wicked.API.remember_updated! === Wicked.remember_updated!
+        @test Wicked.API.component_invalidated === Wicked.component_invalidated
+        @test Wicked.API.component_slots === Wicked.component_slots
+        @test Wicked.API.component_value === Wicked.component_value
+        @test Wicked.API.component_version === Wicked.component_version
+        @test Wicked.API.composition_local === Wicked.composition_local
+        @test Wicked.API.composition_value === Wicked.composition_value
+        @test Wicked.API.error_boundary === Wicked.error_boundary
+        @test Wicked.API.boundary_failed === Wicked.boundary_failed
+        @test Wicked.API.boundary_failure === Wicked.boundary_failure
+        @test Wicked.API.retry_error_boundary! === Wicked.retry_error_boundary!
+        @test Wicked.API.remember! === Wicked.remember!
+        @test Wicked.API.derived_remember! === Wicked.derived_remember!
+        @test Wicked.API.remembered_value === Wicked.remembered_value
+        @test Wicked.API.remembered_version === Wicked.remembered_version
+        @test Wicked.API.set_remembered_value! === Wicked.set_remembered_value!
+        @test Wicked.API.update_remembered_value! === Wicked.update_remembered_value!
+        @test Wicked.API.set_component_value! === Wicked.set_component_value!
+        @test Wicked.API.update_component_value! === Wicked.update_component_value!
+        @test Wicked.API.invalidate_component! === Wicked.invalidate_component!
+        @test Wicked.API.clear_component_invalidation! === Wicked.clear_component_invalidation!
+        @test Wicked.API.invalidate_toolkit! === Wicked.invalidate_toolkit!
+        @test Wicked.API.clear_toolkit_invalidation! === Wicked.clear_toolkit_invalidation!
+        @test Wicked.API.toolkit_invalidated === Wicked.toolkit_invalidated
+        @test Wicked.API.use_effect! === Wicked.use_effect!
+        @test Wicked.API.clear_component_effects! === Wicked.clear_component_effects!
+        @test Wicked.API.provide_context === Wicked.provide_context
+        @test Wicked.API.slot === Wicked.slot
+        @test Wicked.API.has_slot === Wicked.has_slot
+        @test Wicked.API.slot_names === Wicked.slot_names
+        @test Wicked.API.use_reactive! === Wicked.use_reactive!
+        @test Wicked.API.reactive_component === Wicked.reactive_component
         @test Wicked.API.row === Wicked.row
         @test Wicked.API.RoutedEvent === Wicked.RoutedEvent
         @test Wicked.API.run === Wicked.run
@@ -143,10 +315,10 @@ end
         @test Wicked.API.pilot_semantic_tree === Wicked.pilot_semantic_tree
         @test Wicked.API.assert_semantic_snapshot(pilot, Wicked.API.pilot_semantic_snapshot(pilot)) === pilot
         @test Wicked.API.assert_semantic_snapshot(pilot, Wicked.API.pilot_semantic_tree(pilot)) === pilot
-        @test Wicked.API.assert_semantic_query(pilot, Wicked.API.SemanticQuery(role=Wicked.API.ButtonRole)) === pilot
-        @test Wicked.API.query_one_semantic(pilot, Wicked.API.SemanticQuery(role=Wicked.API.ButtonRole)).id == "widget"
-        @test Wicked.API.Heading isa DataType
-        @test Wicked.API.MarkupText isa DataType
+        @test Wicked.API.assert_semantic_query(pilot, Wicked.API.SemanticQuery(role=Wicked.API.GenericRole)) === pilot
+        @test Wicked.API.query_one_semantic(pilot, Wicked.API.SemanticQuery(role=Wicked.API.GenericRole)).id == "widget"
+        @test Wicked.API.Heading isa UnionAll
+        @test Wicked.API.MarkupText isa UnionAll
         @test Wicked.API.Heading === Wicked.Widgets.Heading
         @test Wicked.API.MarkupText === Wicked.Widgets.MarkupText
         markup = Wicked.API.MarkupText("# Stable\n\n**ready**"; width=32)
@@ -239,6 +411,30 @@ end
         result = UpdateResult(:next; command=NoCommand(), redraw=false)
         @test result.model == :next
         @test result.command isa NoCommand
+        @test SequenceCommand(MessageCommand(:one), MessageCommand(:two)).commands ==
+              AbstractCommand[MessageCommand(:one), MessageCommand(:two)]
+        event_subscription = EventSubscription(:events, _ -> nothing; revision=1)
+        @test event_subscription.id == :events
+        @test event_subscription.revision == 1
+        @test signal_subscription(:signal, Signal(1)) isa EventSubscription
+        source = Channel{Int}(1)
+        @test channel_subscription(:channel, source) isa EventSubscription
+        close(source)
+        @test file_subscription(:file, "Project.toml") isa EventSubscription
+        @test FileWatchEvent("Project.toml", false, true).changed
+        process_stream = process_subscription(:process, `echo ok`)
+        @test process_stream isa EventSubscription
+        @test ProcessStreamChunk(:process, :stdout, UInt8[0x61]).stream == :stdout
+        @test ProcessStreamExit(:process, `echo ok`, 0).exit_code == 0
+        application_view = ApplicationView(
+            Label("view");
+            title="contract",
+            cursor=nothing,
+            alternate_screen=true,
+        )
+        @test application_view.title == "contract"
+        @test application_view.modes.alternate_screen === true
+        @test application_view.cursor === nothing
         @test !result.redraw
         process = execute_process(ProcessCommand(Cmd(["printf", "ok"])))
         @test process_succeeded(process)
@@ -452,6 +648,32 @@ end
         @test any(change -> change.kind == RemovedSemanticNode && change.node_id == "save", changes)
         @test occursin("RemovedSemanticNode save", semantic_pilot_snapshot(pilot; include_changes=true))
 
+        ordered_before = SemanticTree(SemanticNode(
+            "root",
+            ApplicationRole;
+            children=[
+                SemanticNode("p1", GroupRole; children=[SemanticNode("x", ParagraphRole; label="old")]),
+                SemanticNode("z", ParagraphRole),
+            ],
+        ))
+        ordered_after = SemanticTree(SemanticNode(
+            "root",
+            ApplicationRole;
+            children=[
+                SemanticNode("p2", GroupRole; children=[SemanticNode("x", ParagraphRole; label="new")]),
+                SemanticNode("a", ParagraphRole),
+            ],
+        ))
+        ordered_changes = diff_semantics(ordered_before, ordered_after)
+        @test [(change.kind, change.node_id) for change in ordered_changes] == [
+            (RemovedSemanticNode, "p1"),
+            (RemovedSemanticNode, "z"),
+            (AddedSemanticNode, "a"),
+            (AddedSemanticNode, "p2"),
+            (MovedSemanticNode, "x"),
+            (UpdatedSemanticNode, "x"),
+        ]
+
         unregister_semantic_handler!(dispatcher, "save")
         @test !dispatch_semantic_action!(
             dispatcher,
@@ -464,6 +686,19 @@ end
         add_progress_task!(tracker, :build; description="Build", total=10)
         advance_progress!(tracker, :build, 4)
         snapshot = progress_snapshot(tracker, :build; now_ns=1_000)
+
+        add_progress_task!(tracker, :archive; description="Archive", total=1)
+        add_progress_task!(tracker, :test; description="Test", total=1)
+        @test getfield.(progress_snapshots(tracker; now_ns=1_000), :id) ==
+              [:archive, :build, :test]
+        add_progress_task!(tracker, :analyze; description="Analyze", total=1)
+        @test getfield.(progress_snapshots(tracker; now_ns=1_000), :id) ==
+              [:analyze, :archive, :build, :test]
+        @test remove_progress_task!(tracker, :archive)
+        @test getfield.(progress_snapshots(tracker; now_ns=1_000), :id) ==
+              [:analyze, :build, :test]
+        add_progress_task!(tracker, :build; description="Rebuild", total=10, replace=true)
+        @test progress_snapshots(tracker; now_ns=1_000)[2].description == "Rebuild"
 
         line = render_progress_control(snapshot; width=32)
         @test !isempty(line.spans)
@@ -591,7 +826,7 @@ end
         snapshot = table_layout_snapshot(layout)
         @test snapshot.search == "alp"
         @test restore_table_layout!(layout, snapshot) === layout
-        layout_source = QueryDataSource(data; key=(row, _) -> row.id, search_text=row -> row.name)
+        layout_source = QueryDataSource(rows; key=(row, _) -> row.id, search_text=row -> row.name)
         @test apply_virtual_table_query!(layout_source, layout) === layout_source
         @test query_data_source(layout_source).search == "alp"
         laid_out = apply_virtual_table_layout(columns, layout)
@@ -610,13 +845,13 @@ end
             VirtualRowAction(:open, "Open"; handler=(row, index, key) -> (key, row.name)),
             VirtualRowAction(:disabled, "Disabled"; enabled=false),
         ]
-        @test virtual_row_action_enabled(first(row_actions), data[1], 1; key=data[1].id)
-        @test length(virtual_row_action_menu(row_actions, data[1], 1; key=data[1].id)) == 1
-        row_action = invoke_virtual_row_action(row_actions, :open, data[1], 1; key=data[1].id)
+        @test virtual_row_action_enabled(first(row_actions), rows[1], 1; key=rows[1].id)
+        @test length(virtual_row_action_menu(row_actions, rows[1], 1; key=rows[1].id)) == 1
+        row_action = invoke_virtual_row_action(row_actions, :open, rows[1], 1; key=rows[1].id)
         @test row_action isa VirtualRowActionResult
         @test row_action.handled
         @test row_action.action == :open
-        @test !invoke_virtual_row_action(row_actions, :disabled, data[1], 1; key=data[1].id).handled
+        @test !invoke_virtual_row_action(row_actions, :disabled, rows[1], 1; key=rows[1].id).handled
         resize = begin_virtual_column_resize(layout, :name, 1)
         @test update_virtual_column_resize!(layout, resize, 4) == 13
         @test finish_virtual_column_resize!(resize) == 13
@@ -737,6 +972,20 @@ end
         document = parse_markdown("[docs](https://example.test)\n\n```julia\nx = 1\n```")
         @test document isa MarkdownDocument
         @test !isempty(document.blocks)
+
+        inline_document = parse_markdown("α plain\\* **bold** [link](docs)")
+        inline_nodes = only(inline_document.blocks).children
+        @test inline_nodes[1] isa PlainText
+        @test inline_nodes[1].value == "α plain* "
+        @test inline_nodes[1].source.start == SourcePosition(1, 1)
+        @test inline_nodes[1].source.stop == SourcePosition(1, 11)
+        @test inline_nodes[2] isa StrongInline
+        @test only(inline_nodes[2].children).value == "bold"
+        @test inline_nodes[4] isa MarkdownLink
+        @test all(
+            index -> !(inline_nodes[index] isa PlainText && inline_nodes[index + 1] isa PlainText),
+            1:(length(inline_nodes) - 1),
+        )
 
         rendered = render_markdown(document; width=40)
         @test rendered isa RichDocument
@@ -1558,7 +1807,7 @@ end
             MenuItem(:home, "Home", :home),
             MenuItem(:settings, "Settings", :settings),
         ])
-        rail_state = NavigationRailState()
+        rail_state = state_for(rail)
         @test selected_navigation_item(rail, rail_state).message == :home
         @test select_next_navigation_item!(rail_state, rail) === rail_state
         @test selected_navigation_message(rail, rail_state) == :settings
@@ -1667,7 +1916,7 @@ end
         @test grid_element.layout isa GridLayout
         @test length(grid_element.children) == 2
 
-        stack_element = stack(first_child, second_child; id="stack")
+        stack_element = Wicked.API.stack(first_child, second_child; id="stack")
         @test stack_element.id == "stack"
         @test stack_element.layout == :stack
         @test length(stack_element.children) == 2
@@ -1693,6 +1942,8 @@ end
         @test routed.current == :current
         @test routed.phase == TargetPhase
         @test BubblePhase isa EventPhase
+        @test CapturePhase isa EventPhase
+        @test capture_phase === CapturePhase
 
         response = EventResponse(consumed=true, stop_propagation=true, message=:activated, focus=:next)
         @test response.consumed
@@ -1757,7 +2008,7 @@ end
         render!(Buffer(1, 24), focus_only_tree, Rect(1, 1, 1, 24))
         @test focus!(focus_only_tree.state.focus, :focus_only)
         focus_only_dispatch = dispatch!(focus_only_tree, KeyEvent(Key(:enter)))
-        @test !focus_only_dispatch.consumed
+        @test focus_only_dispatch.consumed
         @test focus_only_dispatch.redraw
         @test focused(focus_only_tree.state.focus) == :focus_target
 
@@ -1777,8 +2028,8 @@ end
         render!(Buffer(1, 12), stable_focus_tree, Rect(1, 1, 1, 12))
         @test focus!(stable_focus_tree.state.focus, :stable_focus)
         stable_focus_dispatch = dispatch!(stable_focus_tree, KeyEvent(Key(:enter)))
-        @test !stable_focus_dispatch.consumed
-        @test !stable_focus_dispatch.redraw
+        @test stable_focus_dispatch.consumed
+        @test stable_focus_dispatch.redraw
         @test focused(stable_focus_tree.state.focus) == :stable_focus
 
         tab_focus_source = Element(
@@ -2211,6 +2462,9 @@ end
         @test record_input!(metrics, 2) === metrics
         @test record_command!(metrics, 3) === metrics
         @test record_dropped_event!(metrics, 1) === metrics
+        @test_throws ArgumentError record_input!(metrics, -1)
+        @test_throws ArgumentError record_command!(metrics, -1)
+        @test_throws ArgumentError record_dropped_event!(metrics, -1)
         snapshot = metrics_snapshot(metrics)
         @test snapshot isa MetricsSnapshot
         @test snapshot.frames_total == 1
@@ -2232,7 +2486,12 @@ end
         @test hub_snapshot.input_events_total == 1
         @test hub_snapshot.commands_total == 1
         @test hub_snapshot.dropped_events_total == 2
-        @test !isempty(trace_events(hub.traces))
+        hub_traces = trace_events(hub.traces)
+        @test !isempty(hub_traces)
+        input_trace = only(filter(event -> event.category == :input, hub_traces))
+        command_trace = only(filter(event -> event.name == :command, hub_traces))
+        @test input_trace.metadata[:event] isa KeyEvent
+        @test command_trace.metadata[:command] === :save
 
         inspector = DeveloperInspector(visible=true, max_trace_rows=3)
         @test toggle_inspector!(inspector) === inspector
@@ -2724,6 +2983,15 @@ end
         invalidate_reactive_element!(element; kinds=(LayoutInvalidation,))
         @test any(item -> LayoutInvalidation in item.kinds, take_invalidations!(queue))
 
+        retained_reactive = reactive_element("retained", value -> "count=$value", [count])
+        retained_tree = ToolkitTree(reactive_component(retained_reactive; id=:retained_reactive))
+        render_toolkit!(Frame(Buffer(1, 16)), retained_tree)
+        set_signal!(count, 4)
+        @test toolkit_invalidated(retained_tree)
+        retained_tree.root = Wicked.element(Label("removed"))
+        render_toolkit!(Frame(Buffer(1, 16)), retained_tree)
+        @test retained_reactive.disposed
+
         classes = ReactiveClassSet("counter"; queue=queue)
         bind_reactive_class!(classes, "positive", count; predicate=value -> value > 0)
         @test reactive_classes(classes) == ["positive"]
@@ -3143,6 +3411,64 @@ end
 
         event = KeyEvent(Key(:s); modifiers=CTRL)
         @test resolve_action_binding(registry, event, context) == :save
+
+        dispatch_registry = ActionRegistry()
+        predicate_calls = Dict(:visible => 0, :enabled => 0, :checked => 0, :unrelated => 0)
+        register_action!(
+            dispatch_registry,
+            Action(
+                :candidate,
+                "Candidate",
+                _ -> :candidate;
+                visible=_ -> (predicate_calls[:visible] += 1; true),
+                enabled=_ -> (predicate_calls[:enabled] += 1; true),
+                checked=_ -> (predicate_calls[:checked] += 1; true),
+                bindings=[ActionBinding(:s; modifiers=CTRL)],
+            ),
+        )
+        register_action!(
+            dispatch_registry,
+            Action(
+                :unrelated,
+                "Unrelated",
+                _ -> :unrelated;
+                visible=_ -> (predicate_calls[:unrelated] += 1; true),
+                bindings=[ActionBinding(:x)],
+            ),
+        )
+        @test resolve_action_binding(dispatch_registry, event, context) == :candidate
+        @test predicate_calls == Dict(:visible => 1, :enabled => 1, :checked => 0, :unrelated => 0)
+
+        mutation_registry = ActionRegistry()
+        added_during_resolution = Ref(false)
+        register_action!(
+            mutation_registry,
+            Action(
+                :mutator,
+                "Mutator",
+                _ -> :mutator;
+                visible=_ -> begin
+                    if !added_during_resolution[]
+                        added_during_resolution[] = true
+                        register_action!(
+                            mutation_registry,
+                            Action(
+                                :late,
+                                "Late",
+                                _ -> :late;
+                                bindings=[ActionBinding(:s; modifiers=CTRL, priority=100)],
+                            ),
+                        )
+                    end
+                    true
+                end,
+                bindings=[ActionBinding(:s; modifiers=CTRL, priority=1)],
+            ),
+        )
+        @test resolve_action_binding(mutation_registry, event, context) == :mutator
+        @test added_during_resolution[]
+        @test resolve_action_binding(mutation_registry, event, context) == :late
+
         @test invoke_key_action!(registry, event, context).status == ActionInvoked
         key_diagnostics = invoke_key_action_diagnostics!(registry, event, context)
         @test key_diagnostics isa ActionWorkflowDiagnostics
@@ -3484,7 +3810,7 @@ end
         @test upsert_binding_layer!(mutable_stack, replacement_modal) === mutable_stack
         @test binding_stack_layer(mutable_stack, :modal) === replacement_modal
         @test_throws ArgumentError upsert_binding_layer!(mutable_stack, BindingLayer(:bad); position=:middle)
-        @test remove_binding_layer!(mutable_stack, :screen) === screen_layer
+        @test remove_binding_layer!(mutable_stack, :screen) === replacement_screen
         @test binding_stack_layer(mutable_stack, :screen) === nothing
         @test remove_binding_layer!(mutable_stack, :missing) === nothing
         @test resolve_binding_layer(screen_layer, KeyEvent(Key(:h))).layer == :screen
@@ -3841,6 +4167,25 @@ end
         @test ease_out_cubic(0.0) == 0.0
         @test ease_in_out_cubic(1.0) == 1.0
         @test ease_out_back(1.0) == 1.0
+        for easing in (
+            linear_easing,
+            ease_in_quad,
+            ease_out_quad,
+            ease_in_out_quad,
+            ease_in_cubic,
+            ease_out_cubic,
+            ease_in_out_cubic,
+            ease_out_back,
+        ), progress in (0.0, 0.25, 0.5, 0.75, 1.0)
+            eased_track = AnimationTrack(0.0, 1.0; easing)
+            @test sample_animation(eased_track, progress) ≈ easing(progress)
+        end
+        custom_easing = value -> sqrt(value)
+        @test sample_animation(AnimationTrack(0.0, 1.0; easing=custom_easing), 0.25) == 0.5
+        @test_throws ArgumentError sample_animation(
+            AnimationTrack(0.0, 1.0; easing=_ -> NaN),
+            0.5,
+        )
 
         updates_seen = Int[]
         finishes = Tuple{AnimationHandle,AnimationEndReason,Any}[]
@@ -3900,6 +4245,23 @@ end
         @test cancel_animation!(manager, cancel_handle)
         @test cancelled == [AnimationCancelled]
         @test !cancel_animation!(manager, cancel_handle)
+
+        concurrent_manager = AnimationManager(clock=() -> 0)
+        second_ref = Ref{Union{Nothing,AnimationHandle}}(nothing)
+        first_concurrent = animate!(
+            concurrent_manager,
+            AnimationSpec(AnimationTrack(0.0, 1.0); duration=1.0);
+            on_update=_ -> cancel_animation!(concurrent_manager, something(second_ref[])),
+            now_ns=0,
+        )
+        second_ref[] = animate!(
+            concurrent_manager,
+            AnimationSpec(AnimationTrack(0.0, 1.0); duration=1.0);
+            now_ns=0,
+        )
+        concurrent_updates = tick_animations!(concurrent_manager; now_ns=500_000_000)
+        @test getfield.(concurrent_updates, :handle) == [first_concurrent]
+        @test animation_status(concurrent_manager, something(second_ref[])) === nothing
 
         set_motion_policy!(manager, DisabledMotion)
         disabled_values = Int[]
@@ -3989,6 +4351,22 @@ end
         register_focus!(registry, :hidden, Rect(2, 8, 1, 4); hidden=true)
         @test focus_count(registry) == 3
         @test focus_order(registry) == Any[:top, :left, :right]
+        tied = FocusRegistry()
+        register_focus!(tied, :late, Rect(1, 1, 1, 1); tab_index=2)
+        register_focus!(tied, :first_tie, Rect(1, 2, 1, 1); tab_index=1)
+        register_focus!(tied, :second_tie, Rect(1, 3, 1, 1); tab_index=1)
+        register_focus!(tied, :ignored_disabled, Rect(1, 4, 1, 1); tab_index=0, disabled=true)
+        @test focus_order(tied) == Any[:first_tie, :second_tie, :late]
+        @test focus_previous!(tied)
+        @test focused(tied) == :late
+        @test focus_next!(tied)
+        @test focused(tied) == :first_tie
+        @test focus_next!(tied)
+        @test focused(tied) == :second_tie
+        @test focus_next!(tied)
+        @test focused(tied) == :late
+        @test focus_next!(tied)
+        @test focused(tied) == :first_tie
         @test focus_index(registry) === nothing
         empty_snapshot = focus_snapshot(registry)
         @test empty_snapshot isa FocusSnapshot

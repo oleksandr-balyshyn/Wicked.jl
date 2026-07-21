@@ -97,6 +97,31 @@ AnimationTrack(from::T, to::T; easing=linear_easing, interpolation=interpolate_v
         interpolation,
     )
 
+function _sample_animation_easing(easing, progress::Float64)::Float64
+    value = if easing === linear_easing
+        linear_easing(progress)
+    elseif easing === ease_in_quad
+        ease_in_quad(progress)
+    elseif easing === ease_out_quad
+        ease_out_quad(progress)
+    elseif easing === ease_in_out_quad
+        ease_in_out_quad(progress)
+    elseif easing === ease_in_cubic
+        ease_in_cubic(progress)
+    elseif easing === ease_out_cubic
+        ease_out_cubic(progress)
+    elseif easing === ease_in_out_cubic
+        ease_in_out_cubic(progress)
+    elseif easing === ease_out_back
+        ease_out_back(progress)
+    else
+        easing(progress)
+    end
+    value isa Real && isfinite(value) ||
+        throw(ArgumentError("animation easing must return a finite real value"))
+    return Float64(value)
+end
+
 function sample_animation(track::AnimationTrack, progress::Real)
     position = clamp(Float64(progress), 0.0, 1.0)
     position == 1.0 && return last(track.keyframes).value
@@ -105,10 +130,10 @@ function sample_animation(track::AnimationTrack, progress::Real)
     left = track.keyframes[index]
     right = track.keyframes[index + 1]
     local_progress = (position - left.offset) / (right.offset - left.offset)
-    eased = left.easing(local_progress)
-    eased isa Real && isfinite(eased) ||
-        throw(ArgumentError("animation easing must return a finite real value"))
-    return track.interpolation(left.value, right.value, Float64(eased))
+    eased = _sample_animation_easing(left.easing, local_progress)
+    track.interpolation === interpolate_value &&
+        return interpolate_value(left.value, right.value, eased)
+    return track.interpolation(left.value, right.value, eased)
 end
 
 @enum AnimationDirection::UInt8 begin
@@ -403,10 +428,21 @@ end
 function tick_animations!(manager::AnimationManager; now_ns=nothing)
     now = now_ns === nothing ? _animation_now(manager) : UInt64(now_ns)
     snapshots = lock(manager.mutex) do
-        sort!(collect(values(manager.entries)); by=entry -> entry.handle.id)
+        sort!(
+            Tuple{AnimationHandle,UInt64}[
+                (entry.handle, entry.revision) for entry in values(manager.entries)
+            ];
+            by=snapshot -> snapshot[1].id,
+        )
     end
     updates = AnimationUpdate[]
-    for snapshot in snapshots
+    sizehint!(updates, length(snapshots))
+    for (handle, revision) in snapshots
+        snapshot = lock(manager.mutex) do
+            current = get(manager.entries, handle, nothing)
+            current !== nothing && current.revision == revision ? current : nothing
+        end
+        snapshot === nothing && continue
         snapshot.status == PausedAnimation && continue
         sample = try
             _sample_animation_entry(snapshot, now)

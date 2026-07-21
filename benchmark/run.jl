@@ -66,8 +66,18 @@ end
 
 function unicode_cases()
     text = repeat("Julia 界 e\u0301 👩‍💻 ", 2_000)
+    paragraph_source = join(
+        ("row $index alpha βeta verylong界word and more words" for index in 1:500),
+        '\n',
+    )
+    paragraph = Paragraph(paragraph_source)
+    paragraph_buffer = Buffer(500, 40)
     return WickedBenchmark[
         WickedBenchmark("unicode_width_large", "text", () -> text_width(text)),
+        WickedBenchmark("paragraph_wrap_500_lines", "text", function ()
+            render!(paragraph_buffer, paragraph, paragraph_buffer.area)
+            paragraph_buffer[500, 1].grapheme
+        end),
     ]
 end
 
@@ -146,6 +156,16 @@ function service_scaling_cases()
     ]
     routing_pilot = ToolkitPilot(column(routed_elements...); height=24, width=80)
     focus_element!(routing_pilot, :action_1)
+    traversal_focus = FocusRegistry()
+    for index in 1:128
+        register_focus!(
+            traversal_focus,
+            Symbol("focus_$index"),
+            Rect(1, index, 1, 1);
+            tab_index=mod1(index, 7),
+        )
+    end
+    focus_first!(traversal_focus)
 
     return WickedBenchmark[
         WickedBenchmark("action_resolution_256_bindings", "actions", function ()
@@ -156,6 +176,9 @@ function service_scaling_cases()
         end),
         WickedBenchmark("toolkit_route_tab_128_elements", "events", function ()
             key!(routing_pilot, :tab)
+        end),
+        WickedBenchmark("focus_traversal_128_mixed_indices", "events", function ()
+            focus_next!(traversal_focus)
         end),
     ]
 end

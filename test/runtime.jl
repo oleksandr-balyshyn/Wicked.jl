@@ -72,10 +72,11 @@ function update!(::RuntimeCancellationRaceApp, model::RuntimeCancellationRaceMod
         model.requested += 1
         request_id = model.requested
         return TaskCommand(
-            () -> begin
-                while !model.release[]
+            token -> begin
+                while !model.release[] && !token.cancelled
                     yield()
                 end
+                token.cancelled && return request_id
                 sleep(0.005)
                 request_id
             end;
@@ -84,10 +85,10 @@ function update!(::RuntimeCancellationRaceApp, model::RuntimeCancellationRaceMod
             on_error=_ -> (:failed, request_id),
             replace=true,
         )
-    elseif message == :cancel
+    elseif message isa CustomEvent && message.payload == :cancel
         return CancelCommand(:search)
-    elseif message isa Tuple{Symbol,Int,Int}
-        message[1] == :completed && (model.completed += 1; model.latest_request = message[2])
+    elseif message isa CommandFinished && message.value isa Tuple{Symbol,Int,Int}
+        message.value[1] == :completed && (model.completed += 1; model.latest_request = message.value[2])
         return nothing
     elseif message isa Tuple{Symbol,Int}
         message[1] == :failed && (model.failed += 1)
@@ -97,6 +98,84 @@ function update!(::RuntimeCancellationRaceApp, model::RuntimeCancellationRaceMod
 end
 
 struct RuntimeBatchApp <: WickedApp end
+
+struct RuntimeSequenceApp <: WickedApp end
+
+mutable struct DeclarativeApplicationViewModel
+    phase::Int
+end
+
+struct DeclarativeApplicationViewApp <: WickedApp end
+
+initialize(::DeclarativeApplicationViewApp) = DeclarativeApplicationViewModel(0)
+
+function app_view(::DeclarativeApplicationViewApp, model::DeclarativeApplicationViewModel)
+    enabled = model.phase == 0
+    ApplicationView(
+        Label(enabled ? "first" : "second");
+        title=enabled ? "Wicked: first" : "Wicked: second",
+        cursor=enabled ? CursorRequest(Position(1, 2); shape=BarCursor) : nothing,
+        alternate_screen=enabled,
+        mouse_capture=enabled,
+        mouse_tracking=AnyMotionTracking,
+        focus_reporting=enabled,
+        bracketed_paste=enabled,
+    )
+end
+
+
+function update!(
+    ::DeclarativeApplicationViewApp,
+    model::DeclarativeApplicationViewModel,
+    message,
+)
+    if message isa CustomEvent && message.payload === :next
+        model.phase = 1
+    elseif message isa CustomEvent && message.payload === :quit
+        return ExitCommand(model.phase)
+    end
+    nothing
+end
+
+mutable struct RuntimeSequenceModel
+    trace::Vector{Symbol}
+end
+
+initialize(::RuntimeSequenceApp) = RuntimeSequenceModel(Symbol[])
+app_view(::RuntimeSequenceApp, model) = Label(join(model.trace, ','))
+
+function update!(::RuntimeSequenceApp, model::RuntimeSequenceModel, message)
+    if message isa CustomEvent && message.payload == :start
+        return SequenceCommand(
+            TaskCommand(() -> begin
+                push!(model.trace, :first_started)
+                sleep(0.02)
+                push!(model.trace, :first_finished)
+                :first_message
+            end),
+            BatchCommand(
+                TaskCommand(() -> begin
+                    sleep(0.01)
+                    push!(model.trace, :batch_one_finished)
+                    :batch_one_message
+                end),
+                TaskCommand(() -> begin
+                    sleep(0.015)
+                    push!(model.trace, :batch_two_finished)
+                    :batch_two_message
+                end),
+            ),
+            TaskCommand(() -> begin
+                push!(model.trace, :last_started)
+                :last_message
+            end),
+        )
+    elseif message isa Symbol
+        push!(model.trace, message)
+        message == :last_message && return ExitCommand(copy(model.trace))
+    end
+    nothing
+end
 
 struct RuntimeShutdownStressApp <: WickedApp end
 
@@ -115,10 +194,11 @@ function update!(::RuntimeShutdownStressApp, model::RuntimeShutdownStressModel, 
         model.requested += 1
         request_id = model.requested
         return TaskCommand(
-            () -> begin
-                while !model.released[]
+            token -> begin
+                while !model.released[] && !token.cancelled
                     yield()
                 end
+                token.cancelled && return request_id
                 sleep(0.2)
                 request_id
             end;
@@ -126,8 +206,8 @@ function update!(::RuntimeShutdownStressApp, model::RuntimeShutdownStressModel, 
             on_success=value -> (:finished, request_id, value),
             replace=true,
         )
-    elseif message isa Tuple{Symbol,Int,Int}
-        message[1] == :finished && (model.completed += 1)
+    elseif message isa CommandFinished && message.value isa Tuple{Symbol,Int,Int}
+        message.value[1] == :finished && (model.completed += 1)
         return nothing
     elseif message == :tick
         model.ticks += 1
@@ -195,6 +275,63 @@ end
         @test result == 1
     end
 
+    @testset "sequence commands preserve completion and message order" begin
+        trace = run(
+            RuntimeSequenceApp();
+            terminal=Terminal(TestBackend(1, 80)),
+            input_source=runtime_source(CustomEvent(:start)),
+        )
+        @test findfirst(==(:first_finished), trace) < findfirst(==(:first_message), trace)
+        @test findfirst(==(:first_message), trace) < findfirst(==(:last_started), trace)
+        @test findfirst(==(:batch_one_finished), trace) < findfirst(==(:last_started), trace)
+        @test findfirst(==(:batch_two_finished), trace) < findfirst(==(:last_started), trace)
+        @test trace[end-1:end] == [:last_started, :last_message]
+    end
+
+    @testset "declarative application view diffs terminal presentation" begin
+        output = IOBuffer()
+        capabilities = TerminalCapabilities(
+            mouse=true,
+            focus=true,
+            bracketed_paste=true,
+            terminal_title=true,
+        )
+        backend = AnsiBackend(
+            IOBuffer(),
+            output;
+            capabilities,
+            options=TerminalOptions(
+                raw_mode=false,
+                alternate_screen=false,
+                hide_cursor=false,
+                mouse_capture=false,
+                focus_reporting=false,
+                bracketed_paste=false,
+            ),
+            controller=NoopTerminalController(),
+            size=Size(1, 12),
+        )
+        result = run(
+            DeclarativeApplicationViewApp();
+            terminal=Terminal(backend),
+            input_source=runtime_source(CustomEvent(:next), CustomEvent(:quit)),
+        )
+        rendered = String(take!(output))
+        @test result == 1
+        @test occursin("\e]2;Wicked: first\e\\", rendered)
+        @test occursin("\e]2;Wicked: second\e\\", rendered)
+        @test occursin("\e[?1049h", rendered)
+        @test occursin("\e[?1049l", rendered)
+        @test occursin("\e[?2004h", rendered)
+        @test occursin("\e[?2004l", rendered)
+        @test occursin("\e[?1004h", rendered)
+        @test occursin("\e[?1004l", rendered)
+        @test occursin("\e[?1003h", rendered)
+        @test occursin("\e[?1006l", rendered)
+        @test occursin("\e[6 q", rendered)
+        @test occursin("\e[?25l", rendered)
+    end
+
     @testset "worker success and failure" begin
         success = run(
             RuntimeWorkerApp();
@@ -246,8 +383,9 @@ end
         for _ in 1:64
             post_event!(source, CustomEvent(:work))
         end
+        @test timedwait(() -> model.requested == 64, 5.0) == :ok
         model.release[] = true
-        sleep(0.02)
+        @test timedwait(() -> model.completed == 1, 5.0) == :ok
         request_exit!(runtime, :done)
         @test fetch(task) == :done
         @test model.requested == 64
@@ -266,10 +404,9 @@ end
         )
         task = run_async(runtime)
         post_event!(source, CustomEvent(:work))
-        model.release[] = true
-        sleep(0.001)
-        post_event!(source, :cancel)
-        sleep(0.01)
+        @test timedwait(() -> model.requested == 1, 5.0) == :ok
+        post_event!(source, CustomEvent(:cancel))
+        @test timedwait(() -> isempty(runtime.commands), 5.0) == :ok
         request_exit!(runtime, :done)
         @test fetch(task) == :done
         @test model.requested == 1
@@ -293,8 +430,8 @@ end
         for _ in 1:24
             post_event!(source, CustomEvent(:work))
         end
-        sleep(0.01)
-        post_event!(source, :done)
+        @test timedwait(() -> model.requested == 24, 5.0) == :ok
+        post_event!(source, CustomEvent(:done))
         request_exit!(runtime, :done)
         @test fetch(task) == :done
         sleep(0.05)

@@ -98,7 +98,8 @@ function _progress_group_line(snapshot::ProgressSnapshot, width::Int, phase::Int
     label = isempty(snapshot.description) ? string(snapshot.id) : snapshot.description
     suffix = snapshot.ratio === nothing ? " ..." : " $(round(Int, snapshot.ratio * 100))%"
     show_eta && snapshot.eta_seconds !== nothing && (suffix *= " eta $(round(Int, snapshot.eta_seconds))s")
-    bar_width = max(3, width - min(width - 3, text_width(label * suffix) + 1))
+    # Reserve two brackets plus the separating space before sizing the bar.
+    bar_width = max(3, width - min(width - 3, text_width(label * suffix) + 3))
     if snapshot.ratio === nothing
         start = mod(phase, bar_width)
         bar = join(index == start + 1 ? "#" : "-" for index in 1:bar_width)
@@ -112,9 +113,9 @@ end
 function render!(buffer::Buffer, widget::ProgressGroup, area::Rect, state::ProgressGroupState)
     active = intersection(buffer.area, Rect(area.row, area.column, min(area.height, widget.height), min(area.width, widget.width)))
     isempty(active) && return buffer
-    snapshots = progress_snapshots(widget.tracker)
-    state.offset = clamp(state.offset, 0, max(0, length(snapshots) - active.height))
-    for (offset, snapshot) in enumerate(snapshots[(state.offset + 1):min(length(snapshots), state.offset + active.height)])
+    snapshots, _, state.offset =
+        _visible_progress_snapshots(widget.tracker, state.offset, active.height)
+    for (offset, snapshot) in enumerate(snapshots)
         draw_text!(buffer, active.row + offset - 1, active.column, _progress_group_line(snapshot, active.width, state.phase, widget.show_eta); clip=active)
     end
     return buffer
@@ -126,7 +127,7 @@ function handle!(state::ProgressGroupState, widget::ProgressGroup, event::TickEv
 end
 function handle!(state::ProgressGroupState, widget::ProgressGroup, event::KeyEvent)
     event.kind in (KeyPress, KeyRepeat) || return false
-    maximum = max(0, length(progress_snapshots(widget.tracker)) - widget.height)
+    maximum = max(0, _progress_task_count(widget.tracker) - widget.height)
     if event.key.code == :up
         state.offset = max(0, state.offset - 1)
     elseif event.key.code == :down
@@ -175,7 +176,7 @@ function register_progress_group_semantic_handlers!(
 )
     node_id = string(id)
     Accessibility.register_semantic_handler!(dispatcher, node_id, function (request)
-        maximum = max(0, length(progress_snapshots(widget.tracker)) - widget.height)
+        maximum = max(0, _progress_task_count(widget.tracker) - widget.height)
         if request.action == Accessibility.FocusSemanticAction || request.action == Accessibility.ScrollIntoViewSemanticAction
             state.offset = clamp(state.offset, 0, maximum)
             return Accessibility.SemanticActionResult(true; value=state.offset)

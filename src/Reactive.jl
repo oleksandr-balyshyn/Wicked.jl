@@ -1,5 +1,7 @@
 module Reactive
 
+using ..Runtime: EventSubscription
+
 export ReactiveRuntime,
        AbstractReactive,
        Signal,
@@ -7,6 +9,7 @@ export ReactiveRuntime,
        set_signal!,
        update_signal!,
        signal_version,
+       signal_subscription,
        reactive_runtime,
        ReactiveSubscription,
        subscribe!,
@@ -22,9 +25,48 @@ export ReactiveRuntime,
        bind_signals!,
        ReactiveCycleError,
        ReactiveNotificationError,
-       ReactiveValidationError
+       ReactiveValidationError,
+       track_reactive_reads
 
 abstract type AbstractReactive{T} end
+
+mutable struct ReactiveReadTracker
+    task::Task
+    seen::IdDict{Any,Nothing}
+    order::Vector{Any}
+end
+
+const REACTIVE_READ_TRACKERS_KEY = :wicked_reactive_read_trackers
+
+function _track_reactive_read!(reactive)
+    trackers = get(task_local_storage(), REACTIVE_READ_TRACKERS_KEY, nothing)
+    trackers === nothing && return reactive
+    for tracker in trackers
+        tracker.task === current_task() || continue
+        haskey(tracker.seen, reactive) && continue
+        tracker.seen[reactive] = nothing
+        push!(tracker.order, reactive)
+    end
+    return reactive
+end
+
+"""Run an operation and return its value plus reactives read by the current task."""
+function track_reactive_reads(operation)
+    applicable(operation) || throw(ArgumentError("tracked reactive operation must accept no arguments"))
+    storage = task_local_storage()
+    trackers = get!(storage, REACTIVE_READ_TRACKERS_KEY) do
+        ReactiveReadTracker[]
+    end
+    tracker = ReactiveReadTracker(current_task(), IdDict{Any,Nothing}(), Any[])
+    push!(trackers, tracker)
+    value = try
+        operation()
+    finally
+        pop!(trackers)
+        isempty(trackers) && delete!(storage, REACTIVE_READ_TRACKERS_KEY)
+    end
+    return (value=value, dependencies=copy(tracker.order))
+end
 
 mutable struct PendingChange
     source::Any
@@ -120,8 +162,11 @@ function Signal(
     )
 end
 
-signal_value(signal::Signal) = lock(signal.runtime.mutex) do
-    signal.value
+function signal_value(signal::Signal)
+    _track_reactive_read!(signal)
+    return lock(signal.runtime.mutex) do
+        signal.value
+    end
 end
 
 signal_version(signal::Signal) = lock(signal.runtime.mutex) do
@@ -341,6 +386,51 @@ subscribe!(computed::ComputedSignal, callback; kwargs...) =
     subscribe!(computed.signal, callback; kwargs...)
 subscribe!(callback::Function, computed::ComputedSignal; kwargs...) =
     subscribe!(computed.signal, callback; kwargs...)
+
+_signal_subscription_message(new_value, old_value, source) = new_value
+
+function _invoke_signal_subscription_mapper(mapper, new_value, old_value, source)
+    applicable(mapper, new_value, old_value, source) &&
+        return mapper(new_value, old_value, source)
+    applicable(mapper, new_value, old_value) && return mapper(new_value, old_value)
+    applicable(mapper, new_value) && return mapper(new_value)
+    throw(ArgumentError(
+        "signal subscription mapper must accept new value, (new, old), or (new, old, source)",
+    ))
+end
+
+_signal_subscription_mapper_applicable(mapper, value, source) =
+    applicable(mapper, value, value, source) ||
+    applicable(mapper, value, value) ||
+    applicable(mapper, value)
+
+"""Adapt a reactive signal into a model-derived runtime subscription.
+
+The mapper may accept the new value, `(new, old)`, or `(new, old, source)`.
+`immediate=true` emits the current value during registration. The default
+revision retains the listener while the same signal, mapper, and immediate mode
+are declared; pass an explicit revision when recreating mapper closures.
+"""
+function signal_subscription(
+    id,
+    signal::Union{Signal,ComputedSignal};
+    mapper=_signal_subscription_message,
+    immediate::Bool=false,
+    revision=(signal, mapper, immediate),
+)
+    current = signal_value(signal)
+    _signal_subscription_mapper_applicable(mapper, current, signal) ||
+        throw(ArgumentError(
+            "signal subscription mapper must accept new value, (new, old), or (new, old, source)",
+        ))
+    register = emit -> begin
+        subscription = subscribe!(signal; immediate) do new_value, old_value, source
+            emit(_invoke_signal_subscription_mapper(mapper, new_value, old_value, source))
+        end
+        () -> unsubscribe!(subscription)
+    end
+    EventSubscription(id, register; revision)
+end
 
 function computed_signal(
     compute,

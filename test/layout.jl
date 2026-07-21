@@ -13,6 +13,43 @@
             Rect(1, 10, 2, 6),
         ]
 
+        fill_only = resolve(
+            FlexLayout(HorizontalLayout, [Fill(1), Fill(2), Fill(1)]; gap=1),
+            Rect(3, 5, 2, 11),
+        )
+        @test fill_only == [
+            Rect(3, 5, 2, 3),
+            Rect(3, 9, 2, 4),
+            Rect(3, 14, 2, 2),
+        ]
+        saturated_fill = resolve(
+            FlexLayout(VerticalLayout, [Fill(), Fill(), Fill()]; gap=10),
+            Rect(4, 6, 2, 3),
+        )
+        @test saturated_fill == [
+            Rect(4, 6, 0, 3),
+            Rect(5, 6, 0, 3),
+            Rect(6, 6, 0, 3),
+        ]
+        for (direction, weights, gap, fill_area, margin) in (
+            (HorizontalLayout, [1, 1, 1], 0, Rect(2, 4, 3, 17), Margin(0)),
+            (HorizontalLayout, [3, 1, 2, 5], 2, Rect(3, 7, 4, 29), Margin(1)),
+            (VerticalLayout, [2, 7, 1], 1, Rect(5, 9, 23, 6), Margin(0, 1)),
+            (VerticalLayout, [1, 1, 1, 1], 100, Rect(4, 6, 3, 5), Margin(0)),
+        )
+            fill_layout = FlexLayout(
+                direction,
+                Constraint[Fill(weight) for weight in weights];
+                gap,
+                margin,
+            )
+            @test resolve(fill_layout, fill_area) == resolve(
+                fill_layout,
+                fill_area;
+                content_sizes=zeros(Int, length(weights)),
+            )
+        end
+
         ratio_regions = resolve(
             FlexLayout(HorizontalLayout, [Ratio(typemax(Int), typemax(Int)), Fill()]),
             Rect(1, 1, 1, 20),
@@ -112,5 +149,32 @@
             Rect(1, 1, 1, 10);
             content_sizes=[1],
         )
+    end
+
+    @testset "overlapping segment layout" begin
+        area = Rect(1, 1, 3, 20)
+
+        # overlap=1 makes adjacent segments share a border column
+        shared = Wicked.overlap_layout(area, [5, 5]; overlap=1)
+        @test length(shared) == 2
+        @test (shared[1].column, shared[1].width) == (1, 5)
+        @test (shared[2].column, shared[2].width) == (5, 5)
+
+        # overlap=0 abuts segments with no shared cells
+        abutting = Wicked.overlap_layout(area, [5, 5]; overlap=0)
+        @test (abutting[2].column, abutting[2].width) == (6, 5)
+
+        # segments are clipped to the area
+        clipped = Wicked.overlap_layout(Rect(1, 1, 3, 8), [5, 5]; overlap=0)
+        @test (clipped[2].column, clipped[2].width) == (6, 3)
+
+        # vertical direction shares a border row
+        vertical = Wicked.overlap_layout(Rect(1, 1, 10, 4), [4, 4]; direction=:vertical, overlap=1)
+        @test (vertical[1].row, vertical[1].height) == (1, 4)
+        @test (vertical[2].row, vertical[2].height) == (4, 4)
+
+        @test_throws ArgumentError Wicked.overlap_layout(area, [1]; direction=:diagonal)
+        @test_throws ArgumentError Wicked.overlap_layout(area, [1]; overlap=-1)
+        @test_throws ArgumentError Wicked.overlap_layout(area, [-1])
     end
 end

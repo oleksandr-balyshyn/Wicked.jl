@@ -52,11 +52,19 @@ end
         @test first_draw.changed_cells == 6
         @test terminal.frame_count == 1
         @test backend.screen[1, 1] == Cell("x")
+        completed_screen = backend.screen
 
         unchanged = draw!(terminal) do frame
             render!(frame, Label("x"), frame.area)
         end
         @test unchanged.changed_cells == 0
+        @test backend.screen === completed_screen
+
+        authoritative = copy(backend.screen)
+        authoritative[1, 2] = Cell("y")
+        present!(backend, CellChange[], authoritative, nothing)
+        @test backend.screen == authoritative
+        @test backend.screen !== completed_screen
 
         force_redraw!(terminal)
         forced = draw!(terminal) do frame

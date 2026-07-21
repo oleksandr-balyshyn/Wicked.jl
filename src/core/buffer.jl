@@ -195,6 +195,47 @@ function draw_grapheme!(
     Int(column) + Int(cell.width)
 end
 
+const _ASCII_GRAPHEMES = ntuple(index -> string(Char(index - 1)), 128)
+
+function _is_simple_ascii(content::AbstractString)
+    for byte in codeunits(content)
+        (byte == 0x09 || byte == 0x0a || 0x20 <= byte <= 0x7e) || return false
+    end
+    return true
+end
+
+function _draw_ascii_text!(buffer, row, column, content, style, active_clip, tab_width)
+    current_row = Int(row)
+    current_column = Int(column)
+    start_column = current_column
+    for byte in codeunits(content)
+        if byte == 0x0a
+            current_row += 1
+            current_column = start_column
+        elseif byte == 0x09
+            spaces = Int(tab_width) - mod(current_column - start_column, Int(tab_width))
+            for _ in 1:spaces
+                current_column >= column_end(active_clip) && break
+                contains(active_clip, Position(current_row, current_column)) &&
+                    (buffer[current_row, current_column] = Cell(; style))
+                current_column += 1
+            end
+        else
+            current_row >= row_end(active_clip) && break
+            if current_row < active_clip.row || current_column < active_clip.column
+                current_column += 1
+                continue
+            end
+            current_column >= column_end(active_clip) && break
+            grapheme = @inbounds _ASCII_GRAPHEMES[Int(byte) + 1]
+            buffer[current_row, current_column] =
+                Cell(grapheme, style, 0x01, false, _UNCHECKED_CELL)
+            current_column += 1
+        end
+    end
+    return Position(max(1, current_row), max(1, current_column))
+end
+
 """Draw plain text inside a clipping region and return the final position."""
 function draw_text!(
     buffer::Buffer,
@@ -208,6 +249,8 @@ function draw_text!(
 )
     tab_width >= 1 || throw(ArgumentError("tab width must be positive"))
     active_clip = intersection(buffer.area, clip)
+    _is_simple_ascii(content) &&
+        return _draw_ascii_text!(buffer, row, column, content, style, active_clip, tab_width)
     current_row = Int(row)
     current_column = Int(column)
     start_column = current_column
@@ -265,12 +308,15 @@ function draw_line!(
     area::Rect,
     line::Line;
     width_policy::AbstractWidthPolicy=DEFAULT_WIDTH_POLICY,
+    content_width::Union{Nothing,Integer}=nothing,
 )
-    content_width = sum(span -> text_width(span.content, width_policy), line.spans; init=0)
+    resolved_width = isnothing(content_width) ?
+                     sum(span -> text_width(span.content, width_policy), line.spans; init=0) :
+                     Int(content_width)
     offset = if line.alignment == CenterAlign
-        max(0, (area.width - content_width) ÷ 2)
+        max(0, (area.width - resolved_width) ÷ 2)
     elseif line.alignment == RightAlign
-        max(0, area.width - content_width)
+        max(0, area.width - resolved_width)
     else
         0
     end

@@ -104,7 +104,9 @@ function _candidates(registry::FocusRegistry)
         entry for entry in registry.entries
         if entry.scope == scope && !entry.disabled && !entry.hidden && !isempty(entry.area)
     ]
-    sort!(values; by=entry -> (entry.tab_index, findfirst(==(entry), registry.entries)))
+    # Filtering preserves registration order, so a stable tab-index sort gives
+    # the same `(tab_index, registration_index)` order without an O(n²) lookup.
+    sort!(values; by=entry -> entry.tab_index, alg=Base.Sort.MergeSort)
 end
 
 function focus!(registry::FocusRegistry, id)
@@ -118,13 +120,51 @@ function focus!(registry::FocusRegistry, id)
     true
 end
 
+@inline _focus_eligible(entry::FocusEntry, scope) =
+    entry.scope == scope && !entry.disabled && !entry.hidden && !isempty(entry.area)
+
 function _focus_step!(registry::FocusRegistry, direction::Int)
-    candidates = _candidates(registry)
-    isempty(candidates) && (registry.current = nothing; return false)
-    current = findfirst(entry -> entry.id == registry.current, candidates)
-    index = isnothing(current) ? (direction > 0 ? 1 : length(candidates)) :
-            mod1(current + direction, length(candidates))
-    registry.current = candidates[index].id
+    scope = current_scope(registry)
+    minimum_key = nothing
+    minimum_id = nothing
+    maximum_key = nothing
+    maximum_id = nothing
+    current_key = nothing
+    for (index, entry) in pairs(registry.entries)
+        _focus_eligible(entry, scope) || continue
+        key = (entry.tab_index, index)
+        if minimum_key === nothing || key < minimum_key
+            minimum_key = key
+            minimum_id = entry.id
+        end
+        if maximum_key === nothing || key > maximum_key
+            maximum_key = key
+            maximum_id = entry.id
+        end
+        current_key === nothing && entry.id == registry.current && (current_key = key)
+    end
+    minimum_key === nothing && (registry.current = nothing; return false)
+    if current_key === nothing
+        registry.current = direction > 0 ? minimum_id : maximum_id
+        return true
+    end
+
+    candidate_key = nothing
+    candidate_id = nothing
+    for (index, entry) in pairs(registry.entries)
+        _focus_eligible(entry, scope) || continue
+        key = (entry.tab_index, index)
+        eligible = direction > 0 ? key > current_key : key < current_key
+        eligible || continue
+        better = candidate_key === nothing ||
+                 (direction > 0 ? key < candidate_key : key > candidate_key)
+        if better
+            candidate_key = key
+            candidate_id = entry.id
+        end
+    end
+    registry.current = candidate_key === nothing ?
+                       (direction > 0 ? minimum_id : maximum_id) : candidate_id
     true
 end
 

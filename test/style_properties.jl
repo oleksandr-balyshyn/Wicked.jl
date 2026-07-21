@@ -66,6 +66,34 @@
             inline=StylePatch(foreground=AnsiColor(6)),
         )
         @test resolved.foreground == AnsiColor(6)
+
+        composed = Stylesheet()
+        add_rule!(
+            composed,
+            Selector(classes=[:active]),
+            StylePatch(foreground=AnsiColor(1), add_modifiers=BOLD, hyperlink="class-link"),
+        )
+        add_rule!(
+            composed,
+            Selector(id=:save),
+            StylePatch(background=AnsiColor(4), add_modifiers=ITALIC, remove_modifiers=BOLD, hyperlink=nothing),
+        )
+        add_rule!(
+            composed,
+            Selector(id=:save),
+            StylePatch(underline_color=AnsiColor(6), add_modifiers=BOLD, remove_modifiers=ITALIC, hyperlink="id-link"),
+        )
+        composed_style = computed_style(
+            StyleEngine(stylesheets=[composed]),
+            StyleContext(nothing, :save, Set([:active]), Set{Symbol}(), Set{Symbol}()),
+            Style(modifiers=DIM, hyperlink="base-link");
+            inline=StylePatch(add_modifiers=UNDERLINE, remove_modifiers=BOLD, hyperlink="inline-link"),
+        )
+        @test composed_style.foreground == AnsiColor(1)
+        @test composed_style.background == AnsiColor(4)
+        @test composed_style.underline_color == AnsiColor(6)
+        @test composed_style.modifiers == (DIM | UNDERLINE)
+        @test composed_style.hyperlink == "inline-link"
     end
 
     @testset "generated stylesheet selectors round trip" begin
@@ -107,6 +135,37 @@
         @test_throws ArgumentError Selector(classes=[:same, :same])
         @test_throws ArgumentError Selector(states=[:focus, :focus])
         @test_throws ArgumentError Selector(ancestor_classes=[:dialog, :dialog])
+
+        located, located_errors = try_parse_stylesheet(
+            "Label { color: red; }\n\nButton { color: nope; } trailing";
+            source="located.wkd",
+        )
+        @test length(located.rules) == 1
+        @test length(located_errors) == 2
+        @test located_errors[1].source == "located.wkd"
+        @test (located_errors[1].line, located_errors[1].column) == (3, 1)
+        @test located_errors[2].message == "unparsed stylesheet content"
+
+        commented = parse_stylesheet("/* λ\n界 */\nLabel { color: blue; }")
+        @test length(commented.rules) == 1
+
+        recovered, recovery_errors = try_parse_stylesheet(
+            "} .παράδειγμα, Button.primary:focus { color: indexed(42); hyperlink: https://example.test/a:b; }",
+        )
+        @test length(recovery_errors) == 1
+        @test recovery_errors[1].message == "unparsed stylesheet content"
+        @test length(recovered.rules) == 2
+        @test :παράδειγμα in recovered.rules[1].selector.classes
+        @test recovered.rules[2].selector.states == Set([:focus])
+        @test recovered.rules[2].patch.foreground == IndexedColor(42)
+        @test recovered.rules[2].patch.hyperlink == "https://example.test/a:b"
+
+        nested, nested_errors = try_parse_stylesheet(
+            "Broken { color: red; { } } Label { color: blue; }",
+        )
+        @test length(nested_errors) == 1
+        @test length(nested.rules) == 1
+        @test only(nested.rules).selector.widget_type == :Label
     end
 
     @testset "color domains and modifier removal" begin
