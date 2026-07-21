@@ -1,0 +1,162 @@
+/* =========================================================================
+   Wicked.jl — custom Documenter theme
+   Brand palette: teal/forest with amber + violet accents.
+   ========================================================================= */
+
+:root {
+  --wk-teal:        #1f9e8f;
+  --wk-teal-deep:   #14746a;
+  --wk-forest:      #2f855a;
+  --wk-ink:         #12232b;
+  --wk-amber:       #d18236;
+  --wk-violet:      #9558b2;
+  --wk-surface:     #f6faf9;
+  --wk-radius:      10px;
+}
+
+/* ---- Typography ------------------------------------------------------- */
+#documenter .docs-main,
+.docs-sidebar {
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+#documenter .content h1,
+#documenter .content h2,
+#documenter .content h3 {
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+#documenter .content h1 {
+  background: linear-gradient(90deg, var(--wk-teal-deep), var(--wk-forest));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+#documenter .content h2 {
+  border-bottom: 2px solid rgba(31, 158, 143, 0.25);
+  padding-bottom: 0.25rem;
+}
+
+/* ---- Links ------------------------------------------------------------ */
+#documenter .content a,
+.docs-sidebar a.docs-label {
+  color: var(--wk-teal-deep);
+}
+#documenter .content a:hover {
+  color: var(--wk-amber);
+}
+
+/* ---- Sidebar ---------------------------------------------------------- */
+.docs-sidebar {
+  background: linear-gradient(180deg, #eef5f3 0%, #e6efec 100%);
+  border-right: 1px solid rgba(18, 35, 43, 0.08);
+}
+.docs-sidebar .docs-logo {
+  padding-top: 1.25rem;
+}
+.docs-sidebar .docs-package-name a {
+  color: var(--wk-ink);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+#documenter .docs-sidebar .docs-menu a.tocitem.is-active,
+.docs-sidebar ul.internal li.toplevel a.is-active {
+  border-left: 3px solid var(--wk-teal);
+  background: rgba(31, 158, 143, 0.10);
+  color: var(--wk-teal-deep);
+  font-weight: 600;
+}
+
+/* ---- Code ------------------------------------------------------------- */
+#documenter .content pre {
+  border-radius: var(--wk-radius);
+  border: 1px solid rgba(18, 35, 43, 0.10);
+  box-shadow: 0 1px 2px rgba(18, 35, 43, 0.06);
+}
+#documenter .content code {
+  background: rgba(31, 158, 143, 0.10);
+  color: var(--wk-teal-deep);
+  border-radius: 5px;
+  padding: 0.12em 0.35em;
+}
+#documenter .content pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+
+/* ---- Tables ----------------------------------------------------------- */
+#documenter .content table {
+  border-radius: var(--wk-radius);
+  overflow: hidden;
+  border: 1px solid rgba(18, 35, 43, 0.10);
+}
+#documenter .content table th {
+  background: var(--wk-ink);
+  color: #eaf4f1;
+  font-weight: 600;
+}
+#documenter .content table tr:nth-child(even) {
+  background: var(--wk-surface);
+}
+
+/* ---- Admonitions ------------------------------------------------------ */
+#documenter .content .admonition {
+  border-radius: var(--wk-radius);
+  border: none;
+  box-shadow: 0 1px 3px rgba(18, 35, 43, 0.08);
+}
+#documenter .content .admonition.is-warning > .admonition-header {
+  background: var(--wk-amber);
+}
+#documenter .content .admonition.is-info > .admonition-header,
+#documenter .content .admonition.is-note > .admonition-header {
+  background: var(--wk-teal-deep);
+}
+
+/* ---- API docstrings --------------------------------------------------- */
+#documenter .docstring > header {
+  border-left: 3px solid var(--wk-teal);
+  padding-left: 0.6rem;
+}
+#documenter .docstring {
+  border-radius: var(--wk-radius);
+}
+
+/* =========================================================================
+   Dark theme overrides
+   ========================================================================= */
+html.theme--documenter-dark {
+  --wk-surface: #1b2b30;
+}
+html.theme--documenter-dark #documenter .content h1 {
+  background: linear-gradient(90deg, #35d6c3, #55d18a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+html.theme--documenter-dark #documenter .content h2 {
+  border-bottom-color: rgba(53, 214, 195, 0.30);
+}
+html.theme--documenter-dark #documenter .content a {
+  color: #43d6c3;
+}
+html.theme--documenter-dark #documenter .content a:hover {
+  color: #f0ad60;
+}
+html.theme--documenter-dark .docs-sidebar {
+  background: linear-gradient(180deg, #16242a 0%, #12232b 100%);
+  border-right-color: rgba(255, 255, 255, 0.06);
+}
+html.theme--documenter-dark #documenter .content code {
+  background: rgba(67, 214, 195, 0.14);
+  color: #7fe6d8;
+}
+html.theme--documenter-dark #documenter .content table th {
+  background: #0e1a1f;
+}
+html.theme--documenter-dark .docs-sidebar .docs-package-name a {
+  color: #eaf4f1;
+}
