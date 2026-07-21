@@ -43,8 +43,7 @@ makedocs(;
     doctest=false,
 )
 
-deploydocs(;
-    repo="github.com/oleksandr-balyshyn/Wicked.jl",
-    devbranch="master",
-    push_preview=false,
-)
+# Deployment is handled by the GitHub Actions Pages pipeline in
+# .github/workflows/docs.yml (upload-pages-artifact + deploy-pages), which
+# matches the repository's Pages "build from a workflow" setting. `makedocs`
+# above emits the complete site into docs/build for that pipeline to publish.
