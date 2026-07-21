@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Weather App · Wicked.jl</title><meta name="title" content="Weather App · Wicked.jl"/><meta property="og:title" content="Weather App · Wicked.jl"/><meta property="twitter:title" content="Weather App · Wicked.jl"/><meta name="description" content="Documentation for Wicked.jl."/><meta property="og:description" content="Documentation for Wicked.jl."/><meta property="twitter:description" content="Documentation for Wicked.jl."/><meta property="og:url" content="https://oleksandr-balyshyn.github.io/Wicked.jl/tutorials/weather-app/"/><meta property="twitter:url" content="https://oleksandr-balyshyn.github.io/Wicked.jl/tutorials/weather-app/"/><link rel="canonical" href="https://oleksandr-balyshyn.github.io/Wicked.jl/tutorials/weather-app/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="Wicked.jl logo"/></a><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../getting-started/">Getting Started</a></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../hello-world/">Hello, World</a></li><li class="is-active"><a class="tocitem" href>Weather App</a><ul class="internal"><li><a class="tocitem" href="#What-it-looks-like"><span>What it looks like</span></a></li><li><a class="tocitem" href="#1.-Model"><span>1. Model</span></a></li><li><a class="tocitem" href="#2.-View"><span>2. View</span></a></li><li><a class="tocitem" href="#3.-Update"><span>3. Update</span></a></li><li><a class="tocitem" href="#4.-Run-and-test-it"><span>4. Run and test it</span></a></li><li><a class="tocitem" href="#Where-to-go-next"><span>Where to go next</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-4" type="checkbox"/><label class="tocitem" for="menuitem-4"><span class="docs-label">Guides</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../guide/immediate/">Immediate Mode</a></li><li><a class="tocitem" href="../../guide/runtime/">Managed Runtime</a></li><li><a class="tocitem" href="../../guide/toolkit/">Declarative Toolkit</a></li><li><a class="tocitem" href="../../guide/layout/">Layout</a></li><li><a class="tocitem" href="../../guide/styling/">Styling &amp; Themes</a></li><li><a class="tocitem" href="../../guide/widgets/">Widget Catalog</a></li><li><a class="tocitem" href="../../guide/cross-library/">Cross-Library Features</a></li><li><a class="tocitem" href="../../guide/testing/">Testing</a></li></ul></li><li><a class="tocitem" href="../../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Weather App</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Weather App</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/oleksandr-balyshyn/Wicked.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/oleksandr-balyshyn/Wicked.jl/blob/master/docs/src/tutorials/weather-app.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial:-Weather-App"><a class="docs-heading-anchor" href="#Tutorial:-Weather-App">Tutorial: Weather App</a><a id="Tutorial:-Weather-App-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial:-Weather-App" title="Permalink"></a></h1><p>A small but <strong>complete interactive TUI</strong> — a weather dashboard built on Wicked&#39;s managed runtime. It brings together a composite layout, several widgets, and the <code>model → update → view</code> loop. The forecast data is mocked (no network), so the whole thing is deterministic and runs headlessly.</p><p>The complete file is <a href="https://github.com/oleksandr-balyshyn/Wicked.jl/blob/master/examples/weather_app.jl"><code>examples/weather_app.jl</code></a>. Run it with:</p><pre><code class="language-bash hljs">julia --project=. examples/weather_app.jl</code></pre><h2 id="What-it-looks-like"><a class="docs-heading-anchor" href="#What-it-looks-like">What it looks like</a><a id="What-it-looks-like-1"></a><a class="docs-heading-anchor-permalink" href="#What-it-looks-like" title="Permalink"></a></h2><pre><code class="language-text hljs">                       Weather
+                      refresh #0
+╭─Cities─────────╮╭─Forecast─────────────────────────╮
+│› Kyiv          ││Kyiv — Clear                      │
+│  London        ││Temperature: 21°C                 │
+│  Tokyo         ││           Humidity 45%           │
+│  New York      ││Next 12 hours:                    │
+│                ││▁▂▃▅▆▇█▇▆▄▃▂                      │
+╰────────────────╯╰──────────────────────────────────╯
+ ↑/↓  city   r  refresh   q  quit</code></pre><p>Press <code>↑</code>/<code>↓</code> to change city, <code>r</code> to refresh, <code>q</code> to quit.</p><h2 id="1.-Model"><a class="docs-heading-anchor" href="#1.-Model">1. Model</a><a id="1.-Model-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Model" title="Permalink"></a></h2><p>The model is your application state — a plain mutable struct.</p><pre><code class="language-julia hljs">mutable struct WeatherModel
+    selected::Int      # index into CITIES
+    refreshed::Int     # bumped on refresh
+end
+
+struct WeatherApp &lt;: WickedApp end
+
+initialize(::WeatherApp) = WeatherModel(1, 0)</code></pre><h2 id="2.-View"><a class="docs-heading-anchor" href="#2.-View">2. View</a><a id="2.-View-1"></a><a class="docs-heading-anchor-permalink" href="#2.-View" title="Permalink"></a></h2><p><code>app_view</code> is a <strong>pure function of the model</strong> returning a widget tree. Composite layouts are built with <code>row</code>/<code>column</code> and <code>Element</code>. Rendering the selection from the model (rather than from widget state) keeps the view pure.</p><pre><code class="language-julia hljs">function city_list(selected::Int)
+    lines = [i == selected ? &quot;› $(city)&quot; : &quot;  $(city)&quot; for (i, city) in enumerate(CITIES)]
+    return Paragraph(join(lines, &quot;\n&quot;))
+end
+
+function forecast_panel(city, f)
+    return column(
+        Element(Paragraph(&quot;$(city) — $(f.condition)&quot;)),
+        Element(Paragraph(&quot;Temperature: $(f.temp_c)°C&quot;)),
+        Element(Gauge(f.humidity / 100; label=&quot;Humidity $(f.humidity)%&quot;)),
+        Element(Paragraph(&quot;Next 12 hours:&quot;)),
+        Element(Sparkline(f.hourly));
+        constraints=[Length(1), Length(1), Length(1), Length(1), Length(1)],
+    )
+end
+
+function app_view(::WeatherApp, m::WeatherModel)
+    city = CITIES[m.selected]; forecast = FORECASTS[city]
+
+    body = row(
+        Element(Panel(city_list(m.selected); block=Block(title=&quot;Cities&quot;))),
+        Element(Panel(forecast_panel(city, forecast); block=Block(title=&quot;Forecast&quot;)));
+        constraints=[Length(18), Fill(1)],
+    )
+
+    return column(
+        Element(TitleBar(&quot;Weather&quot;; subtitle=&quot;refresh #$(m.refreshed)&quot;)),
+        Element(body),
+        Element(Footer([KeyHint(&quot;↑/↓&quot;, &quot;city&quot;), KeyHint(&quot;r&quot;, &quot;refresh&quot;), KeyHint(&quot;q&quot;, &quot;quit&quot;)]));
+        constraints=[Length(2), Fill(1), Length(1)],
+    )
+end</code></pre><p>Note how widgets compose: a <code>Gauge</code> for humidity, a <code>Sparkline</code> for the hourly temperatures, <code>Panel</code>/<code>Block</code> for framing, and a <code>Footer</code> of <code>KeyHint</code>s.</p><h2 id="3.-Update"><a class="docs-heading-anchor" href="#3.-Update">3. Update</a><a id="3.-Update-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Update" title="Permalink"></a></h2><p><code>update!</code> mutates the model in response to a message and returns a <strong>command</strong>. Here it accepts both raw <code>KeyEvent</code>s (a real terminal) and plain symbols (tests), so the same logic drives the app and its pilot.</p><pre><code class="language-julia hljs">function update!(::WeatherApp, m::WeatherModel, message)
+    action = if message isa KeyEvent
+        code = message.key.code
+        code === :down ? :next :
+        code === :up ? :prev :
+        (code === :character &amp;&amp; message.key.text == &quot;r&quot;) ? :refresh :
+        (code === :character &amp;&amp; message.key.text == &quot;q&quot;) ? :quit : :ignore
+    else
+        message
+    end
+
+    if action === :next
+        m.selected = m.selected == length(CITIES) ? 1 : m.selected + 1
+        return FrameCommand()
+    elseif action === :prev
+        m.selected = m.selected == 1 ? length(CITIES) : m.selected - 1
+        return FrameCommand()
+    elseif action === :refresh
+        m.refreshed += 1
+        return FrameCommand()
+    elseif action === :quit
+        return ExitCommand(CITIES[m.selected])
+    end
+    return NoCommand()
+end</code></pre><h2 id="4.-Run-and-test-it"><a class="docs-heading-anchor" href="#4.-Run-and-test-it">4. Run and test it</a><a id="4.-Run-and-test-it-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Run-and-test-it" title="Permalink"></a></h2><p>A <code>RuntimePilot</code> runs the app headlessly, so the same program is its own test:</p><pre><code class="language-julia hljs">pilot = RuntimePilot(WeatherApp(); height=12, width=54)
+@assert occursin(&quot;Kyiv&quot;, plain_snapshot(pilot))
+
+send!(pilot, :next)                       # or send!(pilot, KeyEvent(Key(:down)))
+@assert occursin(&quot;London&quot;, plain_snapshot(pilot))
+
+send!(pilot, :refresh)
+@assert occursin(&quot;refresh #1&quot;, plain_snapshot(pilot))
+
+result = send!(pilot, :quit)
+@assert result.exited</code></pre><p>In a real terminal you would run the same <code>WeatherApp</code> on a live backend and feed it real key events — the model, view, and update logic do not change.</p><h2 id="Where-to-go-next"><a class="docs-heading-anchor" href="#Where-to-go-next">Where to go next</a><a id="Where-to-go-next-1"></a><a class="docs-heading-anchor-permalink" href="#Where-to-go-next" title="Permalink"></a></h2><ul><li>Style the panels with roles and stylesheets — see <a href="../../guide/styling/">Styling &amp; Themes</a>.</li><li>Add async refresh with a <code>DelayCommand</code> timer — see <a href="../../guide/runtime/">Managed Runtime</a>.</li><li>Swap the list for the stateful <a href="../../guide/widgets/"><code>List</code></a> widget with real selection state.</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../hello-world/">« Hello, World</a><a class="docs-footer-nextpage" href="../../guide/immediate/">Immediate Mode »</a><div class="flexbox-break"></div><p class="footer-message">Built with ⚡ in pure Julia · <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a></p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 21 July 2026 17:57">Tuesday 21 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
