@@ -44,3 +44,5 @@ Artifacts.toml.tmp
 # OS noise
 .DS_Store
 Thumbs.db
+docs/build/
+docs/Manifest.toml
