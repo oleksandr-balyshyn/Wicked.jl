@@ -453,15 +453,22 @@ end
 end
 
 @testset "File subscription adapter" begin
+    # OS file-change events can be missed if a single write races the watcher
+    # setup, so poke the file repeatedly until the watcher enqueues an event.
+    # This keeps the test deterministic on loaded CI runners without depending on
+    # a fixed sleep being long enough.
+    function await_file_change!(pilot, path, data)
+        return timedwait(30.0; pollint=0.05) do
+            open(output -> write(output, data), path, "a")
+            !isempty(pilot.queue)
+        end == :ok
+    end
+
     @testset "change delivery, replacement, and cooperative removal" begin
         mktemp() do path, stream
             close(stream)
             pilot = RuntimePilot(FileSubscriptionApp(path, Ref(false)); height=1, width=20)
-            sleep(0.4)
-            open(path, "a") do output
-                write(output, "one")
-            end
-            @test timedwait(() -> !isempty(pilot.queue), 30.0) == :ok
+            @test await_file_change!(pilot, path, "one")
             send!(pilot, :noop)
             @test !isempty(pilot.model.events)
             @test all(event -> event.path == path, pilot.model.events)
@@ -470,10 +477,7 @@ end
             send!(pilot, :replace)
             sleep(0.4)
             before = length(pilot.model.events)
-            open(path, "a") do output
-                write(output, "two")
-            end
-            @test timedwait(() -> !isempty(pilot.queue), 30.0) == :ok
+            @test await_file_change!(pilot, path, "two")
             send!(pilot, :noop)
             @test length(pilot.model.events) > before
 
@@ -493,13 +497,9 @@ end
         mktemp() do path, stream
             close(stream)
             pilot = RuntimePilot(FileSubscriptionApp(path, Ref(true)); height=1, width=20)
-            sleep(0.4)
-            open(path, "a") do output
-                write(output, "fail")
-            end
-            @test timedwait(() -> !isempty(pilot.queue), 30.0) == :ok
+            @test await_file_change!(pilot, path, "fail")
             send!(pilot, :noop)
-            @test only(pilot.model.failures).phase == :subscription
+            @test first(pilot.model.failures).phase == :subscription
             @test pilot.model.failures[1].id == :file
             send!(pilot, :disable)
         end

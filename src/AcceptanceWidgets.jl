@@ -117,7 +117,17 @@ struct Panel{W}
     card::Card{W}
 end
 
-Panel(child; block::Block=Block()) = Panel(Card(child; block))
+"""
+    Panel(child; block=Block(), title=nothing)
+
+Wrap `child` in a bordered surface. Pass a `block` for full control, or the
+convenience `title` keyword to render a titled border without constructing a
+`Block` yourself (`Panel(child; title="Status")`). Supplying both keeps `block`.
+"""
+function Panel(child; block::Union{Nothing,Block}=nothing, title=nothing)
+    resolved = block !== nothing ? block : (title === nothing ? Block() : Block(; title))
+    return Panel(Card(child; block=resolved))
+end
 
 measure(widget::Panel, available::Rect) = measure(widget.card, available)
 

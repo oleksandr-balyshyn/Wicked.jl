@@ -140,6 +140,11 @@ struct SemanticRect
     end
 end
 
+# Render unqualified so string representations (e.g. SemanticQuery) are stable
+# across Julia versions; older releases print the fully-qualified module path.
+Base.show(io::IO, rect::SemanticRect) =
+    print(io, "SemanticRect(", rect.row, ", ", rect.column, ", ", rect.width, ", ", rect.height, ")")
+
 function _contains(rect::SemanticRect, row::Int, column::Int)
     return rect.row <= row < rect.row + rect.height &&
            rect.column <= column < rect.column + rect.width

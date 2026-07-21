@@ -18,10 +18,17 @@
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
 </p>
 
+<p align="center">
+  <a href="https://oleksandr-balyshyn.github.io/Wicked.jl/"><img src="https://img.shields.io/badge/docs-latest-1f9e8f" alt="Documentation"></a>
+  <a href="https://github.com/oleksandr-balyshyn/Wicked.jl/actions/workflows/ci.yml"><img src="https://github.com/oleksandr-balyshyn/Wicked.jl/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
+
 ---
 
+📖 **[Full documentation & tutorials →](https://oleksandr-balyshyn.github.io/Wicked.jl/)**
+
 > [!WARNING]
-> Wicked.jl is **`0.0.1`** and under active development. The implementation and
+> Wicked.jl is **`0.1.0`** and under active development. The implementation and
 > automated test coverage are extensive, but broad real-terminal validation and
 > a release-candidate freeze are still ahead. Great for building and
 > experimenting — pin the commit for anything you ship.
