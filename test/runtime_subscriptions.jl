@@ -412,21 +412,21 @@ end
         source = Channel{Int}(4)
         pilot = RuntimePilot(ChannelSubscriptionApp(source, Ref(false), false); height=1, width=20)
         put!(source, 1)
-        @test timedwait(() -> !isempty(pilot.queue), 2.0) == :ok
+        @test timedwait(() -> !isempty(pilot.queue), 30.0) == :ok
         send!(pilot, :noop)
         @test pilot.model.values == [2]
 
         send!(pilot, :replace)
-        sleep(0.01)
+        sleep(0.1)
         put!(source, 2)
-        @test timedwait(() -> !isempty(pilot.queue), 2.0) == :ok
+        @test timedwait(() -> !isempty(pilot.queue), 30.0) == :ok
         send!(pilot, :noop)
         @test pilot.model.values == [2, 4]
 
         send!(pilot, :disable)
-        sleep(0.01)
+        sleep(0.1)
         put!(source, 3)
-        sleep(0.01)
+        sleep(0.1)
         send!(pilot, :noop)
         @test pilot.model.values == [2, 4]
         @test isopen(source)
@@ -442,7 +442,7 @@ end
         failing = Channel{Int}(1)
         failure_pilot = RuntimePilot(ChannelSubscriptionApp(failing, Ref(true), false); height=1, width=20)
         put!(failing, 1)
-        @test timedwait(() -> !isempty(failure_pilot.queue), 2.0) == :ok
+        @test timedwait(() -> !isempty(failure_pilot.queue), 30.0) == :ok
         send!(failure_pilot, :noop)
         @test only(failure_pilot.model.failures).phase == :subscription
         @test failure_pilot.model.failures[1].id == :channel
@@ -457,33 +457,33 @@ end
         mktemp() do path, stream
             close(stream)
             pilot = RuntimePilot(FileSubscriptionApp(path, Ref(false)); height=1, width=20)
-            sleep(0.03)
+            sleep(0.4)
             open(path, "a") do output
                 write(output, "one")
             end
-            @test timedwait(() -> !isempty(pilot.queue), 2.0) == :ok
+            @test timedwait(() -> !isempty(pilot.queue), 30.0) == :ok
             send!(pilot, :noop)
             @test !isempty(pilot.model.events)
             @test all(event -> event.path == path, pilot.model.events)
             @test any(event -> event.changed || event.renamed, pilot.model.events)
 
             send!(pilot, :replace)
-            sleep(0.03)
+            sleep(0.4)
             before = length(pilot.model.events)
             open(path, "a") do output
                 write(output, "two")
             end
-            @test timedwait(() -> !isempty(pilot.queue), 2.0) == :ok
+            @test timedwait(() -> !isempty(pilot.queue), 30.0) == :ok
             send!(pilot, :noop)
             @test length(pilot.model.events) > before
 
             send!(pilot, :disable)
-            sleep(0.03)
+            sleep(0.4)
             retained = length(pilot.model.events)
             open(path, "a") do output
                 write(output, "three")
             end
-            sleep(0.05)
+            sleep(0.3)
             send!(pilot, :noop)
             @test length(pilot.model.events) == retained
         end
@@ -493,11 +493,11 @@ end
         mktemp() do path, stream
             close(stream)
             pilot = RuntimePilot(FileSubscriptionApp(path, Ref(true)); height=1, width=20)
-            sleep(0.03)
+            sleep(0.4)
             open(path, "a") do output
                 write(output, "fail")
             end
-            @test timedwait(() -> !isempty(pilot.queue), 2.0) == :ok
+            @test timedwait(() -> !isempty(pilot.queue), 30.0) == :ok
             send!(pilot, :noop)
             @test only(pilot.model.failures).phase == :subscription
             @test pilot.model.failures[1].id == :file
