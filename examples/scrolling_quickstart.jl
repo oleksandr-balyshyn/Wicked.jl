@@ -1,5 +1,12 @@
 using Wicked.API
 
+# Toolkit trees only populate their layout (and thus accessibility semantics)
+# once they have been rendered, so lay the tree out before reading semantics.
+function render_semantics(tree::ToolkitTree; kwargs...)
+    render_toolkit!(Frame(Buffer(24, 80)), tree)
+    return toolkit_semantic_tree(tree; kwargs...)
+end
+
 buffer = Buffer(18, 72)
 
 render!(buffer, Heading("Scrolling quickstart"; level=1), Rect(1, 1, 2, 72))
@@ -57,11 +64,11 @@ render!(buffer, wheel_block, wheel_area)
 render!(buffer, scroll, inner(wheel_block, wheel_area), wheel_state)
 
 scroll_tree = ToolkitTree(Element(scroll; id=:scroll, key=:scroll, state_factory=() -> scroll_state))
-scroll_pilot = SemanticPilot(toolkit_semantic_tree(scroll_tree); dispatcher=scroll_dispatcher)
+scroll_pilot = SemanticPilot(render_semantics(scroll_tree); dispatcher=scroll_dispatcher)
 @assert perform_semantic_action!(scroll_pilot, "scroll", IncrementSemanticAction).handled
 
 viewport_tree = ToolkitTree(Element(viewport; id=:viewport, key=:viewport, state_factory=() -> viewport_state))
-viewport_pilot = SemanticPilot(toolkit_semantic_tree(viewport_tree); dispatcher=viewport_dispatcher)
+viewport_pilot = SemanticPilot(render_semantics(viewport_tree); dispatcher=viewport_dispatcher)
 @assert perform_semantic_action!(viewport_pilot, "viewport", ScrollIntoViewSemanticAction; value=2).handled
 
 snapshot = plain_snapshot(buffer)

@@ -15,7 +15,7 @@ render!(buffer, line_gauge, Rect(6, 1, 1, 28))
 meter = Meter(3; minimum=0, maximum=4, label="Capacity", width=24, height=2)
 register_meter_semantic_handlers!(visual_dispatcher, :meter, meter)
 render!(buffer, meter, Rect(7, 1, 2, 28))
-stepper = Stepper(["Queued", "Running", "Done"])
+stepper = Stepper()
 stepper_state = StepperState(["Queued" => :queued, "Running" => :running, "Done" => :done])
 next_step!(stepper_state)
 stepper_dispatcher = SemanticDispatcher()
@@ -34,12 +34,12 @@ render!(buffer, sparkline, Rect(9, 1, 1, 28))
 
 # Family tokens: ImageView, Timeline
 
-bar_chart = BarChart(["Build" => 3.0, "Test" => 2.0, "Release" => 1.0])
+bar_chart = BarChart(["Build" => 3.0, "Test" => 2.0, "Release" => 1.0]; bar_width=7)
 register_bar_chart_semantic_handlers!(visual_dispatcher, :bar_chart, bar_chart)
 render!(
     buffer,
     bar_chart,
-    Rect(3, 32, 5, 20),
+    Rect(3, 32, 5, 24),
 )
 
 chart = Chart([ChartDataset([(0.0, 0.0), (0.5, 0.8), (1.0, 1.0)])])
@@ -78,6 +78,8 @@ snapshot = plain_snapshot(buffer)
 @assert occursin("Test", snapshot)
 @assert occursin("Release", snapshot)
 visual_tree = ToolkitTree(Element(digits; id=:digits, key=:digits))
+# Toolkit trees only populate their semantics once laid out, so render first.
+render_toolkit!(Frame(Buffer(24, 80)), visual_tree)
 visual_pilot = SemanticPilot(toolkit_semantic_tree(visual_tree); dispatcher=visual_dispatcher)
 @assert perform_semantic_action!(visual_pilot, "digits", FocusSemanticAction).handled
 

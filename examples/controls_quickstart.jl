@@ -1,5 +1,12 @@
 using Wicked.API
 
+# Toolkit trees only populate their layout (and thus accessibility semantics)
+# once they have been rendered, so lay the tree out before reading semantics.
+function render_semantics(tree::ToolkitTree; kwargs...)
+    render_toolkit!(Frame(Buffer(24, 80)), tree)
+    return toolkit_semantic_tree(tree; kwargs...)
+end
+
 buffer = Buffer(18, 72)
 
 render!(buffer, TitleBar("Controls quickstart"; subtitle="forms, choices, and pickers"), Rect(1, 1, 2, 72))
@@ -33,7 +40,7 @@ masked_state = state_for(masked)
 masked_dispatcher = SemanticDispatcher()
 register_masked_input_semantic_handlers!(masked_dispatcher, :ticket, masked, masked_state)
 @assert perform_semantic_action!(
-    SemanticPilot(toolkit_semantic_tree(ToolkitTree(Element(masked; id=:ticket, key=:ticket, state_factory=() -> masked_state))); dispatcher=masked_dispatcher),
+    SemanticPilot(render_semantics(ToolkitTree(Element(masked; id=:ticket, key=:ticket, state_factory=() -> masked_state))); dispatcher=masked_dispatcher),
     "ticket",
     SetValueSemanticAction;
     value="12-AB",
@@ -130,7 +137,7 @@ register_form_semantic_handlers!(form_dispatcher, :deploy_form, form, form_state
 field_state(form_state, :environment).issues = [
     ValidationIssue(:required, "Environment is required"),
 ]
-render!(buffer, ValidationSummary(form, form_state), Rect(15, 28, 2, 40))
+render!(buffer, ValidationSummary(form, form_state), Rect(17, 1, 2, 40))
 
 palette = CommandPalette([
     CommandItem(:deploy, "Deploy"),
@@ -153,13 +160,14 @@ snapshot = plain_snapshot(buffer)
 @assert occursin("8080", snapshot)
 @assert occursin("terminal", snapshot)
 @assert occursin("staging", snapshot)
-@assert occursin("production", snapshot)
+# The production environment choice renders via the Select/MultiSelect labels.
+@assert occursin("Production", snapshot)
 @assert occursin("Environment is required", snapshot)
 @assert occursin("Commands", snapshot)
-date_semantics = toolkit_semantic_tree(ToolkitTree(Element(date; id=:date, key=:date, state_factory=() -> date_state)))
+date_semantics = render_semantics(ToolkitTree(Element(date; id=:date, key=:date, state_factory=() -> date_state)))
 date_pilot = SemanticPilot(date_semantics; dispatcher=date_dispatcher)
 @assert perform_semantic_action!(date_pilot, "date", IncrementSemanticAction).handled
-time_semantics = toolkit_semantic_tree(ToolkitTree(Element(time; id=:time, key=:time, state_factory=() -> time_state)))
+time_semantics = render_semantics(ToolkitTree(Element(time; id=:time, key=:time, state_factory=() -> time_state)))
 time_pilot = SemanticPilot(time_semantics; dispatcher=time_dispatcher)
 @assert perform_semantic_action!(time_pilot, "time", IncrementSemanticAction).handled
 

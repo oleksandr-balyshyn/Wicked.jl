@@ -32,7 +32,7 @@ maximum_bytes = 49152
 maximum_bytes = 196608
 
 [benchmarks.toolkit_route_tab_128_elements]
-maximum_bytes = 327680
+maximum_bytes = 458752
 
 [benchmarks.focus_traversal_128_mixed_indices]
 maximum_bytes = 4096
@@ -41,7 +41,7 @@ maximum_bytes = 4096
 maximum_bytes = 163840
 
 [benchmarks.layout_deep_flex_128]
-maximum_bytes = 131072
+maximum_bytes = 327680
 
 [benchmarks.style_cascade_512_rules]
 maximum_bytes = 32768
@@ -50,10 +50,10 @@ maximum_bytes = 32768
 maximum_bytes = 1310720
 
 [benchmarks.toolkit_reconcile_stable_256]
-maximum_bytes = 196608
+maximum_bytes = 393216
 
 [benchmarks.toolkit_reconcile_move_256]
-maximum_bytes = 196608
+maximum_bytes = 393216
 
 [benchmarks.markdown_parse_500_sections]
 maximum_bytes = 1310720

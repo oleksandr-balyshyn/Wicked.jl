@@ -307,6 +307,8 @@ julia --project=. examples/widget_gallery.jl
 
 | Want to… | Start here |
 | --- | --- |
+| Say hello | `examples/hello_world.jl` |
+| Build a complete app | `examples/weather_app.jl` |
 | Render widgets by hand | `examples/immediate_quickstart.jl` |
 | Build a full app shell | `examples/app_shell_quickstart.jl` |
 | Use the Elm-style runtime | `examples/runtime_quickstart.jl` |

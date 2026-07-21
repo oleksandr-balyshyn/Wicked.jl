@@ -19,6 +19,10 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "Getting Started" => "getting-started.md",
+        "Tutorials" => [
+            "Hello, World" => "tutorials/hello-world.md",
+            "Weather App" => "tutorials/weather-app.md",
+        ],
         "Guides" => [
             "Immediate Mode" => "guide/immediate.md",
             "Managed Runtime" => "guide/runtime.md",

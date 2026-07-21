@@ -1,6 +1,13 @@
 using Wicked.API
 
-buffer = Buffer(18, 80)
+# Toolkit trees only populate their layout (and thus accessibility semantics)
+# once they have been rendered, so lay the tree out before reading semantics.
+function render_semantics(tree::ToolkitTree; kwargs...)
+    render_toolkit!(Frame(Buffer(24, 80)), tree)
+    return toolkit_semantic_tree(tree; kwargs...)
+end
+
+buffer = Buffer(30, 80)
 
 markdown = MarkdownView("# Release notes\n[Docs](https://example.com)\nReady to publish"; width=36)
 markdown_state = state_for(markdown)
@@ -28,12 +35,12 @@ render!(buffer, syntax, Rect(8, 1, 2, 36), syntax_state)
 diff = DiffView(
     parse_unified_diff("--- a/app.jl\n+++ b/app.jl\n@@ -1 +1 @@\n-old\n+new\n");
     width=36,
-    height=3,
+    height=6,
 )
 diff_state = state_for(diff)
 diff_dispatcher = SemanticDispatcher()
 register_diff_view_semantic_handlers!(diff_dispatcher, :diff, diff, diff_state)
-render!(buffer, diff, Rect(10, 1, 3, 36), diff_state)
+render!(buffer, diff, Rect(19, 1, 6, 36), diff_state)
 
 error_view = ErrorView(ErrorException("boom"); title="Error")
 error_dispatcher = SemanticDispatcher()
@@ -79,11 +86,11 @@ register_theme_preview_semantic_handlers!(theme_dispatcher, :theme_preview, prev
 render!(buffer, preview, Rect(12, 42, 3, 30), preview_state)
 
 hub = DiagnosticsHub()
-inspector = Inspector(hub; visible=true, width=36, height=2)
+inspector = Inspector(hub; visible=true, width=36, height=6)
 inspector_state = state_for(inspector)
 inspector_dispatcher = SemanticDispatcher()
 register_inspector_semantic_handlers!(inspector_dispatcher, :inspector, inspector_state)
-render!(buffer, inspector, Rect(16, 1, 2, 36), inspector_state)
+render!(buffer, inspector, Rect(25, 1, 6, 36), inspector_state)
 
 console = DevConsole(hub; visible=true, width=30, height=2)
 console_state = state_for(console)
@@ -96,37 +103,37 @@ help_dispatcher = SemanticDispatcher()
 register_help_view_semantic_handlers!(help_dispatcher, :help, help)
 
 snapshot = plain_snapshot(buffer)
-markdown_semantics = toolkit_semantic_tree(ToolkitTree(Element(markdown; id=:markdown, key=:markdown, state_factory=() -> markdown_state)))
+markdown_semantics = render_semantics(ToolkitTree(Element(markdown; id=:markdown, key=:markdown, state_factory=() -> markdown_state)))
 markdown_pilot = SemanticPilot(markdown_semantics; dispatcher=markdown_dispatcher)
 @assert perform_semantic_action!(markdown_pilot, "markdown", FocusSemanticAction).handled
-semantics = toolkit_semantic_tree(ToolkitTree(Element(terminal; id=:terminal, key=:terminal, state_factory=() -> terminal_state)))
+semantics = render_semantics(ToolkitTree(Element(terminal; id=:terminal, key=:terminal, state_factory=() -> terminal_state)))
 terminal_pilot = SemanticPilot(semantics; dispatcher=terminal_dispatcher)
 @assert perform_semantic_action!(terminal_pilot, "terminal", ScrollIntoViewSemanticAction).handled
-log_semantics = toolkit_semantic_tree(ToolkitTree(Element(LogView(); id=:log, key=:log, state_factory=() -> log_state)))
+log_semantics = render_semantics(ToolkitTree(Element(LogView(); id=:log, key=:log, state_factory=() -> log_state)))
 log_pilot = SemanticPilot(log_semantics; dispatcher=log_dispatcher)
 @assert perform_semantic_action!(log_pilot, "log", ScrollIntoViewSemanticAction).handled
-code_semantics = toolkit_semantic_tree(ToolkitTree(Element(code; id=:code, key=:code, state_factory=() -> code_state)))
+code_semantics = render_semantics(ToolkitTree(Element(code; id=:code, key=:code, state_factory=() -> code_state)))
 code_pilot = SemanticPilot(code_semantics; dispatcher=code_dispatcher)
 @assert perform_semantic_action!(code_pilot, "code", IncrementSemanticAction).handled
-editor_semantics = toolkit_semantic_tree(ToolkitTree(Element(editor; id=:editor, key=:editor, state_factory=() -> editor_state)))
+editor_semantics = render_semantics(ToolkitTree(Element(editor; id=:editor, key=:editor, state_factory=() -> editor_state)))
 editor_pilot = SemanticPilot(editor_semantics; dispatcher=editor_dispatcher)
 @assert perform_semantic_action!(editor_pilot, "editor", SetValueSemanticAction; value="println(:ready)").handled
-error_semantics = toolkit_semantic_tree(ToolkitTree(Element(error_view; id=:error, key=:error)))
+error_semantics = render_semantics(ToolkitTree(Element(error_view; id=:error, key=:error)))
 error_pilot = SemanticPilot(error_semantics; dispatcher=error_dispatcher)
 @assert perform_semantic_action!(error_pilot, "error", SelectSemanticAction).handled
-link_semantics = toolkit_semantic_tree(ToolkitTree(Element(link; id=:link, key=:link, state_factory=() -> link_state)))
+link_semantics = render_semantics(ToolkitTree(Element(link; id=:link, key=:link, state_factory=() -> link_state)))
 link_pilot = SemanticPilot(link_semantics; dispatcher=link_dispatcher)
 @assert perform_semantic_action!(link_pilot, "link", ActivateSemanticAction).handled
-theme_semantics = toolkit_semantic_tree(ToolkitTree(Element(preview; id=:theme_preview, key=:theme_preview, state_factory=() -> preview_state)))
+theme_semantics = render_semantics(ToolkitTree(Element(preview; id=:theme_preview, key=:theme_preview, state_factory=() -> preview_state)))
 theme_pilot = SemanticPilot(theme_semantics; dispatcher=theme_dispatcher)
 @assert perform_semantic_action!(theme_pilot, "theme_preview", FocusSemanticAction).handled
-inspector_semantics = toolkit_semantic_tree(ToolkitTree(Element(inspector; id=:inspector, key=:inspector, state_factory=() -> inspector_state)))
+inspector_semantics = render_semantics(ToolkitTree(Element(inspector; id=:inspector, key=:inspector, state_factory=() -> inspector_state)))
 inspector_pilot = SemanticPilot(inspector_semantics; dispatcher=inspector_dispatcher)
 @assert perform_semantic_action!(inspector_pilot, "inspector", IncrementSemanticAction).handled
-console_semantics = toolkit_semantic_tree(ToolkitTree(Element(console; id=:console, key=:console, state_factory=() -> console_state)))
+console_semantics = render_semantics(ToolkitTree(Element(console; id=:console, key=:console, state_factory=() -> console_state)))
 console_pilot = SemanticPilot(console_semantics; dispatcher=console_dispatcher)
 @assert perform_semantic_action!(console_pilot, "console", ScrollIntoViewSemanticAction).handled
-help_semantics = toolkit_semantic_tree(ToolkitTree(Element(help; id=:help, key=:help)))
+help_semantics = render_semantics(ToolkitTree(Element(help; id=:help, key=:help)))
 help_pilot = SemanticPilot(help_semantics; dispatcher=help_dispatcher)
 @assert perform_semantic_action!(help_pilot, "help/hint/1", SelectSemanticAction).handled
 @assert occursin("Release notes", snapshot)

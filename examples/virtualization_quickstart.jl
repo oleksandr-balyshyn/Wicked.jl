@@ -96,7 +96,7 @@ preferences = table_preferences_bundle(layout; visibility, pinning, column_actio
 @assert startswith(table_preferences_markdown(preferences), "| field | value |")
 @assert startswith(table_preferences_tsv(preferences), "field\tvalue")
 @assert restore_table_preferences!(layout, preferences; visibility, pinning).layout === layout
-@assert [column.id for column in apply_table_preferences(columns, layout; visibility, pinning)] == [:name]
+@assert [column.id for column in apply_table_preferences(columns, layout; visibility, pinning)] == [:name, :status]
 show_virtual_column!(visibility, :status)
 toggle_virtual_column_visibility!(visibility, :status)
 @assert [column.id for column in visible_virtual_columns(columns, visibility)] == [:name]

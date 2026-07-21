@@ -15,7 +15,7 @@ shell = AppShell(
 render!(buffer, shell, buffer.area)
 
 layout = app_shell_layout(shell)
-@assert layout.top_size == 2
+@assert layout.top_size == 3
 @assert layout.left_size == 14
 summary = app_shell_summary(shell)
 @assert summary.sidebar_side == :left

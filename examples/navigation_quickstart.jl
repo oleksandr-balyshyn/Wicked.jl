@@ -1,5 +1,12 @@
 using Wicked.API
 
+# Toolkit trees only populate their layout (and thus accessibility semantics)
+# once they have been rendered, so lay the tree out before reading semantics.
+function render_semantics(tree::ToolkitTree; kwargs...)
+    render_toolkit!(Frame(Buffer(24, 80)), tree)
+    return toolkit_semantic_tree(tree; kwargs...)
+end
+
 buffer = Buffer(16, 72)
 
 render!(buffer, TitleBar("Navigation quickstart"; subtitle="menus, rails, and dialogs"), Rect(1, 1, 2, 72))
@@ -106,7 +113,7 @@ snapshot = plain_snapshot(buffer)
 
 # Family tokens: Screen, ScreenStack
 
-context_semantics = toolkit_semantic_tree(ToolkitTree(Element(context; id=:context, key=:context, state_factory=() -> context_state)))
+context_semantics = render_semantics(ToolkitTree(Element(context; id=:context, key=:context, state_factory=() -> context_state)))
 context_pilot = SemanticPilot(context_semantics; dispatcher=context_dispatcher)
 @assert perform_semantic_action!(context_pilot, "context", FocusSemanticAction).handled
 @assert occursin("Navigation quickstart", snapshot)

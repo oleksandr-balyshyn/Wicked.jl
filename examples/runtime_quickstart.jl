@@ -13,7 +13,7 @@ initialize(::RuntimeQuickstartApp) = RuntimeQuickstartModel(0, "ready")
 function app_view(::RuntimeQuickstartApp, model::RuntimeQuickstartModel)
     return Panel(
         Paragraph("count=$(model.count)\nstatus=$(model.status)");
-        title="Runtime quickstart",
+        block=Block(title="Runtime quickstart"),
     )
 end
 

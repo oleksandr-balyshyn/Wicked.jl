@@ -31,7 +31,8 @@ shell = AppShell(Label("Body"); shortcuts=stack)
 @assert occursin("\"label\": \"Ctrl+q\"", map_json)
 @assert startswith(layer_markdown, "| `layer` | `label` | `action` |")
 @assert startswith(stack_tsv, "stack\tlayer\tlabel\taction\tdescription\tpriority")
-@assert first(hints).key == "h"
+@assert first(hints).key == "Ctrl+q"
+@assert any(hint -> hint.key == "h", hints)
 @assert shortcut_bar isa ShortcutBar
 @assert help_view isa HelpView
 @assert app_shell_dock(shell) isa Dock

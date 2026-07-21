@@ -16,7 +16,7 @@ render!(buffer, Toast("Saved"; title="Build", severity=:success), Rect(8, 72, 1,
 
 center = NotificationCenter(2)
 push_notification!(center, Notification("Deployment completed"; id=:deploy, title="Deploy", severity=:success))
-render!(buffer, NotificationView(center), Rect(9, 72, 1, 24))
+render!(buffer, NotificationView(center), Rect(9, 71, 1, 29))
 
 issues = ValidationIssue[ValidationIssue(:required, "Name is required")]
 render!(buffer, ValidationMessage(issues), Rect(10, 72, 1, 24))
@@ -70,7 +70,7 @@ palette = CommandPalette([CommandItem(:open, "Open"), CommandItem(:rollback, "Ro
 render!(buffer, palette, Rect(19, 40, 3, 24), CommandPaletteState(open=true))
 
 split = SplitButton("Launch release", :launch_release)
-render!(buffer, split, Rect(22, 40, 2, 24), state_for(split))
+render!(buffer, split, Rect(22, 40, 3, 24), state_for(split))
 
 render!(buffer, Border(title="Data"), Rect(17, 70, 7, 28))
 data_rows = [(name="Build", status="Ready"), (name="Test", status="Queued")]
@@ -99,7 +99,7 @@ tree_source = CallbackTreeDataSource{String,Symbol}(
 render!(buffer, VirtualTree(tree_source; width=24, height=1), Rect(22, 72, 1, 24))
 
 modal = Window("Apply changes?"; title="Confirm")
-render!(buffer, modal, Rect(12, 70, 5, 28), state_for(modal))
+render!(buffer, modal, Rect(12, 70, 5, 28), WindowState(DialogButton{Nothing}[]; open=true))
 
 render!(buffer, RichText("RichText wrapper"), Rect(15, 1, 1, 24))
 render!(buffer, LoadingIndicator(frames=["-", "\\"], label="Loading"), Rect(16, 1, 1, 24), LoadingIndicatorState())
@@ -112,12 +112,12 @@ render!(buffer, floating, Rect(22, 1, 2, 24))
 
 render!(buffer, Border(title="Navigation"), Rect(24, 1, 4, 98))
 menu_button = MenuButton("Open", :open)
-render!(buffer, menu_button, Rect(25, 3, 2, 16), state_for(menu_button))
+render!(buffer, menu_button, Rect(25, 3, 3, 16), state_for(menu_button))
 
 context_menu = ContextMenu([MenuItem(:copy, "Copy"), MenuItem(:paste, "Paste")])
 render!(buffer, context_menu, Rect(25, 22, 2, 18), state_for(context_menu))
 
-rail = NavigationRail(["Home", "Logs", "Settings"])
+rail = NavigationRail([MenuItem(:home, "Home"), MenuItem(:logs, "Logs"), MenuItem(:settings, "Settings")])
 render!(buffer, rail, Rect(25, 43, 3, 18), state_for(rail))
 
 breadcrumbs = Breadcrumb([BreadcrumbItem("Root", :root), BreadcrumbItem("Build", :build)])

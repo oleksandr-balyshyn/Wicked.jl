@@ -43,6 +43,11 @@ render!(Frame(buffer), Paragraph("Hello, Wicked!"), buffer.area)
 @assert occursin("Hello, Wicked!", plain_snapshot(buffer))
 ```
 
+## Follow a tutorial
+
+- [Hello, World](tutorials/hello-world.md) — the smallest possible program.
+- [Weather App](tutorials/weather-app.md) — a complete interactive TUI.
+
 ## Pick a layer
 
 - **[Immediate Mode](guide/immediate.md)** — you drive the loop; each widget

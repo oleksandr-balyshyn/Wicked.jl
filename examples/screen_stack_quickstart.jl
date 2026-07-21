@@ -123,9 +123,9 @@ push_screen_history!(history, :details)
 @assert screen_history_menu_session(history, registry).state isa MenuState
 route_bindings = screen_registry_binding_map(registry, [:home => :h, :details => :d])
 history_bindings = screen_history_binding_map(history, registry; include_unavailable=true)
-@assert resolve_binding(route_bindings, KeyEvent(Key(:h))).action isa NavigateRegisteredScreen
+@assert resolve_binding(route_bindings, KeyEvent(Key(:h))) isa NavigateRegisteredScreen
 @assert screen_registry_binding_layer(registry, [:home => :h]) isa BindingLayer
-@assert resolve_binding(history_bindings, KeyEvent(Key(:left); modifiers=ALT)).action isa BackRegisteredScreen
+@assert resolve_binding(history_bindings, KeyEvent(Key(:left); modifiers=ALT)) isa BackRegisteredScreen
 @assert screen_history_binding_layer(history, registry; include_unavailable=true) isa BindingLayer
 @assert back_screen_history!(history) == :home
 @assert forward_screen_history!(history) == :details

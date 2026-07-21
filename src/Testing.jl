@@ -293,7 +293,7 @@ function _wait_until!(
     final_time = hasproperty(pilot, :clock) ? virtual_time_ns(getproperty(pilot, :clock)) : nothing
     throw(BufferAssertionError(
         "wait condition was not satisfied within $(timeout_seconds) seconds " *
-        "(pilot=$(typeof(pilot)), step_seconds=$(step_seconds), virtual_time_ns=$(final_time))",
+        "(pilot=$(nameof(typeof(pilot))), step_seconds=$(step_seconds), virtual_time_ns=$(final_time))",
     ))
 end
 

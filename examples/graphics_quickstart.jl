@@ -1,5 +1,12 @@
 using Wicked.API
 
+# Toolkit trees only populate their layout (and thus accessibility semantics)
+# once they have been rendered, so lay the tree out before reading semantics.
+function render_semantics(tree::ToolkitTree; kwargs...)
+    render_toolkit!(Frame(Buffer(24, 80)), tree)
+    return toolkit_semantic_tree(tree; kwargs...)
+end
+
 pixels = UInt8[
     255, 0, 0,      0, 255, 0,
     0, 0, 255,      255, 255, 0,
@@ -42,7 +49,7 @@ graphics_tree = ToolkitTree(column(
     Element(image_view; id=:image_view, key=:image_view),
     Element(braille_image; id=:braille_image, key=:braille_image),
 ))
-graphics_pilot = SemanticPilot(toolkit_semantic_tree(graphics_tree); dispatcher=graphics_dispatcher)
+graphics_pilot = SemanticPilot(render_semantics(graphics_tree); dispatcher=graphics_dispatcher)
 @assert perform_semantic_action!(graphics_pilot, "image_view", FocusSemanticAction).handled
 @assert perform_semantic_action!(graphics_pilot, "braille_image", SelectSemanticAction).handled
 

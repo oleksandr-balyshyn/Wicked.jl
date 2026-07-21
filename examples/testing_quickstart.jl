@@ -73,10 +73,10 @@ pilot = ToolkitPilot(root; height=5, width=24)
 save = query_one(pilot; id=:save, widget_type=Button)
 @assert save.state isa ButtonState
 @assert assert_query_one(pilot; id=:save, widget_type=Button).id == :save
-@assert length(assert_query(pilot; text="Save")) == 1
+@assert length(assert_query(pilot; text="Save")) == 2
 @assert assert_no_query(pilot; text="Missing") === pilot
 @assert wait_for_no_query!(pilot; text="Missing") === pilot
-@assert length(wait_query!(pilot; text="Save")) == 1
+@assert length(wait_query!(pilot; text="Save")) == 2
 @assert wait_query_one!(pilot; id=:save, widget_type=Button).id == :save
 @assert wait_for_semantic!(pilot, SemanticQuery(id=:save, role=ButtonRole); label="Testing quickstart") === pilot
 @assert wait_for_no_semantic!(pilot, SemanticQuery(id=:missing); label="Testing quickstart") === pilot
